@@ -1,0 +1,139 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  name      String?
+
+  farmUsers FarmUser[]
+}
+
+model Farm {
+  id          String     @id @default(cuid())
+  name        String
+  code        String
+
+  houses      House[]
+  crops       Crop[]
+  farmUsers   FarmUser[]
+}
+
+model House {
+  id          String  @id @default(cuid())
+  farmId      String
+  name        String
+  floorAreaM2 Float
+
+  farm       Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  placements CropHousePlacement[]
+  daily      DailyRecord[]
+}
+
+model Crop {
+  id            String   @id @default(cuid())
+  farmId        String
+  cropNumber    String
+  placementDate DateTime
+  breed         String?
+  hatchery      String?
+  status        String   @default("ACTIVE")
+  finishDate    DateTime?
+
+  farm       Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  placements CropHousePlacement[]
+  daily      DailyRecord[]
+  avaraExports AvaraExport[]
+
+  @@unique([farmId, cropNumber])
+  medications MedicationRecord[]
+}
+
+model CropHousePlacement {
+  id            String   @id @default(cuid())
+  cropId        String
+  houseId       String
+  placementDate DateTime
+  hatchery      String?
+  flockNumber   String?
+  birdsPlaced   Int
+
+  crop  Crop  @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  house House @relation(fields: [houseId], references: [id], onDelete: Cascade)
+}
+
+model DailyRecord {
+  id         String   @id @default(cuid())
+  cropId     String
+  houseId    String
+  date       DateTime
+  mort       Int
+  culls      Int
+  feedKg     Float
+  waterL     Float
+  avgWeightG Float?
+  notes      String?
+
+  crop  Crop  @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  house House @relation(fields: [houseId], references: [id], onDelete: Cascade)
+
+  @@unique([cropId, houseId, date])
+}
+
+model AvaraExport {
+  id          String   @id @default(cuid())
+  cropId       String
+  stage        String
+  fileName     String
+  filePath     String
+  createdAt    DateTime @default(now())
+
+  crop Crop @relation(fields: [cropId], references: [id], onDelete: Cascade)
+}
+
+model MedicationRecord {
+  id                    String   @id @default(cuid())
+  cropId                String
+  startDate             DateTime
+  medicineName          String
+  supplier              String?
+  batchNo               String?
+  expireDate            DateTime?
+  quantityPurchased     String?
+  quantityUsed          String?
+  animalIdentity        String?
+  housesTreated         String?
+  birdsTreated          Int?
+  finishDate            DateTime?
+  withdrawalPeriod      String?
+  safeSlaughterDate     DateTime?
+  administratorName     String?
+  reasonForTreatment    String?
+  methodOfTreatment     String?
+  dose                  String?
+  totalMgPcu            String?
+  report                String?
+  prescription          String?
+  createdAt             DateTime @default(now())
+
+  crop Crop @relation(fields: [cropId], references: [id], onDelete: Cascade)
+}
+
+model FarmUser {
+  id      String   @id @default(cuid())
+  farmId  String
+  userId  String
+  role    String   @default("OWNER")
+
+  farm    Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user    User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([farmId, userId])
+}
