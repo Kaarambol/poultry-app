@@ -150,10 +150,7 @@ export async function POST(req: NextRequest) {
         data: {
           farmId: restoredFarm.id,
           name: houseName,
-          floorAreaM2:
-            house.floorAreaM2 === null || house.floorAreaM2 === undefined
-              ? null
-              : Number(house.floorAreaM2),
+          floorAreaM2: Number(house.floorAreaM2 || 0),
         },
       });
 
