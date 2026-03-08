@@ -131,174 +131,75 @@ export default function DashboardPage() {
   }, [activeCrop]);
 
   return (
-    <div style={{ maxWidth: 1100, margin: "40px auto", fontFamily: "sans-serif" }}>
+    <div className="mobile-page">
       <h1>Active Crop Dashboard</h1>
 
       {currentFarmId && (
-        <p>
-          <strong>Current Farm:</strong> {farmName || currentFarmId}
-        </p>
+        <div className="mobile-card">
+          <p style={{ margin: 0 }}>
+            <strong>Current Farm:</strong> {farmName || currentFarmId}
+          </p>
+        </div>
       )}
 
       {msg && <p>{msg}</p>}
 
       {activeCrop && dashboard && (
         <>
-          <h2>Active Crop</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee", fontWeight: 600 }}>
-                  Crop Number
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {activeCrop.cropNumber}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee", fontWeight: 600 }}>
-                  Placement Date
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {new Date(activeCrop.placementDate).toLocaleDateString()}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee", fontWeight: 600 }}>
-                  Age (days)
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{ageDays ?? "-"}</td>
-              </tr>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee", fontWeight: 600 }}>
-                  Breed
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {activeCrop.breed || "-"}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee", fontWeight: 600 }}>
-                  Hatchery
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {activeCrop.hatchery || "-"}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="mobile-card">
+            <h2 style={{ marginTop: 0 }}>Active Crop</h2>
+            <p><strong>Crop Number:</strong> {activeCrop.cropNumber}</p>
+            <p><strong>Placement Date:</strong> {new Date(activeCrop.placementDate).toLocaleDateString()}</p>
+            <p><strong>Age (days):</strong> {ageDays ?? "-"}</p>
+            <p><strong>Breed:</strong> {activeCrop.breed || "-"}</p>
+            <p style={{ marginBottom: 0 }}><strong>Hatchery:</strong> {activeCrop.hatchery || "-"}</p>
+          </div>
 
-          <h2>Crop Totals</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Birds placed
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Mort
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Culls
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Total losses
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Birds alive
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Mortality %
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Feed kg
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Water L
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {dashboard.totals.birdsPlaced}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {dashboard.totals.mort}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {dashboard.totals.culls}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {dashboard.totals.totalLosses}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {dashboard.totals.birdsAlive}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {dashboard.totals.mortalityPct.toFixed(2)}%
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {dashboard.totals.feedKg.toFixed(2)}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {dashboard.totals.waterL.toFixed(2)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="mobile-card">
+            <h2 style={{ marginTop: 0 }}>Crop Totals</h2>
+            <p><strong>Birds placed:</strong> {dashboard.totals.birdsPlaced}</p>
+            <p><strong>Mort:</strong> {dashboard.totals.mort}</p>
+            <p><strong>Culls:</strong> {dashboard.totals.culls}</p>
+            <p><strong>Total losses:</strong> {dashboard.totals.totalLosses}</p>
+            <p><strong>Birds alive:</strong> {dashboard.totals.birdsAlive}</p>
+            <p><strong>Mortality %:</strong> {dashboard.totals.mortalityPct.toFixed(2)}%</p>
+            <p><strong>Feed kg:</strong> {dashboard.totals.feedKg.toFixed(2)}</p>
+            <p style={{ marginBottom: 0 }}><strong>Water L:</strong> {dashboard.totals.waterL.toFixed(2)}</p>
+          </div>
 
           <h2>Per House</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  House
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Birds placed
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Mort
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Culls
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Total losses
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Birds alive
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Mortality %
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Feed kg
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Water L
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {dashboard.houses.map((house) => (
-                <tr key={house.houseId}>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.houseName}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.birdsPlaced}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.mort}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.culls}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.totalLosses}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.birdsAlive}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                    {house.mortalityPct.toFixed(2)}%
-                  </td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.feedKg.toFixed(2)}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.waterL.toFixed(2)}</td>
+          <div className="mobile-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>House</th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Birds placed</th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Mort</th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Culls</th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Losses</th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Alive</th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Mortality %</th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Feed kg</th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Water L</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {dashboard.houses.map((house) => (
+                  <tr key={house.houseId}>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.houseName}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.birdsPlaced}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.mort}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.culls}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.totalLosses}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.birdsAlive}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.mortalityPct.toFixed(2)}%</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.feedKg.toFixed(2)}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{house.waterL.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </div>
