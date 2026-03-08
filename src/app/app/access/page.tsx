@@ -20,6 +20,13 @@ type AccessItem = {
   };
 };
 
+type BackupItem = {
+  pathname: string;
+  url: string;
+  uploadedAt: string;
+  size: number;
+};
+
 const roles = ["OWNER", "MANAGER", "ASSISTANT_MANAGER", "VIEWER"];
 
 export default function AccessPage() {
@@ -27,6 +34,7 @@ export default function AccessPage() {
   const [farmName, setFarmName] = useState("");
   const [myRole, setMyRole] = useState<FarmRole>("");
   const [items, setItems] = useState<AccessItem[]>([]);
+  const [backups, setBackups] = useState<BackupItem[]>([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("ASSISTANT_MANAGER");
   const [msg, setMsg] = useState("Loading...");
@@ -76,6 +84,18 @@ export default function AccessPage() {
     setMsg("");
   }
 
+  async function loadBackups(farmId: string) {
+    const r = await fetch(`/api/farms/backup-history?farmId=${farmId}`);
+    const data = await r.json();
+
+    if (!r.ok) {
+      setBackups([]);
+      return;
+    }
+
+    setBackups(Array.isArray(data) ? data : []);
+  }
+
   useEffect(() => {
     const farmId = getCurrentFarmId();
 
@@ -89,6 +109,7 @@ export default function AccessPage() {
     loadFarmName(farmId);
     loadMyRole(farmId);
     loadAccess(farmId);
+    loadBackups(farmId);
   }, []);
 
   async function addAccess(e: React.FormEvent) {
@@ -222,6 +243,37 @@ export default function AccessPage() {
     }
   }
 
+  async function runBlobBackupNow() {
+    if (!currentFarmId) {
+      setMsgType("error");
+      setMsg("No farm selected.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/farms/backup-run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ farmId: currentFarmId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMsgType("error");
+        setMsg(data.error || "Blob backup failed.");
+        return;
+      }
+
+      setMsgType("success");
+      setMsg("Backup saved to weekly backup history.");
+      loadBackups(currentFarmId);
+    } catch {
+      setMsgType("error");
+      setMsg("Blob backup failed.");
+    }
+  }
+
   async function restoreBackup(file: File) {
     if (!currentFarmId) {
       setMsgType("error");
@@ -288,7 +340,7 @@ export default function AccessPage() {
             color: "#7a5d00",
           }}
         >
-          Only OWNER can manage farm access, download full backup and restore backup.
+          Only OWNER can manage farm access, backup history and restore.
         </p>
       )}
 
@@ -327,7 +379,7 @@ export default function AccessPage() {
             style={{
               width: "100%",
               padding: 12,
-              marginBottom: 16,
+              marginBottom: 12,
               borderRadius: 8,
               border: "1px solid #111",
               background: "#111",
@@ -336,6 +388,23 @@ export default function AccessPage() {
             }}
           >
             Download Full Farm Backup
+          </button>
+
+          <button
+            type="button"
+            onClick={runBlobBackupNow}
+            style={{
+              width: "100%",
+              padding: 12,
+              marginBottom: 16,
+              borderRadius: 8,
+              border: "1px solid #111",
+              background: "#fff",
+              color: "#111",
+              cursor: "pointer",
+            }}
+          >
+            Run Weekly Backup Now
           </button>
 
           <div
@@ -364,6 +433,50 @@ export default function AccessPage() {
               }}
             />
           </div>
+
+          <h3>Weekly Backup History</h3>
+          {backups.length === 0 ? (
+            <p>No weekly backups yet.</p>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
+                    File
+                  </th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
+                    Uploaded
+                  </th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
+                    Size
+                  </th>
+                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
+                    Download
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {backups.map((item) => (
+                  <tr key={item.pathname}>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                      {item.pathname.split("/").pop()}
+                    </td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                      {new Date(item.uploadedAt).toLocaleString()}
+                    </td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                      {item.size}
+                    </td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                      <a href={item.url} target="_blank" rel="noreferrer">
+                        Open
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </>
       )}
 

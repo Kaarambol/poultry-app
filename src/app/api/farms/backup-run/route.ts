@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { put } from "@vercel/blob";
+import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canManageAccess } from "@/lib/permissions";
-import { buildFarmBackupPayload } from "@/lib/farm-backup";
+import { buildFarmBackupPayload, makeWeeklyBackupFileName } from "@/lib/farm-backup";
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     if (!canManageAccess(role)) {
       return NextResponse.json(
-        { error: "Only OWNER can download full backup." },
+        { error: "Only OWNER can run backup." },
         { status: 403 }
       );
     }
@@ -38,11 +40,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(payload);
+    const fileName = makeWeeklyBackupFileName(payload.farm.code);
+
+    const blob = await put(
+      fileName,
+      JSON.stringify(payload, null, 2),
+      {
+        access: "private",
+        contentType: "application/json",
+        addRandomSuffix: false,
+      }
+    );
+
+    return NextResponse.json({
+      ok: true,
+      pathname: blob.pathname,
+      uploadedAt: new Date().toISOString(),
+    });
   } catch (error) {
-    console.error("FARM BACKUP ERROR:", error);
+    console.error("RUN BACKUP ERROR:", error);
     return NextResponse.json(
-      { error: "Server error during backup." },
+      { error: "Server error while running backup." },
       { status: 500 }
     );
   }
