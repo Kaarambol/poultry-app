@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canOperate } from "@/lib/permissions";
+import { writeChangeLog } from "@/lib/change-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
       where: { id },
       include: {
         crop: true,
+        house: true,
       },
     });
 
@@ -81,6 +83,16 @@ export async function POST(req: NextRequest) {
         avgWeightG,
         notes: notes || null,
       },
+      include: {
+        house: true,
+      },
+    });
+
+    await writeChangeLog({
+      farmId: existingRecord.crop.farmId,
+      userId: uid,
+      action: "UPDATE_DAILY",
+      description: `Updated daily record for ${updated.house.name} on ${new Date(updated.date).toLocaleDateString()}.`,
     });
 
     return NextResponse.json(updated);

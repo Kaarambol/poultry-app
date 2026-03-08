@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  getCurrentCropId,
   getCurrentFarmId,
   setCurrentCropId,
   setCurrentFarmId,
@@ -26,6 +25,7 @@ const links = [
   { href: "/app", label: "Home" },
   { href: "/app/dashboard", label: "Dashboard" },
   { href: "/app/history", label: "History" },
+  { href: "/app/log", label: "Log" },
   { href: "/app/access", label: "Access" },
   { href: "/app/farms", label: "Create Farm" },
   { href: "/app/farms/setup", label: "Farm Setup" },

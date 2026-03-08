@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canOperate } from "@/lib/permissions";
+import { writeChangeLog } from "@/lib/change-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -109,6 +110,16 @@ export async function POST(req: NextRequest) {
         avgWeightG,
         notes: notes || null,
       },
+      include: {
+        house: true,
+      },
+    });
+
+    await writeChangeLog({
+      farmId: crop.farmId,
+      userId: uid,
+      action: "CREATE_DAILY",
+      description: `Created daily record for ${record.house.name} on ${new Date(record.date).toLocaleDateString()}.`,
     });
 
     return NextResponse.json(record);

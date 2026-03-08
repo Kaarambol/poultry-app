@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canFinishCrop } from "@/lib/permissions";
+import { writeChangeLog } from "@/lib/change-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -56,6 +57,13 @@ export async function POST(req: NextRequest) {
         status: "FINISHED",
         finishDate: new Date(),
       },
+    });
+
+    await writeChangeLog({
+      farmId: existingCrop.farmId,
+      userId: uid,
+      action: "FINISH_CROP",
+      description: `Finished crop ${crop.cropNumber}.`,
     });
 
     return NextResponse.json(crop);

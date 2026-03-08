@@ -3,6 +3,7 @@ import { put } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canManageAccess } from "@/lib/permissions";
 import { buildFarmBackupPayload, makeWeeklyBackupFileName } from "@/lib/farm-backup";
+import { writeChangeLog } from "@/lib/change-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,6 +52,13 @@ export async function POST(req: NextRequest) {
         addRandomSuffix: false,
       }
     );
+
+    await writeChangeLog({
+      farmId,
+      userId: uid,
+      action: "RUN_BACKUP",
+      description: `Saved weekly backup file ${blob.pathname}.`,
+    });
 
     return NextResponse.json({
       ok: true,

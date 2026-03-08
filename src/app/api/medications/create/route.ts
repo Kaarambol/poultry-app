@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canOperate } from "@/lib/permissions";
+import { writeChangeLog } from "@/lib/change-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -80,6 +81,13 @@ export async function POST(req: NextRequest) {
         report: body.report || null,
         prescription: body.prescription || null,
       },
+    });
+
+    await writeChangeLog({
+      farmId: crop.farmId,
+      userId: uid,
+      action: "CREATE_MEDICATION",
+      description: `Created medication record "${record.medicineName}" starting ${new Date(record.startDate).toLocaleDateString()}.`,
     });
 
     return NextResponse.json(record);

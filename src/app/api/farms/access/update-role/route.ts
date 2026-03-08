@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { canManageAccess } from "@/lib/permissions";
+import { writeChangeLog } from "@/lib/change-log";
 
 const ALLOWED_ROLES = ["OWNER", "MANAGER", "ASSISTANT_MANAGER", "VIEWER"];
 
@@ -29,6 +30,13 @@ export async function POST(req: NextRequest) {
 
     const target = await prisma.farmUser.findUnique({
       where: { id: farmUserId },
+      include: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+      },
     });
 
     if (!target) {
@@ -65,6 +73,13 @@ export async function POST(req: NextRequest) {
           },
         },
       },
+    });
+
+    await writeChangeLog({
+      farmId: target.farmId,
+      userId: uid,
+      action: "CHANGE_USER_ROLE",
+      description: `Changed role for ${updated.user.email} to ${updated.role}.`,
     });
 
     return NextResponse.json(updated);

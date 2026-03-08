@@ -8,26 +8,28 @@ generator client {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  password  String
-  name      String?
+  id       String  @id @default(cuid())
+  email    String  @unique
+  password String
+  name     String?
 
-  farmUsers FarmUser[]
+  farmUsers  FarmUser[]
+  changeLogs ChangeLog[]
 }
 
 model Farm {
-  id          String     @id @default(cuid())
-  name        String
-  code        String
+  id   String @id @default(cuid())
+  name String
+  code String
 
-  houses      House[]
-  crops       Crop[]
-  farmUsers   FarmUser[]
+  houses     House[]
+  crops      Crop[]
+  farmUsers  FarmUser[]
+  changeLogs ChangeLog[]
 }
 
 model House {
-  id          String  @id @default(cuid())
+  id          String @id @default(cuid())
   farmId      String
   name        String
   floorAreaM2 Float
@@ -38,22 +40,22 @@ model House {
 }
 
 model Crop {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   farmId        String
   cropNumber    String
   placementDate DateTime
   breed         String?
   hatchery      String?
-  status        String   @default("ACTIVE")
+  status        String    @default("ACTIVE")
   finishDate    DateTime?
 
-  farm       Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  placements CropHousePlacement[]
-  daily      DailyRecord[]
+  farm         Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  placements   CropHousePlacement[]
+  daily        DailyRecord[]
   avaraExports AvaraExport[]
+  medications  MedicationRecord[]
 
   @@unique([farmId, cropNumber])
-  medications MedicationRecord[]
 }
 
 model CropHousePlacement {
@@ -88,52 +90,67 @@ model DailyRecord {
 }
 
 model AvaraExport {
-  id          String   @id @default(cuid())
-  cropId       String
-  stage        String
-  fileName     String
-  filePath     String
-  createdAt    DateTime @default(now())
+  id        String   @id @default(cuid())
+  cropId    String
+  stage     String
+  fileName  String
+  filePath  String
+  createdAt DateTime @default(now())
 
   crop Crop @relation(fields: [cropId], references: [id], onDelete: Cascade)
 }
 
 model MedicationRecord {
-  id                    String   @id @default(cuid())
-  cropId                String
-  startDate             DateTime
-  medicineName          String
-  supplier              String?
-  batchNo               String?
-  expireDate            DateTime?
-  quantityPurchased     String?
-  quantityUsed          String?
-  animalIdentity        String?
-  housesTreated         String?
-  birdsTreated          Int?
-  finishDate            DateTime?
-  withdrawalPeriod      String?
-  safeSlaughterDate     DateTime?
-  administratorName     String?
-  reasonForTreatment    String?
-  methodOfTreatment     String?
-  dose                  String?
-  totalMgPcu            String?
-  report                String?
-  prescription          String?
-  createdAt             DateTime @default(now())
+  id                 String    @id @default(cuid())
+  cropId             String
+  startDate          DateTime
+  medicineName       String
+  supplier           String?
+  batchNo            String?
+  expireDate         DateTime?
+  quantityPurchased  String?
+  quantityUsed       String?
+  animalIdentity     String?
+  housesTreated      String?
+  birdsTreated       Int?
+  finishDate         DateTime?
+  withdrawalPeriod   String?
+  safeSlaughterDate  DateTime?
+  administratorName  String?
+  reasonForTreatment String?
+  methodOfTreatment  String?
+  dose               String?
+  totalMgPcu         String?
+  report             String?
+  prescription       String?
+  createdAt          DateTime  @default(now())
 
   crop Crop @relation(fields: [cropId], references: [id], onDelete: Cascade)
 }
 
 model FarmUser {
-  id      String   @id @default(cuid())
-  farmId  String
-  userId  String
-  role    String   @default("OWNER")
+  id     String @id @default(cuid())
+  farmId String
+  userId String
+  role   String @default("OWNER")
 
-  farm    Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  user    User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([farmId, userId])
+}
+
+model ChangeLog {
+  id          String   @id @default(cuid())
+  farmId      String
+  userId      String
+  action      String
+  description String
+  createdAt   DateTime @default(now())
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([createdAt])
 }

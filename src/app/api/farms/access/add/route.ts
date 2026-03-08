@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { canManageAccess } from "@/lib/permissions";
+import { writeChangeLog } from "@/lib/change-log";
 
 const ALLOWED_ROLES = ["OWNER", "MANAGER", "ASSISTANT_MANAGER", "VIEWER"];
 
@@ -89,6 +90,13 @@ export async function POST(req: NextRequest) {
           },
         },
       },
+    });
+
+    await writeChangeLog({
+      farmId,
+      userId: uid,
+      action: "ADD_USER_ACCESS",
+      description: `Added ${created.user.email} to farm with role ${created.role}.`,
     });
 
     return NextResponse.json(created);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { canManageAccess } from "@/lib/permissions";
+import { writeChangeLog } from "@/lib/change-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,6 +23,13 @@ export async function POST(req: NextRequest) {
 
     const target = await prisma.farmUser.findUnique({
       where: { id: farmUserId },
+      include: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+      },
     });
 
     if (!target) {
@@ -55,6 +63,13 @@ export async function POST(req: NextRequest) {
 
     await prisma.farmUser.delete({
       where: { id: farmUserId },
+    });
+
+    await writeChangeLog({
+      farmId: target.farmId,
+      userId: uid,
+      action: "REMOVE_USER_ACCESS",
+      description: `Removed ${target.user.email} from farm access.`,
     });
 
     return NextResponse.json({ ok: true });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canOperate } from "@/lib/permissions";
+import { writeChangeLog } from "@/lib/change-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
       where: { id },
       include: {
         crop: true,
+        house: true,
       },
     });
 
@@ -55,6 +57,13 @@ export async function POST(req: NextRequest) {
 
     await prisma.dailyRecord.delete({
       where: { id },
+    });
+
+    await writeChangeLog({
+      farmId: existingRecord.crop.farmId,
+      userId: uid,
+      action: "DELETE_DAILY",
+      description: `Deleted daily record for ${existingRecord.house.name} on ${new Date(existingRecord.date).toLocaleDateString()}.`,
     });
 
     return NextResponse.json({ ok: true });

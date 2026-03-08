@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canManageAccess } from "@/lib/permissions";
+import { writeChangeLog } from "@/lib/change-log";
 
 type BackupPayload = {
   exportedAt?: string;
@@ -254,14 +255,11 @@ export async function POST(req: NextRequest) {
               : null,
             safeSlaughterDate: safeDate(medication.safeSlaughterDate || null),
             administratorName: medication.administratorName
-              ? String(medication.administratorName)
-              : null,
+              ? String(medication.administratorName) : null,
             reasonForTreatment: medication.reasonForTreatment
-              ? String(medication.reasonForTreatment)
-              : null,
+              ? String(medication.reasonForTreatment) : null,
             methodOfTreatment: medication.methodOfTreatment
-              ? String(medication.methodOfTreatment)
-              : null,
+              ? String(medication.methodOfTreatment) : null,
             dose: medication.dose ? String(medication.dose) : null,
             totalMgPcu: medication.totalMgPcu ? String(medication.totalMgPcu) : null,
             report: medication.report ? String(medication.report) : null,
@@ -289,6 +287,13 @@ export async function POST(req: NextRequest) {
         });
       }
     }
+
+    await writeChangeLog({
+      farmId: restoredFarm.id,
+      userId: uid,
+      action: "RESTORE_FARM",
+      description: `Created restored farm from backup: ${restoredFarm.name}.`,
+    });
 
     return NextResponse.json({
       ok: true,
