@@ -32,19 +32,32 @@ export async function POST(req: NextRequest) {
     const farm = await prisma.farm.findUnique({
       where: { id: farmId },
       include: {
-        houses: true,
+        houses: {
+          orderBy: { name: "asc" },
+        },
         crops: {
+          orderBy: { placementDate: "desc" },
           include: {
-            placements: true,
-            daily: true,
-            medications: true,
-            avaraExports: true,
+            placements: {
+              orderBy: [{ houseId: "asc" }, { placementDate: "asc" }],
+            },
+            daily: {
+              orderBy: [{ houseId: "asc" }, { date: "asc" }],
+            },
+            medications: {
+              orderBy: { startDate: "asc" },
+            },
+            avaraExports: {
+              orderBy: { createdAt: "asc" },
+            },
           },
         },
-        users: {
+        farmUsers: {
+          orderBy: { role: "asc" },
           include: {
             user: {
               select: {
+                id: true,
                 email: true,
                 name: true,
               },
@@ -62,7 +75,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      exportedAt: new Date(),
+      exportedAt: new Date().toISOString(),
+      version: 1,
       farm,
     });
   } catch (error) {
