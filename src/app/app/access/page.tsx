@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrentFarmId } from "@/lib/app-context";
 import { FarmRole, isOwner } from "@/lib/ui-permissions";
 
@@ -31,6 +31,7 @@ export default function AccessPage() {
   const [role, setRole] = useState("ASSISTANT_MANAGER");
   const [msg, setMsg] = useState("Loading...");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
+  const restoreInputRef = useRef<HTMLInputElement | null>(null);
 
   async function loadFarmName(farmId: string) {
     const r = await fetch("/api/farms/list");
@@ -221,6 +222,46 @@ export default function AccessPage() {
     }
   }
 
+  async function restoreBackup(file: File) {
+    if (!currentFarmId) {
+      setMsgType("error");
+      setMsg("No farm selected.");
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+
+      const res = await fetch("/api/farms/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          farmId: currentFarmId,
+          backup,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMsgType("error");
+        setMsg(data.error || "Restore failed.");
+        return;
+      }
+
+      setMsgType("success");
+      setMsg("Restore completed. New restored farm has been created.");
+    } catch {
+      setMsgType("error");
+      setMsg("Restore failed. Check if the backup file is valid JSON.");
+    } finally {
+      if (restoreInputRef.current) {
+        restoreInputRef.current.value = "";
+      }
+    }
+  }
+
   const ownerMode = isOwner(myRole);
 
   return (
@@ -247,7 +288,7 @@ export default function AccessPage() {
             color: "#7a5d00",
           }}
         >
-          Only OWNER can manage farm access and download full backup.
+          Only OWNER can manage farm access, download full backup and restore backup.
         </p>
       )}
 
@@ -286,7 +327,7 @@ export default function AccessPage() {
             style={{
               width: "100%",
               padding: 12,
-              marginBottom: 24,
+              marginBottom: 16,
               borderRadius: 8,
               border: "1px solid #111",
               background: "#111",
@@ -296,6 +337,33 @@ export default function AccessPage() {
           >
             Download Full Farm Backup
           </button>
+
+          <div
+            style={{
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              padding: 16,
+              marginBottom: 24,
+              background: "#fafafa",
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>Restore Backup</h3>
+            <p style={{ marginTop: 0 }}>
+              Restore creates a new farm copy from backup. It does not overwrite the current farm.
+            </p>
+
+            <input
+              ref={restoreInputRef}
+              type="file"
+              accept=".json,application/json"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  restoreBackup(file);
+                }
+              }}
+            />
+          </div>
         </>
       )}
 
