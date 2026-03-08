@@ -41,6 +41,8 @@ export default function AccessPage() {
     const farm = (data as Farm[]).find((f) => f.id === farmId);
     if (farm) {
       setFarmName(`${farm.name} (${farm.code})`);
+    } else {
+      setFarmName("");
     }
   }
 
@@ -176,6 +178,49 @@ export default function AccessPage() {
     loadAccess(currentFarmId);
   }
 
+  async function downloadBackup() {
+    if (!currentFarmId) {
+      setMsgType("error");
+      setMsg("No farm selected.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/farms/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ farmId: currentFarmId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMsgType("error");
+        setMsg(data.error || "Backup failed.");
+        return;
+      }
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `farm-backup-${Date.now()}.json`;
+      a.click();
+
+      URL.revokeObjectURL(url);
+
+      setMsgType("success");
+      setMsg("Backup downloaded.");
+    } catch {
+      setMsgType("error");
+      setMsg("Backup failed.");
+    }
+  }
+
   const ownerMode = isOwner(myRole);
 
   return (
@@ -202,37 +247,56 @@ export default function AccessPage() {
             color: "#7a5d00",
           }}
         >
-          Only OWNER can manage farm access.
+          Only OWNER can manage farm access and download full backup.
         </p>
       )}
 
       {ownerMode && (
-        <form onSubmit={addAccess} style={{ marginBottom: 24 }}>
-          <label>User email</label>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{ width: "100%", padding: 10, margin: "6px 0 12px" }}
-            placeholder="colleague@email.com"
-          />
+        <>
+          <form onSubmit={addAccess} style={{ marginBottom: 24 }}>
+            <label>User email</label>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{ width: "100%", padding: 10, margin: "6px 0 12px" }}
+              placeholder="colleague@email.com"
+            />
 
-          <label>Role</label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            style={{ width: "100%", padding: 10, margin: "6px 0 12px" }}
+            <label>Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              style={{ width: "100%", padding: 10, margin: "6px 0 12px" }}
+            >
+              {roles.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+
+            <button style={{ padding: 12, width: "100%" }} type="submit">
+              Add user to farm
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={downloadBackup}
+            style={{
+              width: "100%",
+              padding: 12,
+              marginBottom: 24,
+              borderRadius: 8,
+              border: "1px solid #111",
+              background: "#111",
+              color: "#fff",
+              cursor: "pointer",
+            }}
           >
-            {roles.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-
-          <button style={{ padding: 12, width: "100%" }} type="submit">
-            Add user to farm
+            Download Full Farm Backup
           </button>
-        </form>
+        </>
       )}
 
       {msg && (
@@ -285,7 +349,9 @@ export default function AccessPage() {
             {items.map((item) => (
               <tr key={item.id}>
                 <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.user.email}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.user.name || "-"}</td>
+                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                  {item.user.name || "-"}
+                </td>
                 <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.role}</td>
                 <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
                   {ownerMode ? (
