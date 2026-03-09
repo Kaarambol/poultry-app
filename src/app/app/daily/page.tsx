@@ -262,6 +262,7 @@ export default function DailyPage() {
     setAvgWeightG(record.avgWeightG !== null ? String(record.avgWeightG) : "");
     setNotes(record.notes || "");
     setMsg("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function cancelEdit() {
@@ -450,160 +451,170 @@ export default function DailyPage() {
 
   const fieldStyle = (hasError: boolean): React.CSSProperties => ({
     width: "100%",
-    padding: 10,
-    margin: "6px 0 12px",
+    padding: 12,
+    margin: "6px 0 14px",
     border: hasError ? "1px solid #c62828" : "1px solid #ccc",
-    borderRadius: 6,
+    borderRadius: 10,
+    background: "#fff",
   });
+
+  const cardStyle: React.CSSProperties = {
+    border: "1px solid #ddd",
+    borderRadius: 12,
+    background: "#fff",
+    padding: 14,
+    marginBottom: 14,
+  };
 
   const canOperate = canOperateUi(myRole);
   const readOnly = isReadOnlyUi(myRole);
 
   return (
-    <div style={{ maxWidth: 1100, margin: "40px auto", fontFamily: "sans-serif" }}>
+    <div className="mobile-page">
       <h1>Daily Entry</h1>
 
-      {currentFarmId && (
+      <div className="mobile-card">
+        {currentFarmId && (
+          <p style={{ marginTop: 0 }}>
+            <strong>Current Farm:</strong> {farmName || currentFarmId}
+          </p>
+        )}
+
         <p>
-          <strong>Current Farm:</strong> {farmName || currentFarmId}
+          <strong>Active Crop:</strong> {cropLabel || "-"}
         </p>
-      )}
 
-      <p>
-        <strong>Active Crop:</strong> {cropLabel || "-"}
-      </p>
-
-      <p>
-        <strong>Your role:</strong> {myRole || "-"}
-      </p>
+        <p style={{ marginBottom: 0 }}>
+          <strong>Your role:</strong> {myRole || "-"}
+        </p>
+      </div>
 
       {readOnly && (
-        <p
-          style={{
-            padding: 12,
-            borderRadius: 8,
-            background: "#eef3f8",
-            border: "1px solid #c5d7ea",
-            color: "#1f3b57",
-          }}
-        >
-          Read-only mode. VIEWER can only see records.
-        </p>
+        <div className="mobile-card">
+          <p style={{ margin: 0 }}>Read-only mode. VIEWER can only see records.</p>
+        </div>
       )}
 
-      <form onSubmit={editingId ? updateRecord : saveRecord}>
-        <label>House</label>
-        <select
-          value={houseId}
-          onChange={(e) => setHouseId(e.target.value)}
-          style={fieldStyle(!houseId && !!msg && msgType === "error")}
-          required
-          disabled={!cropId || !canOperate}
-        >
-          <option value="">-- choose house --</option>
-          {houses.map((house) => (
-            <option key={house.id} value={house.id}>
-              {house.name}
-            </option>
-          ))}
-        </select>
+      <div className="mobile-card">
+        <h2 style={{ marginTop: 0 }}>{editingId ? "Edit Daily Record" : "Add Daily Record"}</h2>
 
-        <label>Date</label>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          style={fieldStyle(!date && !!msg && msgType === "error")}
-          required
-          disabled={!cropId || !canOperate}
-        />
+        <form onSubmit={editingId ? updateRecord : saveRecord}>
+          <label>House</label>
+          <select
+            value={houseId}
+            onChange={(e) => setHouseId(e.target.value)}
+            style={fieldStyle(!houseId && !!msg && msgType === "error")}
+            required
+            disabled={!cropId || !canOperate}
+          >
+            <option value="">-- choose house --</option>
+            {houses.map((house) => (
+              <option key={house.id} value={house.id}>
+                {house.name}
+              </option>
+            ))}
+          </select>
 
-        <label>Mort</label>
-        <input
-          type="number"
-          min="0"
-          value={mort}
-          onChange={(e) => setMort(e.target.value)}
-          style={fieldStyle(Number(mort || 0) < 0)}
-          disabled={!cropId || !canOperate}
-        />
+          <label>Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            style={fieldStyle(!date && !!msg && msgType === "error")}
+            required
+            disabled={!cropId || !canOperate}
+          />
 
-        <label>Culls</label>
-        <input
-          type="number"
-          min="0"
-          value={culls}
-          onChange={(e) => setCulls(e.target.value)}
-          style={fieldStyle(Number(culls || 0) < 0)}
-          disabled={!cropId || !canOperate}
-        />
+          <label>Mort</label>
+          <input
+            type="number"
+            min="0"
+            value={mort}
+            onChange={(e) => setMort(e.target.value)}
+            style={fieldStyle(Number(mort || 0) < 0)}
+            disabled={!cropId || !canOperate}
+          />
 
-        <label>Feed used (kg)</label>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value={feedKg}
-          onChange={(e) => setFeedKg(e.target.value)}
-          style={fieldStyle(Number(feedKg || 0) < 0)}
-          disabled={!cropId || !canOperate}
-        />
+          <label>Culls</label>
+          <input
+            type="number"
+            min="0"
+            value={culls}
+            onChange={(e) => setCulls(e.target.value)}
+            style={fieldStyle(Number(culls || 0) < 0)}
+            disabled={!cropId || !canOperate}
+          />
 
-        <label>Water used (L)</label>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value={waterL}
-          onChange={(e) => setWaterL(e.target.value)}
-          style={fieldStyle(Number(waterL || 0) < 0)}
-          disabled={!cropId || !canOperate}
-        />
+          <label>Feed used (kg)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={feedKg}
+            onChange={(e) => setFeedKg(e.target.value)}
+            style={fieldStyle(Number(feedKg || 0) < 0)}
+            disabled={!cropId || !canOperate}
+          />
 
-        <label>Average weight (g) - optional</label>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value={avgWeightG}
-          onChange={(e) => setAvgWeightG(e.target.value)}
-          style={fieldStyle(avgWeightG !== "" && Number(avgWeightG) < 0)}
-          disabled={!cropId || !canOperate}
-        />
+          <label>Water used (L)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={waterL}
+            onChange={(e) => setWaterL(e.target.value)}
+            style={fieldStyle(Number(waterL || 0) < 0)}
+            disabled={!cropId || !canOperate}
+          />
 
-        <label>Notes</label>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          style={{ ...fieldStyle(false), minHeight: 90 }}
-          disabled={!cropId || !canOperate}
-        />
+          <label>Average weight (g) - optional</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={avgWeightG}
+            onChange={(e) => setAvgWeightG(e.target.value)}
+            style={fieldStyle(avgWeightG !== "" && Number(avgWeightG) < 0)}
+            disabled={!cropId || !canOperate}
+          />
 
-        {canOperate && (
-          <>
-            <button style={{ padding: 12, width: "100%" }} type="submit" disabled={!cropId}>
-              {editingId ? "Update Daily Record" : "Save Daily Record"}
-            </button>
+          <label>Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            style={{ ...fieldStyle(false), minHeight: 100 }}
+            disabled={!cropId || !canOperate}
+          />
 
-            {editingId && (
+          {canOperate && (
+            <div className="mobile-actions">
               <button
-                type="button"
-                onClick={cancelEdit}
-                style={{ padding: 12, width: "100%", marginTop: 10 }}
+                className="mobile-full-button"
+                style={{ padding: 14, borderRadius: 10 }}
+                type="submit"
+                disabled={!cropId}
               >
-                Cancel Edit
+                {editingId ? "Update Daily Record" : "Save Daily Record"}
               </button>
-            )}
-          </>
-        )}
-      </form>
+
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  style={{ padding: 14, borderRadius: 10 }}
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
+          )}
+        </form>
+      </div>
 
       {msg && (
-        <p
+        <div
+          className="mobile-card"
           style={{
-            marginTop: 16,
-            padding: 12,
-            borderRadius: 8,
             background:
               msgType === "error" ? "#ffebee" : msgType === "success" ? "#e8f5e9" : "#eef3f8",
             color:
@@ -617,126 +628,78 @@ export default function DailyPage() {
           }}
         >
           {msg}
-        </p>
+        </div>
       )}
 
       {cropId && (
         <>
-          <h2 style={{ marginTop: 40 }}>Crop Summary</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Birds placed</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Mort</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Culls</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Total losses</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Birds alive</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Mortality %</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{totals.birdsPlaced}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{totals.mort}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{totals.culls}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{totals.totalLosses}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{totals.birdsAlive}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {totals.mortalityPct.toFixed(2)}%
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="mobile-card">
+            <h2 style={{ marginTop: 0 }}>Crop Summary</h2>
+            <p><strong>Birds placed:</strong> {totals.birdsPlaced}</p>
+            <p><strong>Mort:</strong> {totals.mort}</p>
+            <p><strong>Culls:</strong> {totals.culls}</p>
+            <p><strong>Total losses:</strong> {totals.totalLosses}</p>
+            <p><strong>Birds alive:</strong> {totals.birdsAlive}</p>
+            <p style={{ marginBottom: 0 }}><strong>Mortality %:</strong> {totals.mortalityPct.toFixed(2)}%</p>
+          </div>
 
           <h2>House Summary</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>House</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Birds placed</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Mort</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Culls</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Total losses</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Birds alive</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Mortality %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {houseSummary.map((item) => (
-                <tr key={item.houseName}>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.houseName}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.birdsPlaced}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.mort}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.culls}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.totalLosses}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.birdsAlive}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                    {item.mortalityPct.toFixed(2)}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {houseSummary.length === 0 ? (
+            <p>No house summary yet.</p>
+          ) : (
+            houseSummary.map((item) => (
+              <div key={item.houseName} style={cardStyle}>
+                <p><strong>House:</strong> {item.houseName}</p>
+                <p><strong>Birds placed:</strong> {item.birdsPlaced}</p>
+                <p><strong>Mort:</strong> {item.mort}</p>
+                <p><strong>Culls:</strong> {item.culls}</p>
+                <p><strong>Total losses:</strong> {item.totalLosses}</p>
+                <p><strong>Birds alive:</strong> {item.birdsAlive}</p>
+                <p style={{ marginBottom: 0 }}><strong>Mortality %:</strong> {item.mortalityPct.toFixed(2)}%</p>
+              </div>
+            ))
+          )}
 
           <h2>Saved Records {houseId ? "(Filtered by selected house)" : ""}</h2>
           {recordsWithCalc.length === 0 ? (
             <p>No records yet.</p>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Date</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>House</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Age</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Mort</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Culls</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Daily Total</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Cum Total</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Feed kg</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Water L</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Weight g</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recordsWithCalc.map((record) => (
-                  <tr key={record.id}>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {new Date(record.date).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.house.name}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.ageDays}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.mort}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.culls}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.dailyTotal}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.cumulativeTotal}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.feedKg}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.waterL}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {record.avgWeightG ?? "-"}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {canOperate ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => startEdit(record)}
-                            style={{ marginRight: 8 }}
-                          >
-                            Edit
-                          </button>
-                          <button type="button" onClick={() => deleteRecord(record.id)}>
-                            Delete
-                          </button>
-                        </>
-                      ) : (
-                        <span>-</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            recordsWithCalc.map((record) => (
+              <div key={record.id} style={cardStyle}>
+                <p><strong>Date:</strong> {new Date(record.date).toLocaleDateString()}</p>
+                <p><strong>House:</strong> {record.house.name}</p>
+                <p><strong>Age:</strong> {record.ageDays}</p>
+                <p><strong>Mort:</strong> {record.mort}</p>
+                <p><strong>Culls:</strong> {record.culls}</p>
+                <p><strong>Daily Total:</strong> {record.dailyTotal}</p>
+                <p><strong>Cum Total:</strong> {record.cumulativeTotal}</p>
+                <p><strong>Feed kg:</strong> {record.feedKg}</p>
+                <p><strong>Water L:</strong> {record.waterL}</p>
+                <p><strong>Weight g:</strong> {record.avgWeightG ?? "-"}</p>
+                <p style={{ marginBottom: record.notes ? 8 : 0 }}>
+                  <strong>Notes:</strong> {record.notes || "-"}
+                </p>
+
+                {canOperate && (
+                  <div className="mobile-actions">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(record)}
+                      style={{ padding: 12, borderRadius: 10 }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteRecord(record.id)}
+                      style={{ padding: 12, borderRadius: 10 }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
           )}
         </>
       )}
