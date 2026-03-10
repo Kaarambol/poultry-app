@@ -217,7 +217,6 @@ export default function AvaraPage() {
     loadFarmName(farmId);
     loadMyRole(farmId);
     loadActiveCrop(farmId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -226,201 +225,243 @@ export default function AvaraPage() {
     } else {
       setReport(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage]);
+  }, [stage, cropId]);
 
   const canOperate = canOperateUi(myRole);
   const readOnly = isReadOnlyUi(myRole);
 
   return (
-    <div style={{ maxWidth: 1100, margin: "40px auto", fontFamily: "sans-serif" }}>
-      <h1>Avara Weekly Return</h1>
+    <div className="mobile-page">
+      <div className="page-shell">
+        <div className="page-intro">
+          <div className="page-intro__meta-card">
+            <div className="page-intro__eyebrow">Weekly return</div>
+            <h1 className="page-intro__title">Avara Export</h1>
+            <p className="page-intro__subtitle">
+              Preview weekly return data for the active crop and export the selected stage.
+            </p>
+          </div>
 
-      {currentFarmId && (
-        <p>
-          <strong>Current Farm:</strong> {farmName || currentFarmId}
-        </p>
-      )}
+          <div className="page-intro__meta">
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Current farm</div>
+              <div>{currentFarmId ? farmName || currentFarmId : "-"}</div>
+            </div>
 
-      <p>
-        <strong>Active Crop:</strong> {cropLabel || "-"}
-      </p>
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Context</div>
+              <div>Active crop: {cropLabel || "-"}</div>
+              <div style={{ marginTop: 6 }}>Your role: {myRole || "-"}</div>
+            </div>
+          </div>
+        </div>
 
-      <p>
-        <strong>Your role:</strong> {myRole || "-"}
-      </p>
+        {readOnly && (
+          <div className="mobile-alert mobile-alert--warning" style={{ marginBottom: 16 }}>
+            Read-only mode. VIEWER can preview reports and download history, but cannot export new files.
+          </div>
+        )}
 
-      {readOnly && (
-        <p
-          style={{
-            padding: 12,
-            borderRadius: 8,
-            background: "#eef3f8",
-            border: "1px solid #c5d7ea",
-            color: "#1f3b57",
-          }}
-        >
-          Read-only mode. VIEWER can preview reports and download history, but cannot export new files.
-        </p>
-      )}
+        <div className="mobile-card">
+          <h2>Report Stage</h2>
+          <label>Choose stage</label>
+          <select
+            value={stage}
+            onChange={(e) => setStage(e.target.value)}
+            disabled={!cropId}
+          >
+            {stages.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
 
-      <label>Report stage</label>
-      <select
-        value={stage}
-        onChange={(e) => setStage(e.target.value)}
-        style={{ width: "100%", padding: 10, margin: "6px 0 20px" }}
-        disabled={!cropId}
-      >
-        {stages.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
-          </option>
-        ))}
-      </select>
-
-      {cropId && canOperate && (
-        <button
-          type="button"
-          onClick={exportExcel}
-          style={{ padding: 12, width: "100%", marginBottom: 20 }}
-        >
-          Export Excel
-        </button>
-      )}
-
-      {msg && <p>{msg}</p>}
-
-      {report && (
-        <>
-          <h2>Preview</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee", fontWeight: 600 }}>
-                  Farm
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {report.farm.name} ({report.farm.code})
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee", fontWeight: 600 }}>
-                  Crop
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {report.crop.cropNumber}
-                </td>
-              </tr>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee", fontWeight: 600 }}>
-                  Stage
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{report.stage}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h2>Totals</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Birds placed
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Mort
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Culls
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Total losses
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Birds alive
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Mortality %
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Feed kg
-                </th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                  Water L
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {report.totals.birdsPlaced}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {report.totals.mort}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {report.totals.culls}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {report.totals.totalLosses}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {report.totals.birdsAlive}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {report.totals.mortalityPct.toFixed(2)}%
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {report.totals.feedKg.toFixed(2)}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {report.totals.waterL.toFixed(2)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h2>Export History</h2>
-          {history.length === 0 ? (
-            <p>No exports yet.</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Stage
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    File
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Created
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Download
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.stage}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.fileName}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {new Date(item.createdAt).toLocaleString()}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      <a href={item.filePath} target="_blank" rel="noreferrer">
-                        Download
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {cropId && canOperate && (
+            <div className="mobile-sticky-actions">
+              <div className="mobile-sticky-actions__inner">
+                <button
+                  type="button"
+                  className="mobile-full-button"
+                  onClick={exportExcel}
+                >
+                  Export Excel
+                </button>
+              </div>
+            </div>
           )}
-        </>
-      )}
+        </div>
+
+        {msg && (
+          <div className="mobile-alert" style={{ marginBottom: 16 }}>
+            {msg}
+          </div>
+        )}
+
+        {report && (
+          <>
+            <div className="mobile-card">
+              <h2>Preview</h2>
+              <div className="mobile-record-card__grid">
+                <div className="mobile-record-row">
+                  <strong>Farm</strong>
+                  <span>
+                    {report.farm.name} ({report.farm.code})
+                  </span>
+                </div>
+                <div className="mobile-record-row">
+                  <strong>Crop</strong>
+                  <span>{report.crop.cropNumber}</span>
+                </div>
+                <div className="mobile-record-row">
+                  <strong>Placement date</strong>
+                  <span>{new Date(report.crop.placementDate).toLocaleDateString()}</span>
+                </div>
+                <div className="mobile-record-row">
+                  <strong>Breed</strong>
+                  <span>{report.crop.breed || "-"}</span>
+                </div>
+                <div className="mobile-record-row">
+                  <strong>Hatchery</strong>
+                  <span>{report.crop.hatchery || "-"}</span>
+                </div>
+                <div className="mobile-record-row">
+                  <strong>Stage</strong>
+                  <span>{stages.find((s) => s.value === report.stage)?.label || report.stage}</span>
+                </div>
+                <div className="mobile-record-row">
+                  <strong>Max day</strong>
+                  <span>{report.maxDay}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mobile-card">
+              <h2>Totals</h2>
+              <div className="mobile-kpi-grid">
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Birds placed</div>
+                  <div className="mobile-kpi__value">{report.totals.birdsPlaced}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Mort</div>
+                  <div className="mobile-kpi__value">{report.totals.mort}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Culls</div>
+                  <div className="mobile-kpi__value">{report.totals.culls}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Total losses</div>
+                  <div className="mobile-kpi__value">{report.totals.totalLosses}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Birds alive</div>
+                  <div className="mobile-kpi__value">{report.totals.birdsAlive}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Mortality %</div>
+                  <div className="mobile-kpi__value">{report.totals.mortalityPct.toFixed(2)}%</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Feed kg</div>
+                  <div className="mobile-kpi__value">{report.totals.feedKg.toFixed(2)}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Water L</div>
+                  <div className="mobile-kpi__value">{report.totals.waterL.toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="mobile-section-title">Per House</h2>
+            {report.houses.length === 0 ? (
+              <div className="mobile-card">
+                <p style={{ margin: 0 }}>No house data available.</p>
+              </div>
+            ) : (
+              <div className="mobile-record-list">
+                {report.houses.map((house) => (
+                  <div key={house.houseId} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">{house.houseName}</h3>
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row">
+                        <strong>Birds placed</strong>
+                        <span>{house.birdsPlaced}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Mort</strong>
+                        <span>{house.mort}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Culls</strong>
+                        <span>{house.culls}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Total losses</strong>
+                        <span>{house.totalLosses}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Birds alive</strong>
+                        <span>{house.birdsAlive}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Mortality %</strong>
+                        <span>{house.mortalityPct.toFixed(2)}%</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Feed kg</strong>
+                        <span>{house.feedKg.toFixed(2)}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Water L</strong>
+                        <span>{house.waterL.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <h2 className="mobile-section-title">Export History</h2>
+            {history.length === 0 ? (
+              <div className="mobile-card">
+                <p style={{ margin: 0 }}>No export history.</p>
+              </div>
+            ) : (
+              <div className="mobile-record-list">
+                {history.map((item) => (
+                  <div key={item.id} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">{item.fileName}</h3>
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row">
+                        <strong>Stage</strong>
+                        <span>{stages.find((s) => s.value === item.stage)?.label || item.stage}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Created</strong>
+                        <span>{new Date(item.createdAt).toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="mobile-actions" style={{ marginTop: 12 }}>
+                      <a
+                        href={item.filePath}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mobile-button mobile-button--secondary"
+                        style={{ textAlign: "center" }}
+                      >
+                        Open export
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -109,8 +109,12 @@ export default function MedicationPage() {
   async function loadRecords(selectedCropId: string) {
     const r = await fetch(`/api/medications/list?cropId=${selectedCropId}`);
     const data = await r.json();
-    if (Array.isArray(data)) setRecords(data);
-    else setRecords([]);
+
+    if (Array.isArray(data)) {
+      setRecords(data);
+    } else {
+      setRecords([]);
+    }
   }
 
   useEffect(() => {
@@ -233,307 +237,349 @@ export default function MedicationPage() {
     loadRecords(cropId);
   }
 
-  const fieldStyle = (hasError: boolean): React.CSSProperties => ({
-    width: "100%",
-    padding: 12,
-    margin: "6px 0 14px",
-    border: hasError ? "1px solid #c62828" : "1px solid #ccc",
-    borderRadius: 10,
-    background: "#fff",
-  });
-
-  const cardStyle: React.CSSProperties = {
-    border: "1px solid #ddd",
-    borderRadius: 12,
-    background: "#fff",
-    padding: 14,
-    marginBottom: 14,
-  };
-
   const canOperate = canOperateUi(myRole);
   const readOnly = isReadOnlyUi(myRole);
 
+  const alertClass =
+    msgType === "error"
+      ? "mobile-alert mobile-alert--error"
+      : msgType === "success"
+      ? "mobile-alert mobile-alert--success"
+      : "mobile-alert";
+
   return (
     <div className="mobile-page">
-      <h1>Medication Records</h1>
+      <div className="page-shell">
+        <div className="page-intro">
+          <div className="page-intro__meta-card">
+            <div className="page-intro__eyebrow">Medication register</div>
+            <h1 className="page-intro__title">Medication Records</h1>
+            <p className="page-intro__subtitle">
+              Register treatment details for the active crop and keep a clean printable list.
+            </p>
+          </div>
 
-      <div className="mobile-card">
-        {currentFarmId && (
-          <p style={{ marginTop: 0 }}>
-            <strong>Current Farm:</strong> {farmName || currentFarmId}
-          </p>
+          <div className="page-intro__meta">
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Current farm</div>
+              <div>{currentFarmId ? farmName || currentFarmId : "-"}</div>
+            </div>
+
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Context</div>
+              <div>Active crop: {cropLabel || "-"}</div>
+              <div style={{ marginTop: 6 }}>Your role: {myRole || "-"}</div>
+            </div>
+          </div>
+        </div>
+
+        {readOnly && (
+          <div className="mobile-alert mobile-alert--warning" style={{ marginBottom: 16 }}>
+            Read-only mode. VIEWER can only see records.
+          </div>
         )}
 
-        <p>
-          <strong>Active Crop:</strong> {cropLabel || "-"}
-        </p>
-
-        <p style={{ marginBottom: 0 }}>
-          <strong>Your role:</strong> {myRole || "-"}
-        </p>
-      </div>
-
-      {readOnly && (
         <div className="mobile-card">
-          <p style={{ margin: 0 }}>Read-only mode. VIEWER can only see records.</p>
-        </div>
-      )}
+          <h2>Add Medication Record</h2>
 
-      <div className="mobile-card">
-        <h2 style={{ marginTop: 0 }}>Add Medication Record</h2>
+          <form onSubmit={saveMedication}>
+            <h3 style={{ marginBottom: 10 }}>Basic treatment data</h3>
 
-        <form onSubmit={saveMedication}>
-          <label>Date of Start Treatment</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            style={fieldStyle(!startDate && !!msg && msgType === "error")}
-            required
-            disabled={!cropId || !canOperate}
-          />
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Date of Start Treatment</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  required
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
 
-          <label>Name of Medicine</label>
-          <input
-            value={medicineName}
-            onChange={(e) => setMedicineName(e.target.value)}
-            style={fieldStyle(!medicineName.trim() && !!msg && msgType === "error")}
-            required
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Supplier of Medicine</label>
-          <input
-            value={supplier}
-            onChange={(e) => setSupplier(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Batch No</label>
-          <input
-            value={batchNo}
-            onChange={(e) => setBatchNo(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Expire Date</label>
-          <input
-            type="date"
-            value={expireDate}
-            onChange={(e) => setExpireDate(e.target.value)}
-            style={fieldStyle(
-              !!expireDate && !!startDate && new Date(expireDate) < new Date(startDate)
-            )}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Quantity Purchased</label>
-          <input
-            value={quantityPurchased}
-            onChange={(e) => setQuantityPurchased(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Quantity Used</label>
-          <input
-            value={quantityUsed}
-            onChange={(e) => setQuantityUsed(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Identity of Animal Treated</label>
-          <input
-            value={animalIdentity}
-            onChange={(e) => setAnimalIdentity(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Houses Treated</label>
-          <input
-            value={housesTreated}
-            onChange={(e) => setHousesTreated(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Number of Birds Treated</label>
-          <input
-            type="number"
-            min="0"
-            value={birdsTreated}
-            onChange={(e) => setBirdsTreated(e.target.value)}
-            style={fieldStyle(birdsTreated !== "" && Number(birdsTreated) < 0)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Date Treatment Finished</label>
-          <input
-            type="date"
-            value={finishDate}
-            onChange={(e) => setFinishDate(e.target.value)}
-            style={fieldStyle(
-              !!finishDate && !!startDate && new Date(finishDate) < new Date(startDate)
-            )}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Withdrawal Period</label>
-          <input
-            value={withdrawalPeriod}
-            onChange={(e) => setWithdrawalPeriod(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Safe Date of Slaughter</label>
-          <input
-            type="date"
-            value={safeSlaughterDate}
-            onChange={(e) => setSafeSlaughterDate(e.target.value)}
-            style={fieldStyle(
-              !!safeSlaughterDate &&
-                !!finishDate &&
-                new Date(safeSlaughterDate) < new Date(finishDate)
-            )}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Name of Administrator</label>
-          <input
-            value={administratorName}
-            onChange={(e) => setAdministratorName(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Reason for Treatment</label>
-          <input
-            value={reasonForTreatment}
-            onChange={(e) => setReasonForTreatment(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Method of Treatment</label>
-          <input
-            value={methodOfTreatment}
-            onChange={(e) => setMethodOfTreatment(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Dose mg/g</label>
-          <input
-            value={dose}
-            onChange={(e) => setDose(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Total mg/PCU</label>
-          <input
-            value={totalMgPcu}
-            onChange={(e) => setTotalMgPcu(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Report</label>
-          <input
-            value={report}
-            onChange={(e) => setReport(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Prescription</label>
-          <input
-            value={prescription}
-            onChange={(e) => setPrescription(e.target.value)}
-            style={fieldStyle(false)}
-            disabled={!cropId || !canOperate}
-          />
-
-          {canOperate && (
-            <div className="mobile-actions">
-              <button
-                className="mobile-full-button"
-                style={{ padding: 14, borderRadius: 10 }}
-                type="submit"
-                disabled={!cropId}
-              >
-                Save Medication Record
-              </button>
+              <div>
+                <label>Name of Medicine</label>
+                <input
+                  value={medicineName}
+                  onChange={(e) => setMedicineName(e.target.value)}
+                  required
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
             </div>
-          )}
-        </form>
-      </div>
 
-      {msg && (
-        <div
-          className="mobile-card"
-          style={{
-            background:
-              msgType === "error" ? "#ffebee" : msgType === "success" ? "#e8f5e9" : "#eef3f8",
-            color:
-              msgType === "error" ? "#b71c1c" : msgType === "success" ? "#1b5e20" : "#1f3b57",
-            border:
-              msgType === "error"
-                ? "1px solid #ef9a9a"
-                : msgType === "success"
-                ? "1px solid #a5d6a7"
-                : "1px solid #c5d7ea",
-          }}
-        >
-          {msg}
-        </div>
-      )}
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Supplier of Medicine</label>
+                <input
+                  value={supplier}
+                  onChange={(e) => setSupplier(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
 
-      {cropId && (
-        <>
-          <h2>Saved Medication Records</h2>
-          {records.length === 0 ? (
-            <p>No medication records yet.</p>
-          ) : (
-            records.map((record) => (
-              <div key={record.id} style={cardStyle}>
-                <p><strong>Start Date:</strong> {new Date(record.startDate).toLocaleDateString()}</p>
-                <p><strong>Medicine:</strong> {record.medicineName}</p>
-                <p><strong>Supplier:</strong> {record.supplier || "-"}</p>
-                <p><strong>Houses:</strong> {record.housesTreated || "-"}</p>
-                <p><strong>Birds:</strong> {record.birdsTreated ?? "-"}</p>
-                <p><strong>Finish Date:</strong> {record.finishDate ? new Date(record.finishDate).toLocaleDateString() : "-"}</p>
-                <p><strong>Administrator:</strong> {record.administratorName || "-"}</p>
-                <p style={{ marginBottom: 8 }}><strong>Reason:</strong> {record.reasonForTreatment || "-"}</p>
+              <div>
+                <label>Batch No</label>
+                <input
+                  value={batchNo}
+                  onChange={(e) => setBatchNo(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
 
-                <div className="mobile-actions">
-                  <a
-                    href={`/app/medication/print?id=${record.id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      display: "inline-block",
-                      padding: 12,
-                      borderRadius: 10,
-                      border: "1px solid #ccc",
-                      textDecoration: "none",
-                      textAlign: "center",
-                      background: "#fff",
-                    }}
-                  >
-                    Print
-                  </a>
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Expire Date</label>
+                <input
+                  type="date"
+                  value={expireDate}
+                  onChange={(e) => setExpireDate(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Finish Date</label>
+                <input
+                  type="date"
+                  value={finishDate}
+                  onChange={(e) => setFinishDate(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            <h3 style={{ marginTop: 10, marginBottom: 10 }}>Quantities and flock</h3>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Quantity Purchased</label>
+                <input
+                  value={quantityPurchased}
+                  onChange={(e) => setQuantityPurchased(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Quantity Used</label>
+                <input
+                  value={quantityUsed}
+                  onChange={(e) => setQuantityUsed(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Identity of Animal Treated</label>
+                <input
+                  value={animalIdentity}
+                  onChange={(e) => setAnimalIdentity(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Houses Treated</label>
+                <input
+                  value={housesTreated}
+                  onChange={(e) => setHousesTreated(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Birds Treated</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={birdsTreated}
+                  onChange={(e) => setBirdsTreated(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Withdrawal Period</label>
+                <input
+                  value={withdrawalPeriod}
+                  onChange={(e) => setWithdrawalPeriod(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Safe Slaughter Date</label>
+                <input
+                  type="date"
+                  value={safeSlaughterDate}
+                  onChange={(e) => setSafeSlaughterDate(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Administrator Name</label>
+                <input
+                  value={administratorName}
+                  onChange={(e) => setAdministratorName(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            <h3 style={{ marginTop: 10, marginBottom: 10 }}>Clinical details</h3>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Reason for Treatment</label>
+                <input
+                  value={reasonForTreatment}
+                  onChange={(e) => setReasonForTreatment(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Method of Treatment</label>
+                <input
+                  value={methodOfTreatment}
+                  onChange={(e) => setMethodOfTreatment(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Dose mg/g</label>
+                <input
+                  value={dose}
+                  onChange={(e) => setDose(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Total mg/PCU</label>
+                <input
+                  value={totalMgPcu}
+                  onChange={(e) => setTotalMgPcu(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Report</label>
+                <input
+                  value={report}
+                  onChange={(e) => setReport(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Prescription</label>
+                <input
+                  value={prescription}
+                  onChange={(e) => setPrescription(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            {canOperate && (
+              <div className="mobile-sticky-actions">
+                <div className="mobile-sticky-actions__inner">
+                  <button className="mobile-full-button" type="submit" disabled={!cropId}>
+                    Save Medication Record
+                  </button>
                 </div>
               </div>
-            ))
-          )}
-        </>
-      )}
+            )}
+          </form>
+        </div>
+
+        {msg && (
+          <div className={alertClass} style={{ marginBottom: 16 }}>
+            {msg}
+          </div>
+        )}
+
+        {cropId && (
+          <>
+            <h2 className="mobile-section-title">Saved Medication Records</h2>
+
+            {records.length === 0 ? (
+              <div className="mobile-card">
+                <p style={{ margin: 0 }}>No medication records yet.</p>
+              </div>
+            ) : (
+              <div className="mobile-record-list">
+                {records.map((record) => (
+                  <div key={record.id} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">
+                      {record.medicineName} · {new Date(record.startDate).toLocaleDateString()}
+                    </h3>
+
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row">
+                        <strong>Supplier</strong>
+                        <span>{record.supplier || "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Houses</strong>
+                        <span>{record.housesTreated || "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Birds</strong>
+                        <span>{record.birdsTreated ?? "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Finish date</strong>
+                        <span>
+                          {record.finishDate
+                            ? new Date(record.finishDate).toLocaleDateString()
+                            : "-"}
+                        </span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Administrator</strong>
+                        <span>{record.administratorName || "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Reason</strong>
+                        <span>{record.reasonForTreatment || "-"}</span>
+                      </div>
+                    </div>
+
+                    <div className="mobile-actions" style={{ marginTop: 12 }}>
+                      <a
+                        href={`/app/medication/print?id=${record.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mobile-button mobile-button--secondary"
+                        style={{ textAlign: "center" }}
+                      >
+                        Print
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -49,13 +49,21 @@ type DailyRecord = {
   };
 };
 
+type RecordWithCalc = DailyRecord & {
+  ageDays: number;
+  dailyTotal: number;
+  cumulativeTotal: number;
+};
+
 export default function DailyPage() {
   const [currentFarmId, setCurrentFarmIdState] = useState("");
   const [farmName, setFarmName] = useState("");
   const [myRole, setMyRole] = useState<FarmRole>("");
+
   const [cropId, setCropId] = useState("");
   const [cropLabel, setCropLabel] = useState("");
   const [cropDetails, setCropDetails] = useState<CropDetails | null>(null);
+
   const [houses, setHouses] = useState<House[]>([]);
   const [houseId, setHouseId] = useState("");
 
@@ -126,28 +134,41 @@ export default function DailyPage() {
   async function loadHouses(selectedFarmId: string) {
     const r = await fetch(`/api/houses/list?farmId=${selectedFarmId}`);
     const data = await r.json();
-    if (Array.isArray(data)) setHouses(data);
-    else setHouses([]);
+
+    if (Array.isArray(data)) {
+      setHouses(data);
+    } else {
+      setHouses([]);
+    }
   }
 
   async function loadCropDetails(selectedCropId: string) {
     const r = await fetch(`/api/crops/details?cropId=${selectedCropId}`);
     const data = await r.json();
-    if (r.ok) setCropDetails(data);
-    else setCropDetails(null);
+
+    if (r.ok) {
+      setCropDetails(data);
+    } else {
+      setCropDetails(null);
+    }
   }
 
   async function loadRecords(selectedCropId: string) {
     const r = await fetch(`/api/daily-records/list?cropId=${selectedCropId}`);
     const data = await r.json();
-    if (Array.isArray(data)) setRecords(data);
-    else setRecords([]);
+
+    if (Array.isArray(data)) {
+      setRecords(data);
+    } else {
+      setRecords([]);
+    }
   }
 
   useEffect(() => {
     setDate(new Date().toISOString().slice(0, 10));
 
     const farmId = getCurrentFarmId();
+
     if (!farmId) {
       setMsgType("info");
       setMsg("Choose a farm in the top menu first.");
@@ -192,13 +213,20 @@ export default function DailyPage() {
       return "Numeric fields must contain valid numbers.";
     }
 
-    if (mortNum < 0 || cullsNum < 0 || feedNum < 0 || waterNum < 0 || (weightNum !== null && weightNum < 0)) {
+    if (
+      mortNum < 0 ||
+      cullsNum < 0 ||
+      feedNum < 0 ||
+      waterNum < 0 ||
+      (weightNum !== null && weightNum < 0)
+    ) {
       return "Values cannot be negative.";
     }
 
     if (cropDetails) {
       const placementDate = new Date(cropDetails.placementDate);
       const recordDate = new Date(date);
+
       if (recordDate < placementDate) {
         return "Date cannot be earlier than crop placement date.";
       }
@@ -336,9 +364,11 @@ export default function DailyPage() {
 
     setMsgType("success");
     setMsg("Daily record deleted!");
+
     if (editingId === id) {
       cancelEdit();
     }
+
     loadRecords(cropId);
   }
 
@@ -406,10 +436,17 @@ export default function DailyPage() {
     const birdsAlive = birdsPlaced - totalLosses;
     const mortalityPct = birdsPlaced > 0 ? (totalLosses / birdsPlaced) * 100 : 0;
 
-    return { birdsPlaced, mort: mortSum, culls: cullsSum, totalLosses, birdsAlive, mortalityPct };
+    return {
+      birdsPlaced,
+      mort: mortSum,
+      culls: cullsSum,
+      totalLosses,
+      birdsAlive,
+      mortalityPct,
+    };
   }, [houseSummary]);
 
-  const recordsWithCalc = useMemo(() => {
+  const recordsWithCalc = useMemo<RecordWithCalc[]>(() => {
     const filteredRecords = houseId
       ? records.filter((record) => record.houseId === houseId)
       : records;
@@ -426,10 +463,9 @@ export default function DailyPage() {
       const placementDate = new Date(record.crop.placementDate);
       const recordDate = new Date(record.date);
 
-      const ageDays =
-        Math.floor(
-          (recordDate.getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
-        ) + 1;
+      const ageDays = Math.floor(
+        (recordDate.getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
 
       const dailyTotal = record.mort + record.culls;
 
@@ -449,260 +485,380 @@ export default function DailyPage() {
     });
   }, [records, houseId]);
 
-  const fieldStyle = (hasError: boolean): React.CSSProperties => ({
-    width: "100%",
-    padding: 12,
-    margin: "6px 0 14px",
-    border: hasError ? "1px solid #c62828" : "1px solid #ccc",
-    borderRadius: 10,
-    background: "#fff",
-  });
-
-  const cardStyle: React.CSSProperties = {
-    border: "1px solid #ddd",
-    borderRadius: 12,
-    background: "#fff",
-    padding: 14,
-    marginBottom: 14,
-  };
-
   const canOperate = canOperateUi(myRole);
   const readOnly = isReadOnlyUi(myRole);
 
+  const alertClass =
+    msgType === "error"
+      ? "mobile-alert mobile-alert--error"
+      : msgType === "success"
+      ? "mobile-alert mobile-alert--success"
+      : "mobile-alert";
+
   return (
     <div className="mobile-page">
-      <h1>Daily Entry</h1>
-
-      <div className="mobile-card">
-        {currentFarmId && (
-          <p style={{ marginTop: 0 }}>
-            <strong>Current Farm:</strong> {farmName || currentFarmId}
-          </p>
-        )}
-
-        <p>
-          <strong>Active Crop:</strong> {cropLabel || "-"}
-        </p>
-
-        <p style={{ marginBottom: 0 }}>
-          <strong>Your role:</strong> {myRole || "-"}
-        </p>
-      </div>
-
-      {readOnly && (
-        <div className="mobile-card">
-          <p style={{ margin: 0 }}>Read-only mode. VIEWER can only see records.</p>
-        </div>
-      )}
-
-      <div className="mobile-card">
-        <h2 style={{ marginTop: 0 }}>{editingId ? "Edit Daily Record" : "Add Daily Record"}</h2>
-
-        <form onSubmit={editingId ? updateRecord : saveRecord}>
-          <label>House</label>
-          <select
-            value={houseId}
-            onChange={(e) => setHouseId(e.target.value)}
-            style={fieldStyle(!houseId && !!msg && msgType === "error")}
-            required
-            disabled={!cropId || !canOperate}
-          >
-            <option value="">-- choose house --</option>
-            {houses.map((house) => (
-              <option key={house.id} value={house.id}>
-                {house.name}
-              </option>
-            ))}
-          </select>
-
-          <label>Date</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            style={fieldStyle(!date && !!msg && msgType === "error")}
-            required
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Mort</label>
-          <input
-            type="number"
-            min="0"
-            value={mort}
-            onChange={(e) => setMort(e.target.value)}
-            style={fieldStyle(Number(mort || 0) < 0)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Culls</label>
-          <input
-            type="number"
-            min="0"
-            value={culls}
-            onChange={(e) => setCulls(e.target.value)}
-            style={fieldStyle(Number(culls || 0) < 0)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Feed used (kg)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={feedKg}
-            onChange={(e) => setFeedKg(e.target.value)}
-            style={fieldStyle(Number(feedKg || 0) < 0)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Water used (L)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={waterL}
-            onChange={(e) => setWaterL(e.target.value)}
-            style={fieldStyle(Number(waterL || 0) < 0)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Average weight (g) - optional</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={avgWeightG}
-            onChange={(e) => setAvgWeightG(e.target.value)}
-            style={fieldStyle(avgWeightG !== "" && Number(avgWeightG) < 0)}
-            disabled={!cropId || !canOperate}
-          />
-
-          <label>Notes</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            style={{ ...fieldStyle(false), minHeight: 100 }}
-            disabled={!cropId || !canOperate}
-          />
-
-          {canOperate && (
-            <div className="mobile-actions">
-              <button
-                className="mobile-full-button"
-                style={{ padding: 14, borderRadius: 10 }}
-                type="submit"
-                disabled={!cropId}
-              >
-                {editingId ? "Update Daily Record" : "Save Daily Record"}
-              </button>
-
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  style={{ padding: 14, borderRadius: 10 }}
-                >
-                  Cancel Edit
-                </button>
-              )}
-            </div>
-          )}
-        </form>
-      </div>
-
-      {msg && (
-        <div
-          className="mobile-card"
-          style={{
-            background:
-              msgType === "error" ? "#ffebee" : msgType === "success" ? "#e8f5e9" : "#eef3f8",
-            color:
-              msgType === "error" ? "#b71c1c" : msgType === "success" ? "#1b5e20" : "#1f3b57",
-            border:
-              msgType === "error"
-                ? "1px solid #ef9a9a"
-                : msgType === "success"
-                ? "1px solid #a5d6a7"
-                : "1px solid #c5d7ea",
-          }}
-        >
-          {msg}
-        </div>
-      )}
-
-      {cropId && (
-        <>
-          <div className="mobile-card">
-            <h2 style={{ marginTop: 0 }}>Crop Summary</h2>
-            <p><strong>Birds placed:</strong> {totals.birdsPlaced}</p>
-            <p><strong>Mort:</strong> {totals.mort}</p>
-            <p><strong>Culls:</strong> {totals.culls}</p>
-            <p><strong>Total losses:</strong> {totals.totalLosses}</p>
-            <p><strong>Birds alive:</strong> {totals.birdsAlive}</p>
-            <p style={{ marginBottom: 0 }}><strong>Mortality %:</strong> {totals.mortalityPct.toFixed(2)}%</p>
+      <div className="page-shell">
+        <div className="page-intro">
+          <div className="page-intro__meta-card">
+            <div className="page-intro__eyebrow">Daily operations</div>
+            <h1 className="page-intro__title">Daily Entry</h1>
+            <p className="page-intro__subtitle">
+              Add daily mortality, feed, water and weight data for the active crop.
+            </p>
           </div>
 
-          <h2>House Summary</h2>
-          {houseSummary.length === 0 ? (
-            <p>No house summary yet.</p>
-          ) : (
-            houseSummary.map((item) => (
-              <div key={item.houseName} style={cardStyle}>
-                <p><strong>House:</strong> {item.houseName}</p>
-                <p><strong>Birds placed:</strong> {item.birdsPlaced}</p>
-                <p><strong>Mort:</strong> {item.mort}</p>
-                <p><strong>Culls:</strong> {item.culls}</p>
-                <p><strong>Total losses:</strong> {item.totalLosses}</p>
-                <p><strong>Birds alive:</strong> {item.birdsAlive}</p>
-                <p style={{ marginBottom: 0 }}><strong>Mortality %:</strong> {item.mortalityPct.toFixed(2)}%</p>
+          <div className="page-intro__meta">
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Current farm</div>
+              <div>{currentFarmId ? farmName || currentFarmId : "-"}</div>
+            </div>
+
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Context</div>
+              <div>Active crop: {cropLabel || "-"}</div>
+              <div style={{ marginTop: 6 }}>Your role: {myRole || "-"}</div>
+            </div>
+          </div>
+        </div>
+
+        {readOnly && (
+          <div className="mobile-alert mobile-alert--warning" style={{ marginBottom: 16 }}>
+            Read-only mode. VIEWER can only see records.
+          </div>
+        )}
+
+        <div className="mobile-card">
+          <h2>{editingId ? "Edit Daily Record" : "Add Daily Record"}</h2>
+
+          <form onSubmit={editingId ? updateRecord : saveRecord}>
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>House</label>
+                <select
+                  value={houseId}
+                  onChange={(e) => setHouseId(e.target.value)}
+                  required
+                  disabled={!cropId || !canOperate}
+                >
+                  <option value="">-- choose house --</option>
+                  {houses.map((house) => (
+                    <option key={house.id} value={house.id}>
+                      {house.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ))
-          )}
 
-          <h2>Saved Records {houseId ? "(Filtered by selected house)" : ""}</h2>
-          {recordsWithCalc.length === 0 ? (
-            <p>No records yet.</p>
-          ) : (
-            recordsWithCalc.map((record) => (
-              <div key={record.id} style={cardStyle}>
-                <p><strong>Date:</strong> {new Date(record.date).toLocaleDateString()}</p>
-                <p><strong>House:</strong> {record.house.name}</p>
-                <p><strong>Age:</strong> {record.ageDays}</p>
-                <p><strong>Mort:</strong> {record.mort}</p>
-                <p><strong>Culls:</strong> {record.culls}</p>
-                <p><strong>Daily Total:</strong> {record.dailyTotal}</p>
-                <p><strong>Cum Total:</strong> {record.cumulativeTotal}</p>
-                <p><strong>Feed kg:</strong> {record.feedKg}</p>
-                <p><strong>Water L:</strong> {record.waterL}</p>
-                <p><strong>Weight g:</strong> {record.avgWeightG ?? "-"}</p>
-                <p style={{ marginBottom: record.notes ? 8 : 0 }}>
-                  <strong>Notes:</strong> {record.notes || "-"}
-                </p>
+              <div>
+                <label>Date</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  required
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
 
-                {canOperate && (
-                  <div className="mobile-actions">
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Mort</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={mort}
+                  onChange={(e) => setMort(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Culls</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={culls}
+                  onChange={(e) => setCulls(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Feed used (kg)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={feedKg}
+                  onChange={(e) => setFeedKg(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Water used (L)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={waterL}
+                  onChange={(e) => setWaterL(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Average weight (g) - optional</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={avgWeightG}
+                  onChange={(e) => setAvgWeightG(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+
+              <div>
+                <label>Notes</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
+            {canOperate && (
+              <div className="mobile-sticky-actions">
+                <div className="mobile-sticky-actions__inner">
+                  <button className="mobile-full-button" type="submit" disabled={!cropId}>
+                    {editingId ? "Update Daily Record" : "Save Daily Record"}
+                  </button>
+
+                  {editingId && (
                     <button
                       type="button"
-                      onClick={() => startEdit(record)}
-                      style={{ padding: 12, borderRadius: 10 }}
+                      className="mobile-button mobile-button--secondary"
+                      onClick={cancelEdit}
                     >
-                      Edit
+                      Cancel Edit
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteRecord(record.id)}
-                      style={{ padding: 12, borderRadius: 10 }}
-                    >
-                      Delete
-                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </form>
+        </div>
+
+        {msg && (
+          <div className={alertClass} style={{ marginBottom: 16 }}>
+            {msg}
+          </div>
+        )}
+
+        {cropId && (
+          <>
+            <div className="mobile-card">
+              <h2>Crop Summary</h2>
+              <div className="mobile-kpi-grid">
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Birds placed</div>
+                  <div className="mobile-kpi__value">{totals.birdsPlaced}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Mort</div>
+                  <div className="mobile-kpi__value">{totals.mort}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Culls</div>
+                  <div className="mobile-kpi__value">{totals.culls}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Total losses</div>
+                  <div className="mobile-kpi__value">{totals.totalLosses}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Birds alive</div>
+                  <div className="mobile-kpi__value">{totals.birdsAlive}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Mortality %</div>
+                  <div className="mobile-kpi__value">{totals.mortalityPct.toFixed(2)}%</div>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="mobile-section-title">House Summary</h2>
+            {houseSummary.length === 0 ? (
+              <div className="mobile-card">
+                <p style={{ margin: 0 }}>No house placements found.</p>
+              </div>
+            ) : (
+              <>
+                <div className="mobile-record-list" style={{ marginBottom: 16 }}>
+                  {houseSummary.map((house) => (
+                    <div key={house.houseName} className="mobile-record-card">
+                      <h3 className="mobile-record-card__title">{house.houseName}</h3>
+                      <div className="mobile-record-card__grid">
+                        <div className="mobile-record-row">
+                          <strong>Birds placed</strong>
+                          <span>{house.birdsPlaced}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Mort</strong>
+                          <span>{house.mort}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Culls</strong>
+                          <span>{house.culls}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Total losses</strong>
+                          <span>{house.totalLosses}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Birds alive</strong>
+                          <span>{house.birdsAlive}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Mortality %</strong>
+                          <span>{house.mortalityPct.toFixed(2)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mobile-table-wrap hide-mobile">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>House</th>
+                        <th>Birds placed</th>
+                        <th>Mort</th>
+                        <th>Culls</th>
+                        <th>Total losses</th>
+                        <th>Birds alive</th>
+                        <th>Mortality %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {houseSummary.map((house) => (
+                        <tr key={house.houseName}>
+                          <td>{house.houseName}</td>
+                          <td>{house.birdsPlaced}</td>
+                          <td>{house.mort}</td>
+                          <td>{house.culls}</td>
+                          <td>{house.totalLosses}</td>
+                          <td>{house.birdsAlive}</td>
+                          <td>{house.mortalityPct.toFixed(2)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            <div className="mobile-card">
+              <h2>Filter Records</h2>
+              <label>Filter by house</label>
+              <select value={houseId} onChange={(e) => setHouseId(e.target.value)}>
+                <option value="">-- all houses --</option>
+                {houses.map((house) => (
+                  <option key={house.id} value={house.id}>
+                    {house.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <h2 className="mobile-section-title">
+              Saved Daily Records {houseId ? "(filtered by selected house)" : ""}
+            </h2>
+
+            {recordsWithCalc.length === 0 ? (
+              <div className="mobile-card">
+                <p style={{ margin: 0 }}>No records yet.</p>
+              </div>
+            ) : (
+              <div className="mobile-record-list">
+                {recordsWithCalc.map((record) => (
+                  <div key={record.id} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">
+                      {record.house.name} · {new Date(record.date).toLocaleDateString()}
+                    </h3>
+
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row">
+                        <strong>Age day</strong>
+                        <span>{record.ageDays}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Mort</strong>
+                        <span>{record.mort}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Culls</strong>
+                        <span>{record.culls}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Daily total</strong>
+                        <span>{record.dailyTotal}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Cum total</strong>
+                        <span>{record.cumulativeTotal}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Feed kg</strong>
+                        <span>{record.feedKg}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Water L</strong>
+                        <span>{record.waterL}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Weight g</strong>
+                        <span>{record.avgWeightG ?? "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Notes</strong>
+                        <span>{record.notes || "-"}</span>
+                      </div>
+                    </div>
+
+                    {canOperate && (
+                      <div className="mobile-actions" style={{ marginTop: 12 }}>
+                        <button
+                          type="button"
+                          className="mobile-button mobile-button--secondary"
+                          onClick={() => startEdit(record)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="mobile-button mobile-button--danger"
+                          onClick={() => deleteRecord(record.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
-            ))
-          )}
-        </>
-      )}
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

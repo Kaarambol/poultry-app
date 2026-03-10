@@ -316,255 +316,211 @@ export default function AccessPage() {
 
   const ownerMode = isOwner(myRole);
 
+  const alertClass =
+    msgType === "error"
+      ? "mobile-alert mobile-alert--error"
+      : msgType === "success"
+      ? "mobile-alert mobile-alert--success"
+      : "mobile-alert";
+
   return (
-    <div style={{ maxWidth: 1000, margin: "40px auto", fontFamily: "sans-serif" }}>
-      <h1>Farm Access</h1>
-
-      {currentFarmId && (
-        <p>
-          <strong>Current Farm:</strong> {farmName || currentFarmId}
-        </p>
-      )}
-
-      <p>
-        <strong>Your role:</strong> {myRole || "-"}
-      </p>
-
-      {!ownerMode && (
-        <p
-          style={{
-            padding: 12,
-            borderRadius: 8,
-            background: "#fff8e1",
-            border: "1px solid #ffe082",
-            color: "#7a5d00",
-          }}
-        >
-          Only OWNER can manage farm access, backup history and restore.
-        </p>
-      )}
-
-      {ownerMode && (
-        <>
-          <form onSubmit={addAccess} style={{ marginBottom: 24 }}>
-            <label>User email</label>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ width: "100%", padding: 10, margin: "6px 0 12px" }}
-              placeholder="colleague@email.com"
-            />
-
-            <label>Role</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              style={{ width: "100%", padding: 10, margin: "6px 0 12px" }}
-            >
-              {roles.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-
-            <button style={{ padding: 12, width: "100%" }} type="submit">
-              Add user to farm
-            </button>
-          </form>
-
-          <button
-            type="button"
-            onClick={downloadBackup}
-            style={{
-              width: "100%",
-              padding: 12,
-              marginBottom: 12,
-              borderRadius: 8,
-              border: "1px solid #111",
-              background: "#111",
-              color: "#fff",
-              cursor: "pointer",
-            }}
-          >
-            Download Full Farm Backup
-          </button>
-
-          <button
-            type="button"
-            onClick={runBlobBackupNow}
-            style={{
-              width: "100%",
-              padding: 12,
-              marginBottom: 16,
-              borderRadius: 8,
-              border: "1px solid #111",
-              background: "#fff",
-              color: "#111",
-              cursor: "pointer",
-            }}
-          >
-            Run Weekly Backup Now
-          </button>
-
-          <div
-            style={{
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              padding: 16,
-              marginBottom: 24,
-              background: "#fafafa",
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>Restore Backup</h3>
-            <p style={{ marginTop: 0 }}>
-              Restore creates a new farm copy from backup. It does not overwrite the current farm.
+    <div className="mobile-page">
+      <div className="page-shell">
+        <div className="page-intro">
+          <div className="page-intro__meta-card">
+            <div className="page-intro__eyebrow">Admin and backup</div>
+            <h1 className="page-intro__title">Farm Access</h1>
+            <p className="page-intro__subtitle">
+              Manage farm users, role permissions, backups and restore actions.
             </p>
-
-            <input
-              ref={restoreInputRef}
-              type="file"
-              accept=".json,application/json"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  restoreBackup(file);
-                }
-              }}
-            />
           </div>
 
-          <h3>Weekly Backup History</h3>
-          {backups.length === 0 ? (
-            <p>No weekly backups yet.</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    File
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Uploaded
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Size
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Download
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {backups.map((item) => (
-                  <tr key={item.pathname}>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {item.pathname.split("/").pop()}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {new Date(item.uploadedAt).toLocaleString()}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {item.size}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      <a href={item.url} target="_blank" rel="noreferrer">
-                        Open
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </>
-      )}
+          <div className="page-intro__meta">
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Current farm</div>
+              <div>{currentFarmId ? farmName || currentFarmId : "-"}</div>
+            </div>
 
-      {msg && (
-        <p
-          style={{
-            marginTop: 16,
-            padding: 12,
-            borderRadius: 8,
-            background:
-              msgType === "error" ? "#ffebee" : msgType === "success" ? "#e8f5e9" : "#eef3f8",
-            color:
-              msgType === "error" ? "#b71c1c" : msgType === "success" ? "#1b5e20" : "#1f3b57",
-            border:
-              msgType === "error"
-                ? "1px solid #ef9a9a"
-                : msgType === "success"
-                ? "1px solid #a5d6a7"
-                : "1px solid #c5d7ea",
-          }}
-        >
-          {msg}
-        </p>
-      )}
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Access</div>
+              <div>Your role: {myRole || "-"}</div>
+              <div style={{ marginTop: 6 }}>Users: {items.length}</div>
+            </div>
+          </div>
+        </div>
 
-      <h2 style={{ marginTop: 30 }}>Users with access</h2>
-      {items.length === 0 ? (
-        <p>No users assigned.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                Email
-              </th>
-              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                Name
-              </th>
-              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                Role
-              </th>
-              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                Change role
-              </th>
-              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                Remove
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+        {!ownerMode && (
+          <div className="mobile-alert mobile-alert--warning" style={{ marginBottom: 16 }}>
+            Only OWNER can manage farm access, backup history and restore.
+          </div>
+        )}
+
+        {msg && (
+          <div className={alertClass} style={{ marginBottom: 16 }}>
+            {msg}
+          </div>
+        )}
+
+        {ownerMode && (
+          <>
+            <div className="mobile-card">
+              <h2>Add User to Farm</h2>
+
+              <form onSubmit={addAccess}>
+                <label>User email</label>
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="colleague@email.com"
+                />
+
+                <label>Role</label>
+                <select value={role} onChange={(e) => setRole(e.target.value)}>
+                  {roles.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="mobile-sticky-actions">
+                  <div className="mobile-sticky-actions__inner">
+                    <button className="mobile-full-button" type="submit">
+                      Add user to farm
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div className="mobile-card">
+              <h2>Backup Actions</h2>
+              <div className="mobile-actions">
+                <button
+                  type="button"
+                  onClick={downloadBackup}
+                  className="mobile-button"
+                >
+                  Download Manual Backup
+                </button>
+
+                <button
+                  type="button"
+                  onClick={runBlobBackupNow}
+                  className="mobile-button mobile-button--secondary"
+                >
+                  Run Weekly Backup Now
+                </button>
+              </div>
+            </div>
+
+            <div className="mobile-card">
+              <h2>Restore Backup</h2>
+              <label>Choose backup JSON file</label>
+              <input
+                ref={restoreInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    restoreBackup(file);
+                  }
+                }}
+              />
+            </div>
+          </>
+        )}
+
+        <h2 className="mobile-section-title">Farm Users</h2>
+        {items.length === 0 ? (
+          <div className="mobile-card">
+            <p style={{ margin: 0 }}>No users found.</p>
+          </div>
+        ) : (
+          <div className="mobile-record-list">
             {items.map((item) => (
-              <tr key={item.id}>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.user.email}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {item.user.name || "-"}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.role}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {ownerMode ? (
+              <div key={item.id} className="mobile-record-card">
+                <h3 className="mobile-record-card__title">
+                  {item.user.name || item.user.email}
+                </h3>
+
+                <div className="mobile-record-card__grid">
+                  <div className="mobile-record-row">
+                    <strong>Email</strong>
+                    <span>{item.user.email}</span>
+                  </div>
+                  <div className="mobile-record-row">
+                    <strong>Role</strong>
+                    <span>{item.role}</span>
+                  </div>
+                </div>
+
+                {ownerMode && (
+                  <div className="mobile-actions" style={{ marginTop: 12 }}>
                     <select
                       value={item.role}
                       onChange={(e) => updateRole(item.id, e.target.value)}
-                      style={{ padding: 8 }}
                     >
-                      {roles.map((roleItem) => (
-                        <option key={roleItem} value={roleItem}>
-                          {roleItem}
+                      {roles.map((roleOption) => (
+                        <option key={roleOption} value={roleOption}>
+                          {roleOption}
                         </option>
                       ))}
                     </select>
-                  ) : (
-                    <span>-</span>
-                  )}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {ownerMode ? (
-                    <button type="button" onClick={() => removeAccess(item.id)}>
-                      Remove
+
+                    <button
+                      type="button"
+                      className="mobile-button mobile-button--danger"
+                      onClick={() => removeAccess(item.id)}
+                    >
+                      Remove Access
                     </button>
-                  ) : (
-                    <span>-</span>
-                  )}
-                </td>
-              </tr>
+                  </div>
+                )}
+              </div>
             ))}
-          </tbody>
-        </table>
-      )}
+          </div>
+        )}
+
+        <h2 className="mobile-section-title">Backup History</h2>
+        {backups.length === 0 ? (
+          <div className="mobile-card">
+            <p style={{ margin: 0 }}>No backup history found.</p>
+          </div>
+        ) : (
+          <div className="mobile-record-list">
+            {backups.map((backup) => (
+              <div key={backup.pathname} className="mobile-record-card">
+                <h3 className="mobile-record-card__title">{backup.pathname}</h3>
+
+                <div className="mobile-record-card__grid">
+                  <div className="mobile-record-row">
+                    <strong>Uploaded</strong>
+                    <span>{new Date(backup.uploadedAt).toLocaleString()}</span>
+                  </div>
+                  <div className="mobile-record-row">
+                    <strong>Size</strong>
+                    <span>{Math.round(backup.size / 1024)} KB</span>
+                  </div>
+                </div>
+
+                <div className="mobile-actions" style={{ marginTop: 12 }}>
+                  <a
+                    href={backup.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mobile-button mobile-button--secondary"
+                    style={{ textAlign: "center" }}
+                  >
+                    Open backup file
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -13,8 +13,9 @@ model User {
   password String
   name     String?
 
-  farmUsers  FarmUser[]
-  changeLogs ChangeLog[]
+  farmUsers   FarmUser[]
+  changeLogs  ChangeLog[]
+  nightChecks NightCheck[]
 }
 
 model Farm {
@@ -22,50 +23,208 @@ model Farm {
   name String
   code String
 
-  houses     House[]
-  crops      Crop[]
-  farmUsers  FarmUser[]
-  changeLogs ChangeLog[]
+  houses        House[]
+  crops         Crop[]
+  farmUsers     FarmUser[]
+  changeLogs    ChangeLog[]
+  feedRecords   FeedRecord[]
+  nightChecks   NightCheck[]
+  documents     FarmDocument[]
 }
 
 model House {
-  id          String @id @default(cuid())
-  farmId      String
-  name        String
-  floorAreaM2 Float
-
-  farm       Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  placements CropHousePlacement[]
-  daily      DailyRecord[]
-}
-
-model Crop {
-  id            String    @id @default(cuid())
-  farmId        String
-  cropNumber    String
-  placementDate DateTime
-  breed         String?
-  hatchery      String?
-  status        String    @default("ACTIVE")
-  finishDate    DateTime?
+  id                        String  @id @default(cuid())
+  farmId                    String
+  name                      String
+  code                      String?
+  floorAreaM2               Float
+  usableAreaM2              Float?
+  defaultCapacityBirds      Int     @default(0)
+  defaultDrinkerLineCount   Int     @default(0)
+  defaultNippleCount        Int     @default(0)
+  defaultFeederPanCount     Int     @default(0)
+  defaultFanCount           Int     @default(0)
+  defaultHeaterCount        Int     @default(0)
+  defaultMinTempC           Float?
+  defaultMaxTempC           Float?
+  defaultTargetHumidityPct  Float?
+  defaultMaxCo2Ppm          Int?
+  defaultMaxAmmoniaPpm      Float?
+  notes                     String?
 
   farm         Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
   placements   CropHousePlacement[]
   daily        DailyRecord[]
-  avaraExports AvaraExport[]
-  medications  MedicationRecord[]
+  cropConfigs  CropHouseConfig[]
+  feedRecords  FeedRecord[]
+  nightChecks  NightCheck[]
+
+  @@unique([farmId, code])
+}
+
+model Crop {
+  id                    String    @id @default(cuid())
+  farmId                String
+  cropNumber            String
+  placementDate         DateTime
+  breed                 String?
+  hatchery              String?
+  status                String    @default("ACTIVE")
+  finishDate            DateTime?
+
+  chickenPricePerKg     Float?
+  salePricePerKgAllIn   Float?
+  currency              String?   @default("GBP")
+
+  finalBirdsSold        Int?
+  finalAvgWeightKg      Float?
+  finalRevenueGbp       Float?
+  finalNotes            String?
+
+  notes                 String?
+
+  farm             Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  placements       CropHousePlacement[]
+  daily            DailyRecord[]
+  avaraExports     AvaraExport[]
+  medications      MedicationRecord[]
+  cropHouseConfigs CropHouseConfig[]
+  feedRecords      FeedRecord[]
+  nightChecks      NightCheck[]
 
   @@unique([farmId, cropNumber])
 }
 
+model FeedRecord {
+  id                    String   @id @default(cuid())
+  farmId                String
+  cropId                String
+  houseId               String?
+  date                  DateTime
+  feedProduct           String
+  feedKg                Float    @default(0)
+  wheatKg               Float    @default(0)
+  ticketNumber          String
+  feedPricePerTonneGbp  Float?
+  wheatPricePerTonneGbp Float?
+  supplier              String?
+  notes                 String?
+  createdAt             DateTime @default(now())
+
+  farm  Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  crop  Crop   @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  house House? @relation(fields: [houseId], references: [id], onDelete: SetNull)
+
+  @@index([cropId])
+  @@index([date])
+}
+
+model NightCheck {
+  id               String   @id @default(cuid())
+  farmId           String
+  cropId           String
+  houseId          String
+  checkedByUserId  String?
+  date             DateTime
+  checkTime        String?
+  checkedByName    String?
+
+  temperatureMinC  Float?
+  temperatureMaxC  Float?
+  humidityPct      Float?
+  co2Ppm           Int?
+  ammoniaPpm       Float?
+
+  litterScore      Int?
+  wetAreas         Boolean  @default(false)
+  capping          Boolean  @default(false)
+  litterNotes      String?
+
+  waterSystemOk    Boolean  @default(false)
+  feedSystemOk     Boolean  @default(false)
+  ventilationOk    Boolean  @default(false)
+  alarmOk          Boolean  @default(false)
+  generatorOk      Boolean  @default(false)
+  lightingOk       Boolean  @default(false)
+
+  birdsOk          Boolean  @default(false)
+  cropFillOk       Boolean  @default(false)
+  unusualBehaviour Boolean  @default(false)
+  comments         String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  farm          Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  crop          Crop   @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  house         House  @relation(fields: [houseId], references: [id], onDelete: Cascade)
+  checkedByUser User?  @relation(fields: [checkedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([cropId, houseId, date])
+  @@index([farmId, date])
+  @@index([cropId, date])
+}
+
+model FarmDocument {
+  id                  String   @id @default(cuid())
+  farmId              String
+  title               String
+  documentType        String
+  status              String   @default("ACTIVE")
+  documentFormat      String   @default("ELECTRONIC")
+  electronicCopy      Boolean  @default(true)
+  officeCopy          Boolean  @default(false)
+  gateHouseCopy       Boolean  @default(false)
+  issueDate           DateTime?
+  expiryDate          DateTime?
+  nextReviewDate      DateTime?
+  fileUrl             String?
+  originalFileName    String?
+  storedFileName      String?
+  mimeType            String?
+  referenceNo         String?
+  issuer              String?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId, status])
+  @@index([farmId, documentType])
+  @@index([expiryDate])
+  @@index([nextReviewDate])
+}
+
+model CropHouseConfig {
+  id                      String  @id @default(cuid())
+  cropId                  String
+  houseId                 String
+  activeFloorAreaM2       Float?
+  activeCapacityBirds     Int?
+  activeDrinkerLineCount  Int?
+  activeNippleCount       Int?
+  activeFeederPanCount    Int?
+  activeFanCount          Int?
+  activeHeaterCount       Int?
+  notes                   String?
+
+  crop  Crop  @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  house House @relation(fields: [houseId], references: [id], onDelete: Cascade)
+
+  @@unique([cropId, houseId])
+}
+
 model CropHousePlacement {
-  id            String   @id @default(cuid())
-  cropId        String
-  houseId       String
-  placementDate DateTime
-  hatchery      String?
-  flockNumber   String?
-  birdsPlaced   Int
+  id             String   @id @default(cuid())
+  cropId         String
+  houseId        String
+  placementDate  DateTime
+  hatchery       String?
+  flockNumber    String?
+  birdsPlaced    Int
+  parentAgeWeeks Int?
+  notes          String?
 
   crop  Crop  @relation(fields: [cropId], references: [id], onDelete: Cascade)
   house House @relation(fields: [houseId], references: [id], onDelete: Cascade)
@@ -150,7 +309,4 @@ model ChangeLog {
 
   farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([farmId])
-  @@index([createdAt])
 }

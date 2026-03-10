@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
     const houses = await prisma.house.findMany({
       where: { farmId },
-      orderBy: { name: "asc" },
+      orderBy: [{ name: "asc" }],
     });
 
     return NextResponse.json(houses);

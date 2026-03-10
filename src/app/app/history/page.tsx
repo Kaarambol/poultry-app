@@ -108,29 +108,45 @@ export default function HistoryPage() {
   async function loadCropDetails(selectedCropId: string) {
     const r = await fetch(`/api/crops/details?cropId=${selectedCropId}`);
     const data = await r.json();
-    if (r.ok) setCropDetails(data);
-    else setCropDetails(null);
+
+    if (r.ok) {
+      setCropDetails(data);
+    } else {
+      setCropDetails(null);
+    }
   }
 
   async function loadDaily(selectedCropId: string) {
     const r = await fetch(`/api/daily-records/list?cropId=${selectedCropId}`);
     const data = await r.json();
-    if (Array.isArray(data)) setRecords(data);
-    else setRecords([]);
+
+    if (Array.isArray(data)) {
+      setRecords(data);
+    } else {
+      setRecords([]);
+    }
   }
 
   async function loadMedications(selectedCropId: string) {
     const r = await fetch(`/api/medications/list?cropId=${selectedCropId}`);
     const data = await r.json();
-    if (Array.isArray(data)) setMedications(data);
-    else setMedications([]);
+
+    if (Array.isArray(data)) {
+      setMedications(data);
+    } else {
+      setMedications([]);
+    }
   }
 
   async function loadExports(selectedCropId: string) {
     const r = await fetch(`/api/avara/history?cropId=${selectedCropId}`);
     const data = await r.json();
-    if (Array.isArray(data)) setExportsList(data);
-    else setExportsList([]);
+
+    if (Array.isArray(data)) {
+      setExportsList(data);
+    } else {
+      setExportsList([]);
+    }
   }
 
   useEffect(() => {
@@ -219,161 +235,251 @@ export default function HistoryPage() {
   }, [houseSummary]);
 
   return (
-    <div style={{ maxWidth: 1100, margin: "40px auto", fontFamily: "sans-serif" }}>
-      <h1>History</h1>
+    <div className="mobile-page">
+      <div className="page-shell">
+        <div className="page-intro">
+          <div className="page-intro__meta-card">
+            <div className="page-intro__eyebrow">Archive and review</div>
+            <h1 className="page-intro__title">History</h1>
+            <p className="page-intro__subtitle">
+              Review finished crops, daily records, medication history and export files.
+            </p>
+          </div>
 
-      {currentFarmId && (
-        <p>
-          <strong>Current Farm:</strong> {farmName || currentFarmId}
-        </p>
-      )}
+          <div className="page-intro__meta">
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Current farm</div>
+              <div>{currentFarmId ? farmName || currentFarmId : "-"}</div>
+            </div>
 
-      <label>Select finished crop</label>
-      <select
-        value={cropId}
-        onChange={(e) => setCropId(e.target.value)}
-        style={{ width: "100%", padding: 10, margin: "6px 0 20px" }}
-      >
-        <option value="">-- choose finished crop --</option>
-        {crops.map((crop) => (
-          <option key={crop.id} value={crop.id}>
-            Crop {crop.cropNumber}
-            {crop.finishDate ? ` - finished ${new Date(crop.finishDate).toLocaleDateString()}` : ""}
-          </option>
-        ))}
-      </select>
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">History items</div>
+              <div>Finished crops: {crops.length}</div>
+              <div style={{ marginTop: 6 }}>Selected crop: {cropId || "-"}</div>
+            </div>
+          </div>
+        </div>
 
-      {msg && <p>{msg}</p>}
+        <div className="mobile-card">
+          <h2>Select Finished Crop</h2>
+          <label>Choose crop</label>
+          <select value={cropId} onChange={(e) => setCropId(e.target.value)}>
+            <option value="">-- choose finished crop --</option>
+            {crops.map((crop) => (
+              <option key={crop.id} value={crop.id}>
+                Crop {crop.cropNumber}
+                {crop.finishDate
+                  ? ` - finished ${new Date(crop.finishDate).toLocaleDateString()}`
+                  : ""}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      {cropId && cropDetails && (
-        <>
-          <h2>Crop Summary</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Birds placed</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Mort</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Culls</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Total losses</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Birds alive</th>
-                <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Mortality %</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{totals.birdsPlaced}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{totals.mort}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{totals.culls}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{totals.totalLosses}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{totals.birdsAlive}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {totals.mortalityPct.toFixed(2)}%
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        {msg && (
+          <div className="mobile-alert" style={{ marginBottom: 16 }}>
+            {msg}
+          </div>
+        )}
 
-          <h2>Daily Records</h2>
-          {records.length === 0 ? (
-            <p>No daily records.</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Date</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>House</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Mort</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Culls</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Feed kg</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Water L</th>
-                </tr>
-              </thead>
-              <tbody>
+        {cropId && cropDetails && (
+          <>
+            <div className="mobile-card">
+              <h2>Crop Summary</h2>
+              <div className="mobile-kpi-grid">
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Birds placed</div>
+                  <div className="mobile-kpi__value">{totals.birdsPlaced}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Mort</div>
+                  <div className="mobile-kpi__value">{totals.mort}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Culls</div>
+                  <div className="mobile-kpi__value">{totals.culls}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Total losses</div>
+                  <div className="mobile-kpi__value">{totals.totalLosses}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Birds alive</div>
+                  <div className="mobile-kpi__value">{totals.birdsAlive}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Mortality %</div>
+                  <div className="mobile-kpi__value">{totals.mortalityPct.toFixed(2)}%</div>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="mobile-section-title">House Summary</h2>
+            {houseSummary.length === 0 ? (
+              <div className="mobile-card">
+                <p style={{ margin: 0 }}>No house summary available.</p>
+              </div>
+            ) : (
+              <div className="mobile-record-list">
+                {houseSummary.map((house) => (
+                  <div key={house.houseName} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">{house.houseName}</h3>
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row">
+                        <strong>Birds placed</strong>
+                        <span>{house.birdsPlaced}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Mort</strong>
+                        <span>{house.mort}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Culls</strong>
+                        <span>{house.culls}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Total losses</strong>
+                        <span>{house.totalLosses}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Birds alive</strong>
+                        <span>{house.birdsAlive}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Mortality %</strong>
+                        <span>{house.mortalityPct.toFixed(2)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <h2 className="mobile-section-title">Daily Records</h2>
+            {records.length === 0 ? (
+              <div className="mobile-card">
+                <p style={{ margin: 0 }}>No daily records.</p>
+              </div>
+            ) : (
+              <div className="mobile-record-list">
                 {records.map((record) => (
-                  <tr key={record.id}>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {new Date(record.date).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.house.name}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.mort}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.culls}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.feedKg}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.waterL}</td>
-                  </tr>
+                  <div key={record.id} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">
+                      {record.house.name} · {new Date(record.date).toLocaleDateString()}
+                    </h3>
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row">
+                        <strong>Mort</strong>
+                        <span>{record.mort}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Culls</strong>
+                        <span>{record.culls}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Feed kg</strong>
+                        <span>{record.feedKg}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Water L</strong>
+                        <span>{record.waterL}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Weight g</strong>
+                        <span>{record.avgWeightG ?? "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Notes</strong>
+                        <span>{record.notes || "-"}</span>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          )}
+              </div>
+            )}
 
-          <h2>Medication Records</h2>
-          {medications.length === 0 ? (
-            <p>No medication records.</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Start Date</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Medicine</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Supplier</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Houses</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Birds</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Print</th>
-                </tr>
-              </thead>
-              <tbody>
+            <h2 className="mobile-section-title">Medication Records</h2>
+            {medications.length === 0 ? (
+              <div className="mobile-card">
+                <p style={{ margin: 0 }}>No medication records.</p>
+              </div>
+            ) : (
+              <div className="mobile-record-list">
                 {medications.map((record) => (
-                  <tr key={record.id}>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {new Date(record.startDate).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.medicineName}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.supplier || "-"}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.housesTreated || "-"}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{record.birdsTreated ?? "-"}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      <a href={`/app/medication/print?id=${record.id}`} target="_blank" rel="noreferrer">
-                        Print
-                      </a>
-                    </td>
-                  </tr>
+                  <div key={record.id} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">
+                      {record.medicineName} · {new Date(record.startDate).toLocaleDateString()}
+                    </h3>
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row">
+                        <strong>Supplier</strong>
+                        <span>{record.supplier || "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Houses treated</strong>
+                        <span>{record.housesTreated || "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Birds treated</strong>
+                        <span>{record.birdsTreated ?? "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Finish date</strong>
+                        <span>
+                          {record.finishDate
+                            ? new Date(record.finishDate).toLocaleDateString()
+                            : "-"}
+                        </span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Administrator</strong>
+                        <span>{record.administratorName || "-"}</span>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          )}
+              </div>
+            )}
 
-          <h2>Avara Export History</h2>
-          {exportsList.length === 0 ? (
-            <p>No Avara exports.</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Stage</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>File</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Created</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>Download</th>
-                </tr>
-              </thead>
-              <tbody>
+            <h2 className="mobile-section-title">Avara Export History</h2>
+            {exportsList.length === 0 ? (
+              <div className="mobile-card">
+                <p style={{ margin: 0 }}>No export history.</p>
+              </div>
+            ) : (
+              <div className="mobile-record-list">
                 {exportsList.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.stage}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{item.fileName}</td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {new Date(item.createdAt).toLocaleString()}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      <a href={item.filePath} target="_blank" rel="noreferrer">
-                        Download
+                  <div key={item.id} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">{item.fileName}</h3>
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row">
+                        <strong>Stage</strong>
+                        <span>{item.stage}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Created</strong>
+                        <span>{new Date(item.createdAt).toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="mobile-actions" style={{ marginTop: 12 }}>
+                      <a
+                        href={item.filePath}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mobile-button mobile-button--secondary"
+                        style={{ textAlign: "center" }}
+                      >
+                        Open export
                       </a>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          )}
-        </>
-      )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

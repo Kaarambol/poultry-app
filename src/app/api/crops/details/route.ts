@@ -16,11 +16,8 @@ export async function GET(req: Request) {
     const crop = await prisma.crop.findUnique({
       where: { id: cropId },
       include: {
-        placements: {
-          include: {
-            house: true,
-          },
-        },
+        placements: { include: { house: true } },
+        cropHouseConfigs: { include: { house: true } },
       },
     });
 
@@ -31,37 +28,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const grouped: Record<
-      string,
-      {
-        house: {
-          id: string;
-          name: string;
-        };
-        birdsPlaced: number;
-      }
-    > = {};
-
-    for (const placement of crop.placements) {
-      if (!grouped[placement.houseId]) {
-        grouped[placement.houseId] = {
-          house: {
-            id: placement.house.id,
-            name: placement.house.name,
-          },
-          birdsPlaced: 0,
-        };
-      }
-
-      grouped[placement.houseId].birdsPlaced += placement.birdsPlaced;
-    }
-
-    return NextResponse.json({
-      id: crop.id,
-      cropNumber: crop.cropNumber,
-      placementDate: crop.placementDate,
-      placements: Object.values(grouped),
-    });
+    return NextResponse.json(crop);
   } catch (error) {
     console.error("CROP DETAILS ERROR:", error);
     return NextResponse.json(

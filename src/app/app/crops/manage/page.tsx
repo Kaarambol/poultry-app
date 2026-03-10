@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getCurrentFarmId } from "@/lib/app-context";
 
 type Farm = {
@@ -24,6 +24,7 @@ export default function ManageCropsPage() {
   const [farmName, setFarmName] = useState("");
   const [crops, setCrops] = useState<Crop[]>([]);
   const [msg, setMsg] = useState("Loading...");
+  const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
 
   async function loadFarmName(farmId: string) {
     const r = await fetch("/api/farms/list");
@@ -44,6 +45,7 @@ export default function ManageCropsPage() {
     const data = await r.json();
 
     if (!r.ok) {
+      setMsgType("error");
       setMsg(data.error || "Error loading crops.");
       setCrops([]);
       return;
@@ -51,6 +53,7 @@ export default function ManageCropsPage() {
 
     if (Array.isArray(data)) {
       setCrops(data);
+      setMsgType("info");
       setMsg(data.length === 0 ? "No crops for this farm yet." : "");
     } else {
       setCrops([]);
@@ -62,6 +65,7 @@ export default function ManageCropsPage() {
     const farmId = getCurrentFarmId();
 
     if (!farmId) {
+      setMsgType("info");
       setMsg("Choose a farm in the top menu first.");
       return;
     }
@@ -86,142 +90,168 @@ export default function ManageCropsPage() {
     const data = await r.json();
 
     if (!r.ok) {
+      setMsgType("error");
       setMsg(data.error || "Error");
       return;
     }
 
+    setMsgType("success");
     setMsg("Crop finished.");
     loadCrops(currentFarmId);
   }
 
-  const activeCrops = crops.filter((crop) => crop.status === "ACTIVE");
-  const finishedCrops = crops.filter((crop) => crop.status === "FINISHED");
+  const activeCrops = useMemo(
+    () => crops.filter((crop) => crop.status === "ACTIVE"),
+    [crops]
+  );
+
+  const finishedCrops = useMemo(
+    () => crops.filter((crop) => crop.status === "FINISHED"),
+    [crops]
+  );
+
+  const alertClass =
+    msgType === "error"
+      ? "mobile-alert mobile-alert--error"
+      : msgType === "success"
+      ? "mobile-alert mobile-alert--success"
+      : "mobile-alert";
 
   return (
-    <div style={{ maxWidth: 1000, margin: "40px auto", fontFamily: "sans-serif" }}>
-      <h1>Manage Crops</h1>
+    <div className="mobile-page">
+      <div className="page-shell">
+        <div className="page-intro">
+          <div className="page-intro__meta-card">
+            <div className="page-intro__eyebrow">Lifecycle control</div>
+            <h1 className="page-intro__title">Manage Crops</h1>
+            <p className="page-intro__subtitle">
+              Review active and finished production cycles for the selected farm.
+            </p>
+          </div>
 
-      {currentFarmId && (
-        <p>
-          <strong>Current Farm:</strong> {farmName || currentFarmId}
-        </p>
-      )}
+          <div className="page-intro__meta">
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Current farm</div>
+              <div>{currentFarmId ? farmName || currentFarmId : "-"}</div>
+            </div>
 
-      {msg && <p>{msg}</p>}
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Overview</div>
+              <div>Active: {activeCrops.length}</div>
+              <div style={{ marginTop: 6 }}>Finished: {finishedCrops.length}</div>
+            </div>
+          </div>
+        </div>
 
-      {currentFarmId && (
-        <>
-          <h2>Active Crops</h2>
-          {activeCrops.length === 0 ? (
-            <p>No active crops.</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 30 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Crop
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Placement Date
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Breed
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Hatchery
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Status
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeCrops.map((crop) => (
-                  <tr key={crop.id}>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {crop.cropNumber}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+        {msg && (
+          <div className={alertClass} style={{ marginBottom: 16 }}>
+            {msg}
+          </div>
+        )}
+
+        <h2 className="mobile-section-title">Active Crops</h2>
+
+        {activeCrops.length === 0 ? (
+          <div className="mobile-card">
+            <p style={{ margin: 0 }}>No active crops.</p>
+          </div>
+        ) : (
+          <div className="mobile-record-list">
+            {activeCrops.map((crop) => (
+              <div key={crop.id} className="mobile-record-card">
+                <h3 className="mobile-record-card__title">
+                  Crop {crop.cropNumber}
+                </h3>
+
+                <div className="mobile-record-card__grid">
+                  <div className="mobile-record-row">
+                    <strong>Placement</strong>
+                    <span>
                       {new Date(crop.placementDate).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {crop.breed || "-"}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {crop.hatchery || "-"}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {crop.status}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      <button type="button" onClick={() => finishCrop(crop.id)}>
-                        Finish Crop
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                    </span>
+                  </div>
 
-          <h2>Finished Crops</h2>
-          {finishedCrops.length === 0 ? (
-            <p>No finished crops yet.</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Crop
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Placement Date
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Finish Date
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Breed
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Hatchery
-                  </th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {finishedCrops.map((crop) => (
-                  <tr key={crop.id}>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {crop.cropNumber}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
+                  <div className="mobile-record-row">
+                    <strong>Breed</strong>
+                    <span>{crop.breed || "-"}</span>
+                  </div>
+
+                  <div className="mobile-record-row">
+                    <strong>Hatchery</strong>
+                    <span>{crop.hatchery || "-"}</span>
+                  </div>
+
+                  <div className="mobile-record-row">
+                    <strong>Status</strong>
+                    <span>{crop.status}</span>
+                  </div>
+                </div>
+
+                <div className="mobile-actions" style={{ marginTop: 12 }}>
+                  <button
+                    type="button"
+                    className="mobile-button mobile-button--danger"
+                    onClick={() => finishCrop(crop.id)}
+                  >
+                    Finish Crop
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <h2 className="mobile-section-title">Finished Crops</h2>
+
+        {finishedCrops.length === 0 ? (
+          <div className="mobile-card">
+            <p style={{ margin: 0 }}>No finished crops yet.</p>
+          </div>
+        ) : (
+          <div className="mobile-record-list">
+            {finishedCrops.map((crop) => (
+              <div key={crop.id} className="mobile-record-card">
+                <h3 className="mobile-record-card__title">
+                  Crop {crop.cropNumber}
+                </h3>
+
+                <div className="mobile-record-card__grid">
+                  <div className="mobile-record-row">
+                    <strong>Placement</strong>
+                    <span>
                       {new Date(crop.placementDate).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {crop.finishDate ? new Date(crop.finishDate).toLocaleDateString() : "-"}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {crop.breed || "-"}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {crop.hatchery || "-"}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {crop.status}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </>
-      )}
+                    </span>
+                  </div>
+
+                  <div className="mobile-record-row">
+                    <strong>Finish date</strong>
+                    <span>
+                      {crop.finishDate
+                        ? new Date(crop.finishDate).toLocaleDateString()
+                        : "-"}
+                    </span>
+                  </div>
+
+                  <div className="mobile-record-row">
+                    <strong>Breed</strong>
+                    <span>{crop.breed || "-"}</span>
+                  </div>
+
+                  <div className="mobile-record-row">
+                    <strong>Hatchery</strong>
+                    <span>{crop.hatchery || "-"}</span>
+                  </div>
+
+                  <div className="mobile-record-row">
+                    <strong>Status</strong>
+                    <span>{crop.status}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

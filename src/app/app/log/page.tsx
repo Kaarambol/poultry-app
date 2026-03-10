@@ -82,73 +82,71 @@ export default function LogPage() {
   const ownerMode = isOwner(myRole);
 
   return (
-    <div style={{ maxWidth: 1100, margin: "40px auto", fontFamily: "sans-serif" }}>
-      <h1>Change Log</h1>
+    <div className="mobile-page">
+      <div className="page-shell">
+        <div className="page-intro">
+          <div className="page-intro__meta-card">
+            <div className="page-intro__eyebrow">Audit trail</div>
+            <h1 className="page-intro__title">Change Log</h1>
+            <p className="page-intro__subtitle">
+              Review who changed what and when across the selected farm.
+            </p>
+          </div>
 
-      {currentFarmId && (
-        <p>
-          <strong>Current Farm:</strong> {farmName || currentFarmId}
-        </p>
-      )}
+          <div className="page-intro__meta">
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Current farm</div>
+              <div>{currentFarmId ? farmName || currentFarmId : "-"}</div>
+            </div>
 
-      <p>
-        <strong>Your role:</strong> {myRole || "-"}
-      </p>
+            <div className="page-intro__meta-card">
+              <div className="page-intro__eyebrow">Access</div>
+              <div>Your role: {myRole || "-"}</div>
+              <div style={{ marginTop: 6 }}>Entries: {logs.length}</div>
+            </div>
+          </div>
+        </div>
 
-      {!ownerMode && (
-        <p
-          style={{
-            padding: 12,
-            borderRadius: 8,
-            background: "#fff8e1",
-            border: "1px solid #ffe082",
-            color: "#7a5d00",
-          }}
-        >
-          Only OWNER can view the full change log.
-        </p>
-      )}
+        {!ownerMode && (
+          <div className="mobile-alert mobile-alert--warning" style={{ marginBottom: 16 }}>
+            Only OWNER can view the full change log.
+          </div>
+        )}
 
-      {msg && <p>{msg}</p>}
+        {msg && (
+          <div className="mobile-alert" style={{ marginBottom: 16 }}>
+            {msg}
+          </div>
+        )}
 
-      {ownerMode && logs.length > 0 && (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                Time
-              </th>
-              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                User
-              </th>
-              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                Action
-              </th>
-              <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ccc" }}>
-                Description
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map((item) => (
-              <tr key={item.id}>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {new Date(item.createdAt).toLocaleString()}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {item.user.name || item.user.email}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {item.action}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                  {item.description}
-                </td>
-              </tr>
+        {ownerMode && logs.length > 0 && (
+          <div className="mobile-record-list">
+            {logs.map((log) => (
+              <div key={log.id} className="mobile-record-card">
+                <h3 className="mobile-record-card__title">{log.action}</h3>
+                <div className="mobile-record-card__grid">
+                  <div className="mobile-record-row">
+                    <strong>Time</strong>
+                    <span>{new Date(log.createdAt).toLocaleString()}</span>
+                  </div>
+                  <div className="mobile-record-row">
+                    <strong>User</strong>
+                    <span>{log.user.name || log.user.email}</span>
+                  </div>
+                  <div className="mobile-record-row">
+                    <strong>Email</strong>
+                    <span>{log.user.email}</span>
+                  </div>
+                  <div className="mobile-record-row">
+                    <strong>Description</strong>
+                    <span>{log.description}</span>
+                  </div>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
