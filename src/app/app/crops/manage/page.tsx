@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentFarmId } from "@/lib/app-context";
 
@@ -188,6 +189,13 @@ export default function ManageCropsPage() {
                 </div>
 
                 <div className="mobile-actions" style={{ marginTop: 12 }}>
+                  <Link
+                    href={`/app/crops/edit/${crop.id}`}
+                    className="mobile-button mobile-button--secondary"
+                  >
+                    Edit
+                  </Link>
+
                   <button
                     type="button"
                     className="mobile-button mobile-button--danger"

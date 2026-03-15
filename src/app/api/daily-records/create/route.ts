@@ -3,6 +3,18 @@ import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canOperate } from "@/lib/permissions";
 import { writeChangeLog } from "@/lib/change-log";
 
+function parseOptionalFloat(value: unknown) {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseOptionalInt(value: unknown) {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const uid = req.cookies.get("uid")?.value;
@@ -21,13 +33,24 @@ export async function POST(req: NextRequest) {
     const date = String(body.date || "").trim();
 
     const mort = Number(body.mort || 0);
-    const culls = Number(body.culls || 0);
+
+    const cullsSmall = Number(body.cullsSmall || 0);
+    const cullsLeg = Number(body.cullsLeg || 0);
+    const culls = cullsSmall + cullsLeg;
+
     const feedKg = Number(body.feedKg || 0);
     const waterL = Number(body.waterL || 0);
-    const avgWeightG =
-      body.avgWeightG === "" || body.avgWeightG === null || body.avgWeightG === undefined
-        ? null
-        : Number(body.avgWeightG);
+
+    const avgWeightG = parseOptionalFloat(body.avgWeightG);
+    const weightPercent = parseOptionalFloat(body.weightPercent);
+
+    const temperatureMinC = parseOptionalFloat(body.temperatureMinC);
+    const temperatureMaxC = parseOptionalFloat(body.temperatureMaxC);
+    const humidityMinPct = parseOptionalFloat(body.humidityMinPct);
+    const humidityMaxPct = parseOptionalFloat(body.humidityMaxPct);
+    const co2MinPpm = parseOptionalInt(body.co2MinPpm);
+    const co2MaxPpm = parseOptionalInt(body.co2MaxPpm);
+
     const notes = String(body.notes || "").trim();
 
     if (!cropId || !houseId || !date) {
@@ -37,15 +60,70 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (mort < 0 || culls < 0 || feedKg < 0 || waterL < 0 || (avgWeightG !== null && avgWeightG < 0)) {
+    if (
+      mort < 0 ||
+      cullsSmall < 0 ||
+      cullsLeg < 0 ||
+      feedKg < 0 ||
+      waterL < 0 ||
+      (avgWeightG !== null && avgWeightG < 0) ||
+      (weightPercent !== null && weightPercent < 0) ||
+      (temperatureMinC !== null && temperatureMinC < 0) ||
+      (temperatureMaxC !== null && temperatureMaxC < 0) ||
+      (humidityMinPct !== null && humidityMinPct < 0) ||
+      (humidityMaxPct !== null && humidityMaxPct < 0) ||
+      (co2MinPpm !== null && co2MinPpm < 0) ||
+      (co2MaxPpm !== null && co2MaxPpm < 0)
+    ) {
       return NextResponse.json(
         { error: "Values cannot be negative." },
         { status: 400 }
       );
     }
 
+    if (
+      temperatureMinC !== null &&
+      temperatureMaxC !== null &&
+      temperatureMinC > temperatureMaxC
+    ) {
+      return NextResponse.json(
+        { error: "Temperature min cannot be greater than temperature max." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      humidityMinPct !== null &&
+      humidityMaxPct !== null &&
+      humidityMinPct > humidityMaxPct
+    ) {
+      return NextResponse.json(
+        { error: "Humidity min cannot be greater than humidity max." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      co2MinPpm !== null &&
+      co2MaxPpm !== null &&
+      co2MinPpm > co2MaxPpm
+    ) {
+      return NextResponse.json(
+        { error: "CO2 min cannot be greater than CO2 max." },
+        { status: 400 }
+      );
+    }
+
     const crop = await prisma.crop.findUnique({
       where: { id: cropId },
+      include: {
+        placements: {
+          where: {
+            houseId,
+            isActive: true,
+          },
+        },
+      },
     });
 
     if (!crop) {
@@ -74,12 +152,24 @@ export async function POST(req: NextRequest) {
     const recordDate = new Date(date);
     const placementDate = new Date(crop.placementDate);
 
+    if (Number.isNaN(recordDate.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid daily record date." },
+        { status: 400 }
+      );
+    }
+
     if (recordDate < placementDate) {
       return NextResponse.json(
         { error: "Daily record date cannot be earlier than placement date." },
         { status: 400 }
       );
     }
+
+    const birdsTotal = crop.placements.reduce(
+      (sum, placement) => sum + placement.birdsPlaced,
+      0
+    );
 
     const existing = await prisma.dailyRecord.findUnique({
       where: {
@@ -103,11 +193,21 @@ export async function POST(req: NextRequest) {
         cropId,
         houseId,
         date: new Date(date),
+        birdsTotal,
         mort,
+        cullsSmall,
+        cullsLeg,
         culls,
         feedKg,
         waterL,
         avgWeightG,
+        weightPercent,
+        temperatureMinC,
+        temperatureMaxC,
+        humidityMinPct,
+        humidityMaxPct,
+        co2MinPpm,
+        co2MaxPpm,
         notes: notes || null,
       },
       include: {
@@ -122,9 +222,10 @@ export async function POST(req: NextRequest) {
       description: `Created daily record for ${record.house.name} on ${new Date(record.date).toLocaleDateString()}.`,
     });
 
-    return NextResponse.json(record);
+    return NextResponse.json(record, { status: 201 });
   } catch (error) {
     console.error("CREATE DAILY RECORD ERROR:", error);
+
     return NextResponse.json(
       { error: "Server error while creating daily record." },
       { status: 500 }

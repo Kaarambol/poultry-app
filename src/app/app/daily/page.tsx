@@ -35,9 +35,18 @@ type DailyRecord = {
   date: string;
   mort: number;
   culls: number;
+  cullsSmall: number;
+  cullsLeg: number;
   feedKg: number;
   waterL: number;
   avgWeightG: number | null;
+  weightPercent: number | null;
+  temperatureMinC: number | null;
+  temperatureMaxC: number | null;
+  humidityMinPct: number | null;
+  humidityMaxPct: number | null;
+  co2MinPpm: number | null;
+  co2MaxPpm: number | null;
   notes: string | null;
   houseId: string;
   house: {
@@ -69,10 +78,19 @@ export default function DailyPage() {
 
   const [date, setDate] = useState("");
   const [mort, setMort] = useState("");
-  const [culls, setCulls] = useState("");
+  const [cullsSmall, setCullsSmall] = useState("");
+  const [cullsLeg, setCullsLeg] = useState("");
   const [feedKg, setFeedKg] = useState("");
   const [waterL, setWaterL] = useState("");
   const [avgWeightG, setAvgWeightG] = useState("");
+
+  const [temperatureMinC, setTemperatureMinC] = useState("");
+  const [temperatureMaxC, setTemperatureMaxC] = useState("");
+  const [humidityMinPct, setHumidityMinPct] = useState("");
+  const [humidityMaxPct, setHumidityMaxPct] = useState("");
+  const [co2MinPpm, setCo2MinPpm] = useState("");
+  const [co2MaxPpm, setCo2MaxPpm] = useState("");
+
   const [notes, setNotes] = useState("");
 
   const [records, setRecords] = useState<DailyRecord[]>([]);
@@ -198,29 +216,62 @@ export default function DailyPage() {
     if (!date) return "Choose a date.";
 
     const mortNum = Number(mort || 0);
-    const cullsNum = Number(culls || 0);
+    const cullsSmallNum = Number(cullsSmall || 0);
+    const cullsLegNum = Number(cullsLeg || 0);
     const feedNum = Number(feedKg || 0);
     const waterNum = Number(waterL || 0);
     const weightNum = avgWeightG === "" ? null : Number(avgWeightG);
+    const tempMinNum = temperatureMinC === "" ? null : Number(temperatureMinC);
+    const tempMaxNum = temperatureMaxC === "" ? null : Number(temperatureMaxC);
+    const humMinNum = humidityMinPct === "" ? null : Number(humidityMinPct);
+    const humMaxNum = humidityMaxPct === "" ? null : Number(humidityMaxPct);
+    const co2MinNum = co2MinPpm === "" ? null : Number(co2MinPpm);
+    const co2MaxNum = co2MaxPpm === "" ? null : Number(co2MaxPpm);
 
     if (
       Number.isNaN(mortNum) ||
-      Number.isNaN(cullsNum) ||
+      Number.isNaN(cullsSmallNum) ||
+      Number.isNaN(cullsLegNum) ||
       Number.isNaN(feedNum) ||
       Number.isNaN(waterNum) ||
-      (weightNum !== null && Number.isNaN(weightNum))
+      (weightNum !== null && Number.isNaN(weightNum)) ||
+      (tempMinNum !== null && Number.isNaN(tempMinNum)) ||
+      (tempMaxNum !== null && Number.isNaN(tempMaxNum)) ||
+      (humMinNum !== null && Number.isNaN(humMinNum)) ||
+      (humMaxNum !== null && Number.isNaN(humMaxNum)) ||
+      (co2MinNum !== null && Number.isNaN(co2MinNum)) ||
+      (co2MaxNum !== null && Number.isNaN(co2MaxNum))
     ) {
       return "Numeric fields must contain valid numbers.";
     }
 
     if (
       mortNum < 0 ||
-      cullsNum < 0 ||
+      cullsSmallNum < 0 ||
+      cullsLegNum < 0 ||
       feedNum < 0 ||
       waterNum < 0 ||
-      (weightNum !== null && weightNum < 0)
+      (weightNum !== null && weightNum < 0) ||
+      (tempMinNum !== null && tempMinNum < 0) ||
+      (tempMaxNum !== null && tempMaxNum < 0) ||
+      (humMinNum !== null && humMinNum < 0) ||
+      (humMaxNum !== null && humMaxNum < 0) ||
+      (co2MinNum !== null && co2MinNum < 0) ||
+      (co2MaxNum !== null && co2MaxNum < 0)
     ) {
       return "Values cannot be negative.";
+    }
+
+    if (tempMinNum !== null && tempMaxNum !== null && tempMinNum > tempMaxNum) {
+      return "Temperature min cannot be greater than temperature max.";
+    }
+
+    if (humMinNum !== null && humMaxNum !== null && humMinNum > humMaxNum) {
+      return "Humidity min cannot be greater than humidity max.";
+    }
+
+    if (co2MinNum !== null && co2MaxNum !== null && co2MinNum > co2MaxNum) {
+      return "CO2 min cannot be greater than CO2 max.";
     }
 
     if (cropDetails) {
@@ -257,10 +308,17 @@ export default function DailyPage() {
         houseId,
         date,
         mort: Number(mort || 0),
-        culls: Number(culls || 0),
+        cullsSmall: Number(cullsSmall || 0),
+        cullsLeg: Number(cullsLeg || 0),
         feedKg: Number(feedKg || 0),
         waterL: Number(waterL || 0),
         avgWeightG: avgWeightG === "" ? null : Number(avgWeightG),
+        temperatureMinC: temperatureMinC === "" ? null : Number(temperatureMinC),
+        temperatureMaxC: temperatureMaxC === "" ? null : Number(temperatureMaxC),
+        humidityMinPct: humidityMinPct === "" ? null : Number(humidityMinPct),
+        humidityMaxPct: humidityMaxPct === "" ? null : Number(humidityMaxPct),
+        co2MinPpm: co2MinPpm === "" ? null : Number(co2MinPpm),
+        co2MaxPpm: co2MaxPpm === "" ? null : Number(co2MaxPpm),
         notes,
       }),
     });
@@ -284,10 +342,17 @@ export default function DailyPage() {
     setHouseId(record.house.id);
     setDate(new Date(record.date).toISOString().slice(0, 10));
     setMort(String(record.mort));
-    setCulls(String(record.culls));
+    setCullsSmall(String(record.cullsSmall || 0));
+    setCullsLeg(String(record.cullsLeg || 0));
     setFeedKg(String(record.feedKg));
     setWaterL(String(record.waterL));
     setAvgWeightG(record.avgWeightG !== null ? String(record.avgWeightG) : "");
+    setTemperatureMinC(record.temperatureMinC !== null ? String(record.temperatureMinC) : "");
+    setTemperatureMaxC(record.temperatureMaxC !== null ? String(record.temperatureMaxC) : "");
+    setHumidityMinPct(record.humidityMinPct !== null ? String(record.humidityMinPct) : "");
+    setHumidityMaxPct(record.humidityMaxPct !== null ? String(record.humidityMaxPct) : "");
+    setCo2MinPpm(record.co2MinPpm !== null ? String(record.co2MinPpm) : "");
+    setCo2MaxPpm(record.co2MaxPpm !== null ? String(record.co2MaxPpm) : "");
     setNotes(record.notes || "");
     setMsg("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -319,10 +384,17 @@ export default function DailyPage() {
       body: JSON.stringify({
         id: editingId,
         mort: Number(mort || 0),
-        culls: Number(culls || 0),
+        cullsSmall: Number(cullsSmall || 0),
+        cullsLeg: Number(cullsLeg || 0),
         feedKg: Number(feedKg || 0),
         waterL: Number(waterL || 0),
         avgWeightG: avgWeightG === "" ? null : Number(avgWeightG),
+        temperatureMinC: temperatureMinC === "" ? null : Number(temperatureMinC),
+        temperatureMaxC: temperatureMaxC === "" ? null : Number(temperatureMaxC),
+        humidityMinPct: humidityMinPct === "" ? null : Number(humidityMinPct),
+        humidityMaxPct: humidityMaxPct === "" ? null : Number(humidityMaxPct),
+        co2MinPpm: co2MinPpm === "" ? null : Number(co2MinPpm),
+        co2MaxPpm: co2MaxPpm === "" ? null : Number(co2MaxPpm),
         notes,
       }),
     });
@@ -374,10 +446,17 @@ export default function DailyPage() {
 
   function clearFormButKeepContext() {
     setMort("");
-    setCulls("");
+    setCullsSmall("");
+    setCullsLeg("");
     setFeedKg("");
     setWaterL("");
     setAvgWeightG("");
+    setTemperatureMinC("");
+    setTemperatureMaxC("");
+    setHumidityMinPct("");
+    setHumidityMaxPct("");
+    setCo2MinPpm("");
+    setCo2MaxPpm("");
     setNotes("");
     setDate(new Date().toISOString().slice(0, 10));
   }
@@ -398,15 +477,18 @@ export default function DailyPage() {
 
     if (cropDetails) {
       for (const p of cropDetails.placements) {
-        grouped[p.house.id] = {
-          houseName: p.house.name,
-          birdsPlaced: p.birdsPlaced,
-          mort: 0,
-          culls: 0,
-          totalLosses: 0,
-          birdsAlive: p.birdsPlaced,
-          mortalityPct: 0,
-        };
+        if (!grouped[p.house.id]) {
+          grouped[p.house.id] = {
+            houseName: p.house.name,
+            birdsPlaced: 0,
+            mort: 0,
+            culls: 0,
+            totalLosses: 0,
+            birdsAlive: 0,
+            mortalityPct: 0,
+          };
+        }
+        grouped[p.house.id].birdsPlaced += p.birdsPlaced;
       }
     }
 
@@ -503,7 +585,7 @@ export default function DailyPage() {
             <div className="page-intro__eyebrow">Daily operations</div>
             <h1 className="page-intro__title">Daily Entry</h1>
             <p className="page-intro__subtitle">
-              Add daily mortality, feed, water and weight data for the active crop.
+              Add daily mortality, feed, water, weight and environment data for the active crop.
             </p>
           </div>
 
@@ -527,6 +609,16 @@ export default function DailyPage() {
           </div>
         )}
 
+        <div className="mobile-card" style={{ marginBottom: 16 }}>
+          <h2>Crop Setup</h2>
+          <p style={{ marginTop: 0 }}>Manage thin and clear dates per house.</p>
+          <div className="mobile-actions">
+           <a href="/app/thin-clear" className="mobile-button mobile-button--secondary">
+            Thin / Clear Setup
+           </a>
+         </div>
+       </div>
+       
         <div className="mobile-card">
           <h2>{editingId ? "Edit Daily Record" : "Add Daily Record"}</h2>
 
@@ -564,75 +656,79 @@ export default function DailyPage() {
             <div className="mobile-grid mobile-grid--2">
               <div>
                 <label>Mort</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={mort}
-                  onChange={(e) => setMort(e.target.value)}
-                  disabled={!cropId || !canOperate}
-                />
+                <input type="number" min="0" value={mort} onChange={(e) => setMort(e.target.value)} disabled={!cropId || !canOperate} />
               </div>
 
               <div>
-                <label>Culls</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={culls}
-                  onChange={(e) => setCulls(e.target.value)}
-                  disabled={!cropId || !canOperate}
-                />
+                <label>Culls Small</label>
+                <input type="number" min="0" value={cullsSmall} onChange={(e) => setCullsSmall(e.target.value)} disabled={!cropId || !canOperate} />
+              </div>
+            </div>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Culls Leg</label>
+                <input type="number" min="0" value={cullsLeg} onChange={(e) => setCullsLeg(e.target.value)} disabled={!cropId || !canOperate} />
+              </div>
+
+              <div>
+                <label>Average weight (g)</label>
+                <input type="number" min="0" step="0.01" value={avgWeightG} onChange={(e) => setAvgWeightG(e.target.value)} disabled={!cropId || !canOperate} />
               </div>
             </div>
 
             <div className="mobile-grid mobile-grid--2">
               <div>
                 <label>Feed used (kg)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={feedKg}
-                  onChange={(e) => setFeedKg(e.target.value)}
-                  disabled={!cropId || !canOperate}
-                />
+                <input type="number" min="0" step="0.01" value={feedKg} onChange={(e) => setFeedKg(e.target.value)} disabled={!cropId || !canOperate} />
               </div>
 
               <div>
                 <label>Water used (L)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={waterL}
-                  onChange={(e) => setWaterL(e.target.value)}
-                  disabled={!cropId || !canOperate}
-                />
+                <input type="number" min="0" step="0.01" value={waterL} onChange={(e) => setWaterL(e.target.value)} disabled={!cropId || !canOperate} />
+              </div>
+            </div>
+
+            <h3 style={{ marginTop: 16, marginBottom: 10 }}>Environment</h3>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Temp min (°C)</label>
+                <input type="number" min="0" step="0.1" value={temperatureMinC} onChange={(e) => setTemperatureMinC(e.target.value)} disabled={!cropId || !canOperate} />
+              </div>
+
+              <div>
+                <label>Temp max (°C)</label>
+                <input type="number" min="0" step="0.1" value={temperatureMaxC} onChange={(e) => setTemperatureMaxC(e.target.value)} disabled={!cropId || !canOperate} />
               </div>
             </div>
 
             <div className="mobile-grid mobile-grid--2">
               <div>
-                <label>Average weight (g) - optional</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={avgWeightG}
-                  onChange={(e) => setAvgWeightG(e.target.value)}
-                  disabled={!cropId || !canOperate}
-                />
+                <label>Humidity min (%)</label>
+                <input type="number" min="0" step="0.1" value={humidityMinPct} onChange={(e) => setHumidityMinPct(e.target.value)} disabled={!cropId || !canOperate} />
               </div>
 
               <div>
-                <label>Notes</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  disabled={!cropId || !canOperate}
-                />
+                <label>Humidity max (%)</label>
+                <input type="number" min="0" step="0.1" value={humidityMaxPct} onChange={(e) => setHumidityMaxPct(e.target.value)} disabled={!cropId || !canOperate} />
               </div>
             </div>
+
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>CO2 min (ppm)</label>
+                <input type="number" min="0" value={co2MinPpm} onChange={(e) => setCo2MinPpm(e.target.value)} disabled={!cropId || !canOperate} />
+              </div>
+
+              <div>
+                <label>CO2 max (ppm)</label>
+                <input type="number" min="0" value={co2MaxPpm} onChange={(e) => setCo2MaxPpm(e.target.value)} disabled={!cropId || !canOperate} />
+              </div>
+            </div>
+
+            <label>Notes</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!cropId || !canOperate} />
 
             {canOperate && (
               <div className="mobile-sticky-actions">
@@ -667,30 +763,12 @@ export default function DailyPage() {
             <div className="mobile-card">
               <h2>Crop Summary</h2>
               <div className="mobile-kpi-grid">
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Birds placed</div>
-                  <div className="mobile-kpi__value">{totals.birdsPlaced}</div>
-                </div>
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Mort</div>
-                  <div className="mobile-kpi__value">{totals.mort}</div>
-                </div>
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Culls</div>
-                  <div className="mobile-kpi__value">{totals.culls}</div>
-                </div>
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Total losses</div>
-                  <div className="mobile-kpi__value">{totals.totalLosses}</div>
-                </div>
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Birds alive</div>
-                  <div className="mobile-kpi__value">{totals.birdsAlive}</div>
-                </div>
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Mortality %</div>
-                  <div className="mobile-kpi__value">{totals.mortalityPct.toFixed(2)}%</div>
-                </div>
+                <div className="mobile-kpi"><div className="mobile-kpi__label">Birds placed</div><div className="mobile-kpi__value">{totals.birdsPlaced}</div></div>
+                <div className="mobile-kpi"><div className="mobile-kpi__label">Mort</div><div className="mobile-kpi__value">{totals.mort}</div></div>
+                <div className="mobile-kpi"><div className="mobile-kpi__label">Culls</div><div className="mobile-kpi__value">{totals.culls}</div></div>
+                <div className="mobile-kpi"><div className="mobile-kpi__label">Total losses</div><div className="mobile-kpi__value">{totals.totalLosses}</div></div>
+                <div className="mobile-kpi"><div className="mobile-kpi__label">Birds alive</div><div className="mobile-kpi__value">{totals.birdsAlive}</div></div>
+                <div className="mobile-kpi"><div className="mobile-kpi__label">Mortality %</div><div className="mobile-kpi__value">{totals.mortalityPct.toFixed(2)}%</div></div>
               </div>
             </div>
 
@@ -700,70 +778,21 @@ export default function DailyPage() {
                 <p style={{ margin: 0 }}>No house placements found.</p>
               </div>
             ) : (
-              <>
-                <div className="mobile-record-list" style={{ marginBottom: 16 }}>
-                  {houseSummary.map((house) => (
-                    <div key={house.houseName} className="mobile-record-card">
-                      <h3 className="mobile-record-card__title">{house.houseName}</h3>
-                      <div className="mobile-record-card__grid">
-                        <div className="mobile-record-row">
-                          <strong>Birds placed</strong>
-                          <span>{house.birdsPlaced}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Mort</strong>
-                          <span>{house.mort}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Culls</strong>
-                          <span>{house.culls}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Total losses</strong>
-                          <span>{house.totalLosses}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Birds alive</strong>
-                          <span>{house.birdsAlive}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Mortality %</strong>
-                          <span>{house.mortalityPct.toFixed(2)}%</span>
-                        </div>
-                      </div>
+              <div className="mobile-record-list" style={{ marginBottom: 16 }}>
+                {houseSummary.map((house) => (
+                  <div key={house.houseName} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">{house.houseName}</h3>
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row"><strong>Birds placed</strong><span>{house.birdsPlaced}</span></div>
+                      <div className="mobile-record-row"><strong>Mort</strong><span>{house.mort}</span></div>
+                      <div className="mobile-record-row"><strong>Culls</strong><span>{house.culls}</span></div>
+                      <div className="mobile-record-row"><strong>Total losses</strong><span>{house.totalLosses}</span></div>
+                      <div className="mobile-record-row"><strong>Birds alive</strong><span>{house.birdsAlive}</span></div>
+                      <div className="mobile-record-row"><strong>Mortality %</strong><span>{house.mortalityPct.toFixed(2)}%</span></div>
                     </div>
-                  ))}
-                </div>
-
-                <div className="mobile-table-wrap hide-mobile">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>House</th>
-                        <th>Birds placed</th>
-                        <th>Mort</th>
-                        <th>Culls</th>
-                        <th>Total losses</th>
-                        <th>Birds alive</th>
-                        <th>Mortality %</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {houseSummary.map((house) => (
-                        <tr key={house.houseName}>
-                          <td>{house.houseName}</td>
-                          <td>{house.birdsPlaced}</td>
-                          <td>{house.mort}</td>
-                          <td>{house.culls}</td>
-                          <td>{house.totalLosses}</td>
-                          <td>{house.birdsAlive}</td>
-                          <td>{house.mortalityPct.toFixed(2)}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
+                  </div>
+                ))}
+              </div>
             )}
 
             <div className="mobile-card">
@@ -796,58 +825,26 @@ export default function DailyPage() {
                     </h3>
 
                     <div className="mobile-record-card__grid">
-                      <div className="mobile-record-row">
-                        <strong>Age day</strong>
-                        <span>{record.ageDays}</span>
-                      </div>
-                      <div className="mobile-record-row">
-                        <strong>Mort</strong>
-                        <span>{record.mort}</span>
-                      </div>
-                      <div className="mobile-record-row">
-                        <strong>Culls</strong>
-                        <span>{record.culls}</span>
-                      </div>
-                      <div className="mobile-record-row">
-                        <strong>Daily total</strong>
-                        <span>{record.dailyTotal}</span>
-                      </div>
-                      <div className="mobile-record-row">
-                        <strong>Cum total</strong>
-                        <span>{record.cumulativeTotal}</span>
-                      </div>
-                      <div className="mobile-record-row">
-                        <strong>Feed kg</strong>
-                        <span>{record.feedKg}</span>
-                      </div>
-                      <div className="mobile-record-row">
-                        <strong>Water L</strong>
-                        <span>{record.waterL}</span>
-                      </div>
-                      <div className="mobile-record-row">
-                        <strong>Weight g</strong>
-                        <span>{record.avgWeightG ?? "-"}</span>
-                      </div>
-                      <div className="mobile-record-row">
-                        <strong>Notes</strong>
-                        <span>{record.notes || "-"}</span>
-                      </div>
+                      <div className="mobile-record-row"><strong>Age day</strong><span>{record.ageDays}</span></div>
+                      <div className="mobile-record-row"><strong>Mort</strong><span>{record.mort}</span></div>
+                      <div className="mobile-record-row"><strong>Culls</strong><span>{record.culls}</span></div>
+                      <div className="mobile-record-row"><strong>Daily total</strong><span>{record.dailyTotal}</span></div>
+                      <div className="mobile-record-row"><strong>Cum total</strong><span>{record.cumulativeTotal}</span></div>
+                      <div className="mobile-record-row"><strong>Feed kg</strong><span>{record.feedKg}</span></div>
+                      <div className="mobile-record-row"><strong>Water L</strong><span>{record.waterL}</span></div>
+                      <div className="mobile-record-row"><strong>Weight g</strong><span>{record.avgWeightG ?? "-"}</span></div>
+                      <div className="mobile-record-row"><strong>Temp min/max</strong><span>{record.temperatureMinC ?? "-"} / {record.temperatureMaxC ?? "-"}</span></div>
+                      <div className="mobile-record-row"><strong>Humidity min/max</strong><span>{record.humidityMinPct ?? "-"} / {record.humidityMaxPct ?? "-"}</span></div>
+                      <div className="mobile-record-row"><strong>CO2 min/max</strong><span>{record.co2MinPpm ?? "-"} / {record.co2MaxPpm ?? "-"}</span></div>
+                      <div className="mobile-record-row"><strong>Notes</strong><span>{record.notes || "-"}</span></div>
                     </div>
 
                     {canOperate && (
                       <div className="mobile-actions" style={{ marginTop: 12 }}>
-                        <button
-                          type="button"
-                          className="mobile-button mobile-button--secondary"
-                          onClick={() => startEdit(record)}
-                        >
+                        <button type="button" className="mobile-button mobile-button--secondary" onClick={() => startEdit(record)}>
                           Edit
                         </button>
-                        <button
-                          type="button"
-                          className="mobile-button mobile-button--danger"
-                          onClick={() => deleteRecord(record.id)}
-                        >
+                        <button type="button" className="mobile-button mobile-button--danger" onClick={() => deleteRecord(record.id)}>
                           Delete
                         </button>
                       </div>

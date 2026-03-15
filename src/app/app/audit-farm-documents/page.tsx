@@ -45,20 +45,32 @@ type AlertItem = {
 };
 
 const DOCUMENT_TYPES = [
-  "BIOSECURITY",
-  "WATER_TEST",
-  "FEED_CONTRACT",
-  "MORTALITY_COLLECTION",
-  "VENTILATION_SERVICE",
-  "GAS_SAFETY",
-  "ELECTRICAL",
-  "FIRE_SAFETY",
-  "INSURANCE",
-  "WELFARE",
-  "AUDIT",
-  "TRAINING",
-  "OTHER",
+  "documents",
+  "biosecurity",
+  "samples",
+  "audit",
+  "service",
+  "emergency",
+  "certificate",
+  "supplies",
+  "output",
+  "standards",
+  "other",
 ];
+
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  documents: "Documents",
+  biosecurity: "Biosecurity",
+  samples: "Samples",
+  audit: "Audit",
+  service: "Service",
+  emergency: "Emergency",
+  certificate: "Certificate",
+  supplies: "Supplies",
+  output: "Output",
+  standards: "Standards",
+  other: "Other",
+};
 
 const DOCUMENT_STATUSES = [
   "ACTIVE",
@@ -75,6 +87,11 @@ const DOCUMENT_FORMATS = [
 
 function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleDateString() : "-";
+}
+
+function formatDocumentTypeLabel(value: string | null | undefined) {
+  if (!value) return "-";
+  return DOCUMENT_TYPE_LABELS[value] || value;
 }
 
 function getExpiryVisual(expiryDate: string | null) {
@@ -106,7 +123,7 @@ export default function AuditFarmDocumentsPage() {
   const [editingId, setEditingId] = useState("");
 
   const [title, setTitle] = useState("");
-  const [documentType, setDocumentType] = useState("BIOSECURITY");
+  const [documentType, setDocumentType] = useState("documents");
   const [status, setStatus] = useState("ACTIVE");
   const [documentFormat, setDocumentFormat] = useState("ELECTRONIC");
 
@@ -182,7 +199,7 @@ export default function AuditFarmDocumentsPage() {
   function clearForm() {
     setEditingId("");
     setTitle("");
-    setDocumentType("BIOSECURITY");
+    setDocumentType("documents");
     setStatus("ACTIVE");
     setDocumentFormat("ELECTRONIC");
     setElectronicCopy(true);
@@ -324,34 +341,24 @@ export default function AuditFarmDocumentsPage() {
   }
 
   async function startEditById(id: string) {
-    const doc =
-      searchResults.find((item) => item.id === id) ||
-      (await (async () => {
-        const r = await fetch(
-          `/api/farm-documents/search?farmId=${currentFarmId}&q=${encodeURIComponent(
-            ""
-          )}`
-        );
-        if (!r.ok) return null;
-        return null;
-      })());
-
     const fromSearch = searchResults.find((item) => item.id === id);
     if (fromSearch) {
       startEdit(fromSearch);
       return;
     }
 
-    const r = await fetch(
-      `/api/farm-documents/search?farmId=${currentFarmId}&q=${encodeURIComponent(
-        title || " "
-      )}`
-    );
-    const data = await r.json();
-    if (r.ok && Array.isArray(data.documents)) {
-      const found = data.documents.find((item: FarmDocument) => item.id === id);
-      if (found) {
-        startEdit(found);
+    if (searchQuery.trim().length >= 2) {
+      const r = await fetch(
+        `/api/farm-documents/search?farmId=${currentFarmId}&q=${encodeURIComponent(
+          searchQuery.trim()
+        )}`
+      );
+      const data = await r.json();
+      if (r.ok && Array.isArray(data.documents)) {
+        const found = data.documents.find((item: FarmDocument) => item.id === id);
+        if (found) {
+          startEdit(found);
+        }
       }
     }
   }
@@ -514,7 +521,7 @@ export default function AuditFarmDocumentsPage() {
                   <div className="mobile-record-card__grid">
                     <div className="mobile-record-row">
                       <strong>Type</strong>
-                      <span>{alert.documentType}</span>
+                      <span>{formatDocumentTypeLabel(alert.documentType)}</span>
                     </div>
                     <div className="mobile-record-row">
                       <strong>Action needed</strong>
@@ -604,7 +611,7 @@ export default function AuditFarmDocumentsPage() {
                 >
                   {DOCUMENT_TYPES.map((item) => (
                     <option key={item} value={item}>
-                      {item}
+                      {formatDocumentTypeLabel(item)}
                     </option>
                   ))}
                 </select>
@@ -801,7 +808,7 @@ export default function AuditFarmDocumentsPage() {
                       <div className="mobile-record-card__grid">
                         <div className="mobile-record-row">
                           <strong>Type</strong>
-                          <span>{doc.documentType}</span>
+                          <span>{formatDocumentTypeLabel(doc.documentType)}</span>
                         </div>
                         <div className="mobile-record-row">
                           <strong>Status</strong>
@@ -851,7 +858,13 @@ export default function AuditFarmDocumentsPage() {
                           <strong>File</strong>
                           <span>
                             {doc.fileUrl ? (
-                              <a href={doc.fileUrl} target="_blank" rel="noreferrer">
+                              <a
+                                href={`/api/farm-documents/file?url=${encodeURIComponent(
+                                  doc.fileUrl || ""
+                                )}`}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
                                 {doc.originalFileName || "Open file"}
                               </a>
                             ) : (

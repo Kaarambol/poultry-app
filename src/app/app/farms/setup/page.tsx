@@ -6,6 +6,16 @@ type Farm = {
   id: string;
   name: string;
   code: string;
+  feedContractor?: string | null;
+  chickenSupplier?: string | null;
+  feedPrice1?: number | null;
+  feedPrice2?: number | null;
+  feedPrice3?: number | null;
+  feedPrice4?: number | null;
+  feedPrice5?: number | null;
+  wheatPrice?: number | null;
+  chickenPrice?: number | null;
+  liveWeightPricePerKg?: number | null;
 };
 
 type House = {
@@ -31,6 +41,17 @@ type House = {
 export default function FarmSetupPage() {
   const [farms, setFarms] = useState<Farm[]>([]);
   const [farmId, setFarmId] = useState("");
+
+  const [feedContractor, setFeedContractor] = useState("");
+  const [chickenSupplier, setChickenSupplier] = useState("");
+  const [feedPrice1, setFeedPrice1] = useState("");
+  const [feedPrice2, setFeedPrice2] = useState("");
+  const [feedPrice3, setFeedPrice3] = useState("");
+  const [feedPrice4, setFeedPrice4] = useState("");
+  const [feedPrice5, setFeedPrice5] = useState("");
+  const [wheatPrice, setWheatPrice] = useState("");
+  const [chickenPrice, setChickenPrice] = useState("");
+  const [liveWeightPricePerKg, setLiveWeightPricePerKg] = useState("");
 
   const [houseName, setHouseName] = useState("");
   const [houseCode, setHouseCode] = useState("");
@@ -78,10 +99,57 @@ export default function FarmSetupPage() {
   useEffect(() => {
     if (farmId) {
       loadHouses(farmId);
+
+      const selectedFarm = farms.find((farm) => farm.id === farmId);
+      if (selectedFarm) {
+        setFeedContractor(selectedFarm.feedContractor || "");
+        setChickenSupplier(selectedFarm.chickenSupplier || "");
+        setFeedPrice1(
+          selectedFarm.feedPrice1 !== null && selectedFarm.feedPrice1 !== undefined
+            ? String(selectedFarm.feedPrice1)
+            : ""
+        );
+        setFeedPrice2(
+          selectedFarm.feedPrice2 !== null && selectedFarm.feedPrice2 !== undefined
+            ? String(selectedFarm.feedPrice2)
+            : ""
+        );
+        setFeedPrice3(
+          selectedFarm.feedPrice3 !== null && selectedFarm.feedPrice3 !== undefined
+            ? String(selectedFarm.feedPrice3)
+            : ""
+        );
+        setFeedPrice4(
+          selectedFarm.feedPrice4 !== null && selectedFarm.feedPrice4 !== undefined
+            ? String(selectedFarm.feedPrice4)
+            : ""
+        );
+        setFeedPrice5(
+          selectedFarm.feedPrice5 !== null && selectedFarm.feedPrice5 !== undefined
+            ? String(selectedFarm.feedPrice5)
+            : ""
+        );
+        setWheatPrice(
+          selectedFarm.wheatPrice !== null && selectedFarm.wheatPrice !== undefined
+            ? String(selectedFarm.wheatPrice)
+            : ""
+        );
+        setChickenPrice(
+          selectedFarm.chickenPrice !== null && selectedFarm.chickenPrice !== undefined
+            ? String(selectedFarm.chickenPrice)
+            : ""
+        );
+        setLiveWeightPricePerKg(
+          selectedFarm.liveWeightPricePerKg !== null &&
+            selectedFarm.liveWeightPricePerKg !== undefined
+            ? String(selectedFarm.liveWeightPricePerKg)
+            : ""
+        );
+      }
     } else {
       setHouses([]);
     }
-  }, [farmId]);
+  }, [farmId, farms]);
 
   function resetForm() {
     setHouseName("");
@@ -100,6 +168,53 @@ export default function FarmSetupPage() {
     setDefaultMaxCo2Ppm("");
     setDefaultMaxAmmoniaPpm("");
     setNotes("");
+  }
+
+  async function saveFarmCommercialSetup(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg("");
+    setMsgType("info");
+
+    if (!farmId) {
+      setMsgType("error");
+      setMsg("Please choose a farm first.");
+      return;
+    }
+
+    const selectedFarm = farms.find((farm) => farm.id === farmId);
+
+    const r = await fetch(`/api/farms/${farmId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: selectedFarm?.name || "",
+        code: selectedFarm?.code || "",
+        feedContractor,
+        chickenSupplier,
+        feedPrice1,
+        feedPrice2,
+        feedPrice3,
+        feedPrice4,
+        feedPrice5,
+        wheatPrice,
+        chickenPrice,
+        liveWeightPricePerKg,
+      }),
+    });
+
+    const data = await r.json();
+
+    if (!r.ok) {
+      setMsgType("error");
+      setMsg(data.error || "Could not save farm setup.");
+      return;
+    }
+
+    setMsgType("success");
+    setMsg("Farm commercial setup saved.");
+    await loadFarms();
   }
 
   async function addHouse(e: React.FormEvent) {
@@ -162,7 +277,7 @@ export default function FarmSetupPage() {
             <div className="page-intro__eyebrow">Infrastructure</div>
             <h1 className="page-intro__title">Farm Setup</h1>
             <p className="page-intro__subtitle">
-              Configure houses and save default equipment, climate and alert values.
+              Configure farm commercial settings and add houses.
             </p>
           </div>
         </div>
@@ -189,6 +304,136 @@ export default function FarmSetupPage() {
 
         {farmId && (
           <>
+            <div className="mobile-card">
+              <h2>Farm Commercial Setup</h2>
+
+              <form onSubmit={saveFarmCommercialSetup}>
+                <h3 style={{ marginBottom: 10 }}>Suppliers</h3>
+
+                <label>Feed Contractor</label>
+                <input
+                  value={feedContractor}
+                  onChange={(e) => setFeedContractor(e.target.value)}
+                  placeholder="e.g. AB Agri"
+                />
+
+                <label>Chicken Supplier</label>
+                <input
+                  value={chickenSupplier}
+                  onChange={(e) => setChickenSupplier(e.target.value)}
+                  placeholder="e.g. PD Hook / supplier name"
+                />
+
+                <h3 style={{ marginTop: 18, marginBottom: 10 }}>Fixed Prices</h3>
+
+                <div className="mobile-grid mobile-grid--2">
+                  <div>
+                    <label>Feed Price 1</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={feedPrice1}
+                      onChange={(e) => setFeedPrice1(e.target.value)}
+                      placeholder="optional"
+                    />
+                  </div>
+
+                  <div>
+                    <label>Feed Price 2</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={feedPrice2}
+                      onChange={(e) => setFeedPrice2(e.target.value)}
+                      placeholder="optional"
+                    />
+                  </div>
+
+                  <div>
+                    <label>Feed Price 3</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={feedPrice3}
+                      onChange={(e) => setFeedPrice3(e.target.value)}
+                      placeholder="optional"
+                    />
+                  </div>
+
+                  <div>
+                    <label>Feed Price 4</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={feedPrice4}
+                      onChange={(e) => setFeedPrice4(e.target.value)}
+                      placeholder="optional"
+                    />
+                  </div>
+
+                  <div>
+                    <label>Feed Price 5</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={feedPrice5}
+                      onChange={(e) => setFeedPrice5(e.target.value)}
+                      placeholder="optional"
+                    />
+                  </div>
+
+                  <div>
+                    <label>Wheat Price</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={wheatPrice}
+                      onChange={(e) => setWheatPrice(e.target.value)}
+                      placeholder="optional"
+                    />
+                  </div>
+
+                  <div>
+                    <label>Chicken Price</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={chickenPrice}
+                      onChange={(e) => setChickenPrice(e.target.value)}
+                      placeholder="optional"
+                    />
+                  </div>
+
+                  <div>
+                    <label>Live Weight Price / kg</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={liveWeightPricePerKg}
+                      onChange={(e) => setLiveWeightPricePerKg(e.target.value)}
+                      placeholder="optional"
+                    />
+                  </div>
+                </div>
+
+                <div className="mobile-sticky-actions">
+                  <div className="mobile-sticky-actions__inner">
+                    <button className="mobile-full-button" type="submit">
+                      Save Farm Setup
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
             <div className="mobile-card">
               <h2>Add New House</h2>
 
@@ -285,93 +530,6 @@ export default function FarmSetupPage() {
                   placeholder="e.g. 350"
                 />
 
-                <h3 style={{ marginTop: 18, marginBottom: 10 }}>Climate Equipment</h3>
-
-                <div className="mobile-grid mobile-grid--2">
-                  <div>
-                    <label>Default Fan Count</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={defaultFanCount}
-                      onChange={(e) => setDefaultFanCount(e.target.value)}
-                      placeholder="e.g. 10"
-                    />
-                  </div>
-
-                  <div>
-                    <label>Default Heater Count</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={defaultHeaterCount}
-                      onChange={(e) => setDefaultHeaterCount(e.target.value)}
-                      placeholder="e.g. 4"
-                    />
-                  </div>
-                </div>
-
-                <div className="mobile-grid mobile-grid--2">
-                  <div>
-                    <label>Default Min Temp (°C)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={defaultMinTempC}
-                      onChange={(e) => setDefaultMinTempC(e.target.value)}
-                      placeholder="optional"
-                    />
-                  </div>
-
-                  <div>
-                    <label>Default Max Temp (°C)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={defaultMaxTempC}
-                      onChange={(e) => setDefaultMaxTempC(e.target.value)}
-                      placeholder="optional"
-                    />
-                  </div>
-                </div>
-
-                <label>Default Target Humidity (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={defaultTargetHumidityPct}
-                  onChange={(e) => setDefaultTargetHumidityPct(e.target.value)}
-                  placeholder="optional"
-                />
-
-                <h3 style={{ marginTop: 18, marginBottom: 10 }}>Alert Limits</h3>
-
-                <div className="mobile-grid mobile-grid--2">
-                  <div>
-                    <label>Default Max CO2 (ppm)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={defaultMaxCo2Ppm}
-                      onChange={(e) => setDefaultMaxCo2Ppm(e.target.value)}
-                      placeholder="optional"
-                    />
-                  </div>
-
-                  <div>
-                    <label>Default Max Ammonia (ppm)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={defaultMaxAmmoniaPpm}
-                      onChange={(e) => setDefaultMaxAmmoniaPpm(e.target.value)}
-                      placeholder="optional"
-                    />
-                  </div>
-                </div>
-
                 <h3 style={{ marginTop: 18, marginBottom: 10 }}>Notes</h3>
 
                 <label>House Notes</label>
@@ -438,61 +596,6 @@ export default function FarmSetupPage() {
                       <div className="mobile-record-row">
                         <strong>Feeder Pans</strong>
                         <span>{house.defaultFeederPanCount || "-"}</span>
-                      </div>
-
-                      <div className="mobile-record-row">
-                        <strong>Fans</strong>
-                        <span>{house.defaultFanCount || "-"}</span>
-                      </div>
-
-                      <div className="mobile-record-row">
-                        <strong>Heaters</strong>
-                        <span>{house.defaultHeaterCount || "-"}</span>
-                      </div>
-
-                      <div className="mobile-record-row">
-                        <strong>Min Temp</strong>
-                        <span>
-                          {house.defaultMinTempC !== null
-                            ? `${house.defaultMinTempC} °C`
-                            : "-"}
-                        </span>
-                      </div>
-
-                      <div className="mobile-record-row">
-                        <strong>Max Temp</strong>
-                        <span>
-                          {house.defaultMaxTempC !== null
-                            ? `${house.defaultMaxTempC} °C`
-                            : "-"}
-                        </span>
-                      </div>
-
-                      <div className="mobile-record-row">
-                        <strong>Target Humidity</strong>
-                        <span>
-                          {house.defaultTargetHumidityPct !== null
-                            ? `${house.defaultTargetHumidityPct}%`
-                            : "-"}
-                        </span>
-                      </div>
-
-                      <div className="mobile-record-row">
-                        <strong>Max CO2</strong>
-                        <span>
-                          {house.defaultMaxCo2Ppm !== null
-                            ? `${house.defaultMaxCo2Ppm} ppm`
-                            : "-"}
-                        </span>
-                      </div>
-
-                      <div className="mobile-record-row">
-                        <strong>Max Ammonia</strong>
-                        <span>
-                          {house.defaultMaxAmmoniaPpm !== null
-                            ? `${house.defaultMaxAmmoniaPpm} ppm`
-                            : "-"}
-                        </span>
                       </div>
 
                       <div className="mobile-record-row">

@@ -1,38 +1,56 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { setCurrentFarmId, clearCurrentCropId } from "@/lib/app-context";
 
 export default function FarmsPage() {
+  const router = useRouter();
+
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
+  const [submitting, setSubmitting] = useState(false);
 
   async function createFarm(e: React.FormEvent) {
     e.preventDefault();
     setMsg("");
     setMsgType("info");
+    setSubmitting(true);
 
-    const r = await fetch("/api/farms/create", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name, code }),
-    });
+    try {
+      const r = await fetch("/api/farms/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, code }),
+      });
 
-    const data = await r.json();
+      const data = await r.json();
 
-    if (!r.ok) {
-      setMsgType("error");
-      setMsg(data.error || "Error");
-      return;
+      if (!r.ok) {
+        setMsgType("error");
+        setMsg(data.error || "Error");
+        return;
+      }
+
+      if (data?.id) {
+        setCurrentFarmId(data.id);
+        clearCurrentCropId();
+      }
+
+      setMsgType("success");
+      setMsg("Farm created successfully and selected as current farm.");
+      setName("");
+      setCode("");
+
+      router.refresh();
+      router.push("/app/farms/setup");
+    } finally {
+      setSubmitting(false);
     }
-
-    setMsgType("success");
-    setMsg("Farm created successfully!");
-    setName("");
-    setCode("");
   }
 
   const alertClass =
@@ -83,8 +101,12 @@ export default function FarmsPage() {
 
             <div className="mobile-sticky-actions">
               <div className="mobile-sticky-actions__inner">
-                <button className="mobile-full-button" type="submit">
-                  Create Farm
+                <button
+                  className="mobile-full-button"
+                  type="submit"
+                  disabled={submitting}
+                >
+                  {submitting ? "Creating..." : "Create Farm"}
                 </button>
               </div>
             </div>

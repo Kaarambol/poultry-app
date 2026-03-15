@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   clearCurrentCropId,
@@ -25,28 +25,34 @@ type AlertItem = {
   severity: "SOON" | "OVERDUE";
 };
 
-const links = [
+const mainLinks = [
   { href: "/app", label: "Home" },
   { href: "/app/dashboard", label: "Dashboard" },
   { href: "/app/daily", label: "Daily Entry" },
   { href: "/app/feed", label: "Feed" },
-  { href: "/app/total", label: "Total" },
   { href: "/app/night-check", label: "Night Check" },
-  { href: "/app/check-flock", label: "Check Flock" },
-  { href: "/app/audit-farm-documents", label: "Audit Docs" },
-  { href: "/app/medication", label: "Medication" },
-  { href: "/app/avara", label: "Avara Export" },
-  { href: "/app/history", label: "History" },
-  { href: "/app/log", label: "Log" },
-  { href: "/app/access", label: "Access" },
+  { href: "/app/total", label: "Total" },
+];
+
+const setupLinks = [
   { href: "/app/farms", label: "Create Farm" },
   { href: "/app/farms/setup", label: "Farm Setup" },
   { href: "/app/crops", label: "Create Crop" },
-  { href: "/app/crops/manage", label: "Manage Crops" },
+  { href: "/app/access", label: "Access" },
+  { href: "/app/log", label: "Log" },
+];
+
+const recordsLinks = [
+  { href: "/app/check-flock", label: "Check Flock" },
+  { href: "/app/audit-farm-documents", label: "Farm Doc" },
+  { href: "/app/medication", label: "Medication" },
+  { href: "/app/history", label: "History" },
+  { href: "/app/avara", label: "Week Report" },
 ];
 
 export default function AppNav() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const [farms, setFarms] = useState<Farm[]>([]);
   const [currentFarmId, setCurrentFarmIdState] = useState("");
@@ -54,6 +60,7 @@ export default function AppNav() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const [docAlerts, setDocAlerts] = useState<AlertItem[]>([]);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     async function loadFarms() {
@@ -134,6 +141,31 @@ export default function AppNav() {
     clearCurrentCropId();
   }
 
+  async function handleLogout() {
+    try {
+      setLoggingOut(true);
+
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      localStorage.removeItem("currentFarmId");
+      localStorage.removeItem("currentCropId");
+      clearCurrentCropId();
+      setCurrentFarmId("");
+      setCurrentFarmIdState("");
+      setCurrentCrop(null);
+
+      router.push("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("LOGOUT ERROR:", error);
+    } finally {
+      setLoggingOut(false);
+      setMenuOpen(false);
+    }
+  }
+
   const currentFarmLabel = useMemo(() => {
     const farm = farms.find((item) => item.id === currentFarmId);
     return farm ? `${farm.name} (${farm.code})` : "No farm selected";
@@ -159,6 +191,46 @@ export default function AppNav() {
       return `${base} app-nav__link--alert-orange`;
     }
     return base;
+  }
+
+  function renderSection(
+    title: string,
+    links: Array<{ href: string; label: string }>
+  ) {
+    return (
+      <div className="app-nav__panel">
+        <div className="app-nav__field-label">{title}</div>
+        <div className="app-nav__links">
+          {links.map((link) => {
+            const active = pathname === link.href;
+            const baseClass = `app-nav__link${
+              active ? " app-nav__link--active" : ""
+            }`;
+
+            const className =
+              link.href === "/app/audit-farm-documents"
+                ? auditLinkClass(baseClass)
+                : baseClass;
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={className}
+              >
+                {link.label}
+                {link.href === "/app/audit-farm-documents" &&
+                  docAlerts.length > 0 && (
+                    <span className="app-nav__badge">
+                      {docAlerts.length}
+                    </span>
+                  )}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -204,36 +276,21 @@ export default function AppNav() {
               </div>
             </div>
 
+            {renderSection("Main Menu", mainLinks)}
+            {renderSection("Setup", setupLinks)}
+            {renderSection("Records", recordsLinks)}
+
             <div className="app-nav__panel">
-              <div className="app-nav__field-label">Navigation</div>
+              <div className="app-nav__field-label">Session</div>
               <div className="app-nav__links">
-                {links.map((link) => {
-                  const active = pathname === link.href;
-                  const baseClass = `app-nav__link${
-                    active ? " app-nav__link--active" : ""
-                  }`;
-
-                  const className =
-                    link.href === "/app/audit-farm-documents"
-                      ? auditLinkClass(baseClass)
-                      : baseClass;
-
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={className}
-                    >
-                      {link.label}
-                      {link.href === "/app/audit-farm-documents" &&
-                        docAlerts.length > 0 && (
-                          <span className="app-nav__badge">
-                            {docAlerts.length}
-                          </span>
-                        )}
-                    </Link>
-                  );
-                })}
+                <button
+                  type="button"
+                  className="app-nav__link"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                >
+                  {loggingOut ? "Logging out..." : "Logout"}
+                </button>
               </div>
             </div>
           </div>

@@ -10,6 +10,12 @@ type Farm = {
   code: string;
 };
 
+type House = {
+  id: string;
+  name: string;
+  code: string | null;
+};
+
 type MedicationRecord = {
   id: string;
   startDate: string;
@@ -28,6 +34,11 @@ export default function MedicationPage() {
   const [myRole, setMyRole] = useState<FarmRole>("");
   const [cropId, setCropId] = useState("");
   const [cropLabel, setCropLabel] = useState("");
+
+  const [houses, setHouses] = useState<House[]>([]);
+  const [vetModeOpen, setVetModeOpen] = useState(false);
+  const [vetHouseId, setVetHouseId] = useState("");
+  const [vetGenerating, setVetGenerating] = useState(false);
 
   const [startDate, setStartDate] = useState("");
   const [medicineName, setMedicineName] = useState("");
@@ -106,6 +117,17 @@ export default function MedicationPage() {
     loadRecords(data.id);
   }
 
+  async function loadHouses(farmId: string) {
+    const r = await fetch(`/api/houses/list?farmId=${farmId}`);
+    const data = await r.json();
+
+    if (Array.isArray(data)) {
+      setHouses(data);
+    } else {
+      setHouses([]);
+    }
+  }
+
   async function loadRecords(selectedCropId: string) {
     const r = await fetch(`/api/medications/list?cropId=${selectedCropId}`);
     const data = await r.json();
@@ -130,6 +152,7 @@ export default function MedicationPage() {
     loadFarmName(farmId);
     loadMyRole(farmId);
     loadActiveCrop(farmId);
+    loadHouses(farmId);
   }, []);
 
   function validateForm() {
@@ -237,6 +260,57 @@ export default function MedicationPage() {
     loadRecords(cropId);
   }
 
+  async function generateVetPdf() {
+    if (!cropId) {
+      setMsgType("error");
+      setMsg("No active crop selected.");
+      return;
+    }
+
+    if (!vetHouseId) {
+      setMsgType("error");
+      setMsg("Choose a house for the vet report.");
+      return;
+    }
+
+    try {
+      setVetGenerating(true);
+
+      const url = `/api/medications/vet-report?cropId=${encodeURIComponent(
+        cropId
+      )}&houseId=${encodeURIComponent(vetHouseId)}`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const data = await response.json();
+          throw new Error(data.error || "Error generating PDF.");
+        }
+        throw new Error("Error generating PDF.");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = "vet-report.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+
+      setMsgType("success");
+      setMsg("Vet PDF generated.");
+    } catch (error: any) {
+      setMsgType("error");
+      setMsg(error.message || "Error generating vet PDF.");
+    } finally {
+      setVetGenerating(false);
+    }
+  }
+
   const canOperate = canOperateUi(myRole);
   const readOnly = isReadOnlyUi(myRole);
 
@@ -278,6 +352,69 @@ export default function MedicationPage() {
             Read-only mode. VIEWER can only see records.
           </div>
         )}
+
+        {msg && (
+          <div className={alertClass} style={{ marginBottom: 16 }}>
+            {msg}
+          </div>
+        )}
+
+        <div className="mobile-card" style={{ marginBottom: 16 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 12,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <h2 style={{ marginBottom: 6 }}>Vet Report</h2>
+              <p style={{ margin: 0 }}>
+                Generate a 7-day PDF summary for a selected house.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="mobile-button mobile-button--secondary"
+              onClick={() => setVetModeOpen((v) => !v)}
+              disabled={!cropId}
+            >
+              {vetModeOpen ? "Close Vet" : "Vet"}
+            </button>
+          </div>
+
+          {vetModeOpen && (
+            <div style={{ marginTop: 16 }}>
+              <label>Select house</label>
+              <select
+                value={vetHouseId}
+                onChange={(e) => setVetHouseId(e.target.value)}
+              >
+                <option value="">-- choose house --</option>
+                {houses.map((house) => (
+                  <option key={house.id} value={house.id}>
+                    {house.name}
+                    {house.code ? ` (${house.code})` : ""}
+                  </option>
+                ))}
+              </select>
+
+              <div style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="mobile-full-button"
+                  onClick={generateVetPdf}
+                  disabled={!cropId || !vetHouseId || vetGenerating}
+                >
+                  {vetGenerating ? "Generating..." : "Generate Vet PDF"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="mobile-card">
           <h2>Add Medication Record</h2>
@@ -508,12 +645,6 @@ export default function MedicationPage() {
             )}
           </form>
         </div>
-
-        {msg && (
-          <div className={alertClass} style={{ marginBottom: 16 }}>
-            {msg}
-          </div>
-        )}
 
         {cropId && (
           <>

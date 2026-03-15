@@ -36,14 +36,23 @@ export async function GET(req: Request) {
       (r) => r.litterScore !== null && r.litterScore >= 4
     ).length;
 
-    const allSystemsOkCount = records.filter(
+    const allChecklistOkCount = records.filter(
       (r) =>
-        r.waterSystemOk &&
-        r.feedSystemOk &&
-        r.ventilationOk &&
-        r.alarmOk &&
-        r.generatorOk &&
-        r.lightingOk
+        r.windowsOpen &&
+        r.fridgeTemp &&
+        r.litterSampleTaken &&
+        r.fireExtinguisher &&
+        r.footDipChange &&
+        r.dosatronCheck &&
+        r.vitaminAdd &&
+        r.vaccination &&
+        r.medication &&
+        r.pestControlInspection &&
+        r.waterSanitizer &&
+        r.calibrationWaterMeter &&
+        r.calibrationTempProbe &&
+        r.calibrationHumidityProbe &&
+        r.calibrationWeigher
     ).length;
 
     return NextResponse.json({
@@ -51,7 +60,7 @@ export async function GET(req: Request) {
       highCo2Count,
       highAmmoniaCount,
       poorLitterCount,
-      allSystemsOkCount,
+      allChecklistOkCount,
     });
   } catch (error) {
     console.error("NIGHT CHECK SUMMARY ERROR:", error);

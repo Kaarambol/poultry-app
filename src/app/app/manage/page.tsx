@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCurrentFarmId } from "@/lib/app-context";
 import { FarmRole, canFinishCropUi } from "@/lib/ui-permissions";
@@ -190,13 +191,19 @@ export default function ManageCropsPage() {
                       {crop.status}
                     </td>
                     <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>
-                      {canFinish ? (
-                        <button type="button" onClick={() => finishCrop(crop.id)}>
-                          Finish Crop
-                        </button>
-                      ) : (
-                        <span>-</span>
-                      )}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <Link href={`/app/crops/edit/${crop.id}`}>
+                          <button type="button">Edit</button>
+                        </Link>
+
+                        {canFinish ? (
+                          <button type="button" onClick={() => finishCrop(crop.id)}>
+                            Finish Crop
+                          </button>
+                        ) : (
+                          <span>-</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

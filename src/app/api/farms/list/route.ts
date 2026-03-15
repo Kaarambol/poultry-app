@@ -21,11 +21,28 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        createdByUserId: true,
+        feedContractor: true,
+        chickenSupplier: true,
+        feedPrice1: true,
+        feedPrice2: true,
+        feedPrice3: true,
+        feedPrice4: true,
+        feedPrice5: true,
+        wheatPrice: true,
+        chickenPrice: true,
+        liveWeightPricePerKg: true,
+      },
     });
 
     return NextResponse.json(farms);
   } catch (error) {
     console.error("LIST FARMS ERROR:", error);
+
     return NextResponse.json(
       { error: "Server error while loading farms." },
       { status: 500 }

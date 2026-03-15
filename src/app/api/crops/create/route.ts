@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getUserRoleOnFarm, canOperate } from "@/lib/permissions";
+import { cloneFarmTemplateToCrop } from "@/lib/target-profile-template";
 
 type PlacementInput = {
   houseId: string;
@@ -8,6 +10,8 @@ type PlacementInput = {
   flockNumber?: string;
   birdsPlaced: number;
   parentAgeWeeks?: number | string;
+  thinDate?: string;
+  clearDate?: string;
   notes?: string;
 };
 
@@ -35,8 +39,23 @@ function parseOptionalInt(value: unknown) {
   return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
 }
 
-export async function POST(req: Request) {
+function parseOptionalDate(value: unknown) {
+  if (!value) return null;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export async function POST(req: NextRequest) {
   try {
+    const uid = req.cookies.get("uid")?.value;
+
+    if (!uid) {
+      return NextResponse.json(
+        { error: "Not logged in." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
 
     const farmId = String(body.farmId || "").trim();
@@ -51,9 +70,7 @@ export async function POST(req: Request) {
     const currency = String(body.currency || "GBP").trim();
 
     const placements = Array.isArray(body.placements) ? body.placements : [];
-    const houseConfigs = Array.isArray(body.houseConfigs)
-      ? body.houseConfigs
-      : [];
+    const houseConfigs = Array.isArray(body.houseConfigs) ? body.houseConfigs : [];
 
     if (!farmId || !cropNumber || !placementDate) {
       return NextResponse.json(
@@ -62,19 +79,54 @@ export async function POST(req: Request) {
       );
     }
 
+    const role = await getUserRoleOnFarm(uid, farmId);
+
+    if (!canOperate(role)) {
+      return NextResponse.json(
+        { error: "You do not have permission to create crop." },
+        { status: 403 }
+      );
+    }
+
+    const parsedMainPlacementDate = new Date(placementDate);
+
+    if (Number.isNaN(parsedMainPlacementDate.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid crop placement date." },
+        { status: 400 }
+      );
+    }
+
     const activeCrop = await prisma.crop.findFirst({
-      where: { farmId, status: "ACTIVE" },
+      where: {
+        farmId,
+        status: "ACTIVE",
+      },
+      select: {
+        id: true,
+        cropNumber: true,
+      },
     });
 
     if (activeCrop) {
       return NextResponse.json(
-        { error: "This farm already has an active crop." },
+        {
+          error: "This farm already has an active crop.",
+          activeCropId: activeCrop.id,
+          activeCropNumber: activeCrop.cropNumber,
+        },
         { status: 409 }
       );
     }
 
     const existingCropNumber = await prisma.crop.findFirst({
-      where: { farmId, cropNumber },
+      where: {
+        farmId,
+        cropNumber,
+      },
+      select: {
+        id: true,
+      },
     });
 
     if (existingCropNumber) {
@@ -88,9 +140,7 @@ export async function POST(req: Request) {
       where: { farmId },
     });
 
-    const farmHouseMap = new Map(
-      farmHouses.map((house) => [house.id, house])
-    );
+    const farmHouseMap = new Map(farmHouses.map((house) => [house.id, house]));
 
     const parsedPlacements = (placements as PlacementInput[]).map((p) => ({
       houseId: String(p.houseId || "").trim(),
@@ -99,6 +149,8 @@ export async function POST(req: Request) {
       flockNumber: String(p.flockNumber || "").trim(),
       birdsPlaced: Number(p.birdsPlaced || 0),
       parentAgeWeeks: parseOptionalInt(p.parentAgeWeeks),
+      thinDate: parseOptionalDate(p.thinDate),
+      clearDate: parseOptionalDate(p.clearDate),
       notes: String(p.notes || "").trim(),
     }));
 
@@ -125,94 +177,151 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
+
+      const placementDateObj = new Date(p.placementDate);
+
+      if (Number.isNaN(placementDateObj.getTime())) {
+        return NextResponse.json(
+          { error: "One or more placement dates are invalid." },
+          { status: 400 }
+        );
+      }
     }
 
-    const parsedHouseConfigs = (houseConfigs as HouseConfigInput[]).map(
-      (item) => ({
-        houseId: String(item.houseId || "").trim(),
-        activeFloorAreaM2: parseOptionalFloat(item.activeFloorAreaM2),
-        activeCapacityBirds: parseOptionalInt(item.activeCapacityBirds),
-        activeDrinkerLineCount: parseOptionalInt(
-          item.activeDrinkerLineCount
-        ),
-        activeNippleCount: parseOptionalInt(item.activeNippleCount),
-        activeFeederPanCount: parseOptionalInt(
-          item.activeFeederPanCount
-        ),
-        activeFanCount: parseOptionalInt(item.activeFanCount),
-        activeHeaterCount: parseOptionalInt(item.activeHeaterCount),
-        notes: String(item.notes || "").trim(),
-      })
-    );
+    const placementsPerHouse = new Map<string, number>();
 
-    const configMap = new Map(
-      parsedHouseConfigs.map((item) => [item.houseId, item])
-    );
+    const usedPlacementsWithBatchNo = usedPlacements.map((p) => {
+      const current = placementsPerHouse.get(p.houseId) || 0;
+      const nextBatchNo = current + 1;
+      placementsPerHouse.set(p.houseId, nextBatchNo);
 
-    const usedHouseIds = Array.from(
-      new Set(usedPlacements.map((p) => p.houseId))
-    );
-
-    const crop = await prisma.crop.create({
-      data: {
-        farmId,
-        cropNumber,
-        placementDate: new Date(placementDate),
-        breed: breed || null,
-        hatchery: hatchery || null,
-        chickenPricePerKg,
-        salePricePerKgAllIn,
-        currency: currency || "GBP",
-        notes: notes || null,
-        placements: {
-          create: usedPlacements.map((p) => ({
-            houseId: p.houseId,
-            placementDate: new Date(p.placementDate),
-            hatchery: p.hatchery || hatchery || null,
-            flockNumber: p.flockNumber || null,
-            birdsPlaced: p.birdsPlaced,
-            parentAgeWeeks: p.parentAgeWeeks,
-            notes: p.notes || null,
-          })),
-        },
-        cropHouseConfigs: {
-          create: usedHouseIds.map((houseId) => {
-            const house = farmHouseMap.get(houseId)!;
-            const override = configMap.get(houseId);
-
-            return {
-              houseId,
-              activeFloorAreaM2:
-                override?.activeFloorAreaM2 ??
-                house.usableAreaM2 ??
-                house.floorAreaM2,
-              activeCapacityBirds:
-                override?.activeCapacityBirds ??
-                house.defaultCapacityBirds,
-              activeDrinkerLineCount:
-                override?.activeDrinkerLineCount ??
-                house.defaultDrinkerLineCount,
-              activeNippleCount:
-                override?.activeNippleCount ??
-                house.defaultNippleCount,
-              activeFeederPanCount:
-                override?.activeFeederPanCount ??
-                house.defaultFeederPanCount,
-              activeFanCount:
-                override?.activeFanCount ?? house.defaultFanCount,
-              activeHeaterCount:
-                override?.activeHeaterCount ??
-                house.defaultHeaterCount,
-              notes: override?.notes || null,
-            };
-          }),
-        },
-      },
+      return {
+        ...p,
+        batchNo: nextBatchNo,
+      };
     });
 
-    return NextResponse.json(crop);
+    const tooManyBatches = Array.from(placementsPerHouse.values()).some(
+      (count) => count > 4
+    );
+
+    if (tooManyBatches) {
+      return NextResponse.json(
+        { error: "Maximum 4 placement batches per house are allowed." },
+        { status: 400 }
+      );
+    }
+
+    const parsedHouseConfigs = (houseConfigs as HouseConfigInput[]).map((item) => ({
+      houseId: String(item.houseId || "").trim(),
+      activeFloorAreaM2: parseOptionalFloat(item.activeFloorAreaM2),
+      activeCapacityBirds: parseOptionalInt(item.activeCapacityBirds),
+      activeDrinkerLineCount: parseOptionalInt(item.activeDrinkerLineCount),
+      activeNippleCount: parseOptionalInt(item.activeNippleCount),
+      activeFeederPanCount: parseOptionalInt(item.activeFeederPanCount),
+      activeFanCount: parseOptionalInt(item.activeFanCount),
+      activeHeaterCount: parseOptionalInt(item.activeHeaterCount),
+      notes: String(item.notes || "").trim(),
+    }));
+
+    const configMap = new Map(parsedHouseConfigs.map((item) => [item.houseId, item]));
+    const usedHouseIds = Array.from(new Set(usedPlacementsWithBatchNo.map((p) => p.houseId)));
+
+    const result = await prisma.$transaction(async (tx) => {
+      const crop = await tx.crop.create({
+        data: {
+          farmId,
+          cropNumber,
+          placementDate: parsedMainPlacementDate,
+          breed: breed || null,
+          hatchery: hatchery || null,
+          status: "ACTIVE",
+          chickenPricePerKg,
+          salePricePerKgAllIn,
+          currency: currency || "GBP",
+          notes: notes || null,
+          placements: {
+            create: usedPlacementsWithBatchNo.map((p) => ({
+              houseId: p.houseId,
+              batchNo: p.batchNo,
+              placementDate: new Date(p.placementDate),
+              hatchery: p.hatchery || hatchery || null,
+              flockNumber: p.flockNumber || null,
+              birdsPlaced: p.birdsPlaced,
+              parentAgeWeeks: p.parentAgeWeeks,
+              thinDate: p.thinDate,
+              clearDate: p.clearDate,
+              isActive: true,
+              notes: p.notes || null,
+            })),
+          },
+          cropHouseConfigs: {
+            create: usedHouseIds.map((houseId) => {
+              const house = farmHouseMap.get(houseId)!;
+              const override = configMap.get(houseId);
+
+              return {
+                houseId,
+                activeFloorAreaM2:
+                  override?.activeFloorAreaM2 ??
+                  house.usableAreaM2 ??
+                  house.floorAreaM2,
+                activeCapacityBirds:
+                  override?.activeCapacityBirds ??
+                  house.defaultCapacityBirds,
+                activeDrinkerLineCount:
+                  override?.activeDrinkerLineCount ??
+                  house.defaultDrinkerLineCount,
+                activeNippleCount:
+                  override?.activeNippleCount ??
+                  house.defaultNippleCount,
+                activeFeederPanCount:
+                  override?.activeFeederPanCount ??
+                  house.defaultFeederPanCount,
+                activeFanCount:
+                  override?.activeFanCount ??
+                  house.defaultFanCount,
+                activeHeaterCount:
+                  override?.activeHeaterCount ??
+                  house.defaultHeaterCount,
+                notes: override?.notes || null,
+              };
+            }),
+          },
+        },
+        include: {
+          placements: {
+            orderBy: [
+              { houseId: "asc" },
+              { batchNo: "asc" },
+              { placementDate: "asc" },
+            ],
+          },
+          cropHouseConfigs: true,
+        },
+      });
+
+      await cloneFarmTemplateToCrop({
+        prisma: tx as any,
+        farmId,
+        cropId: crop.id,
+        cropNumber,
+      });
+
+      return crop;
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        crop: result,
+        active: true,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("CREATE CROP ERROR:", error);
+
     return NextResponse.json(
       { error: "Server error while creating crop." },
       { status: 500 }

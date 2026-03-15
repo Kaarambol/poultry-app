@@ -82,6 +82,7 @@ export default function CropsPage() {
           EMPTY_BATCH(),
           EMPTY_BATCH(),
           EMPTY_BATCH(),
+          EMPTY_BATCH(),
         ];
       });
 
@@ -97,8 +98,9 @@ export default function CropsPage() {
   }, []);
 
   useEffect(() => {
-    if (farmId) loadHouses(farmId);
-    else {
+    if (farmId) {
+      loadHouses(farmId);
+    } else {
       setHouses([]);
       setPlacements({});
     }
@@ -123,6 +125,7 @@ export default function CropsPage() {
         const birds = Number(batch.birdsPlaced || 0);
         return acc + (Number.isFinite(birds) ? birds : 0);
       }, 0);
+
       return sum + totalForHouse;
     }, 0);
   }, [houses, placements]);
@@ -199,7 +202,7 @@ export default function CropsPage() {
             <div className="page-intro__eyebrow">Production</div>
             <h1 className="page-intro__title">Create Crop</h1>
             <p className="page-intro__subtitle">
-              Create crop and define sale economics (GBP).
+              Create crop and define economics and placement batches.
             </p>
           </div>
         </div>
@@ -265,11 +268,11 @@ export default function CropsPage() {
               </div>
             </div>
 
-            <h3 style={{ marginTop: 18 }}>Sale Economics</h3>
+            <h3 style={{ marginTop: 18 }}>Economics</h3>
 
             <div className="mobile-grid mobile-grid--2">
               <div>
-                <label>Chicken Price per kg (GBP)</label>
+                <label>Chicken Cost</label>
                 <input
                   type="number"
                   step="0.01"
@@ -279,7 +282,7 @@ export default function CropsPage() {
               </div>
 
               <div>
-                <label>Sale Price per kg All In (GBP)</label>
+                <label>Sale Price per kg</label>
                 <input
                   type="number"
                   step="0.01"
@@ -305,13 +308,17 @@ export default function CropsPage() {
 
             {houses.map((house) => (
               <div key={house.id} className="mobile-card">
-                <h3>
+                <h3 style={{ color: "#b00020" }}>
                   {house.name}
                   {house.code ? ` (${house.code})` : ""}
                 </h3>
 
                 {(placements[house.id] || []).map((batch, index) => (
-                  <div key={index} style={{ marginBottom: 12 }}>
+                  <div key={index} style={{ marginBottom: 16 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                      Batch {index + 1}
+                    </div>
+
                     <div className="mobile-grid mobile-grid--2">
                       <input
                         type="date"
@@ -339,7 +346,7 @@ export default function CropsPage() {
                       />
                     </div>
 
-                    <div className="mobile-grid mobile-grid--2">
+                    <div className="mobile-grid mobile-grid--2" style={{ marginTop: 8 }}>
                       <input
                         type="number"
                         placeholder="Birds placed"
@@ -362,6 +369,33 @@ export default function CropsPage() {
                             house.id,
                             index,
                             "parentAgeWeeks",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </div>
+
+                    <div className="mobile-grid mobile-grid--2" style={{ marginTop: 8 }}>
+                      <input
+                        placeholder="Batch hatchery"
+                        value={batch.hatchery}
+                        onChange={(e) =>
+                          updateBatch(
+                            house.id,
+                            index,
+                            "hatchery",
+                            e.target.value
+                          )
+                        }
+                      />
+                      <input
+                        placeholder="Batch notes"
+                        value={batch.notes}
+                        onChange={(e) =>
+                          updateBatch(
+                            house.id,
+                            index,
+                            "notes",
                             e.target.value
                           )
                         }

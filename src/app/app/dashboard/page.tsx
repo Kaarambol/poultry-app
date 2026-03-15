@@ -1,7 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentFarmId, setCurrentCropId } from "@/lib/app-context";
+
+type Farm = {
+  id: string;
+  name: string;
+  code: string;
+};
 
 type ActiveCrop = {
   id: string;
@@ -40,31 +47,33 @@ type DashboardData = {
   houses: DashboardHouse[];
 };
 
-type Farm = {
-  id: string;
-  name: string;
-  code: string;
-};
+function formatNumber(value: number) {
+  return Number.isFinite(value) ? value.toLocaleString() : "-";
+}
+
+function formatDecimal(value: number, digits = 2) {
+  return Number.isFinite(value) ? value.toFixed(digits) : "-";
+}
 
 export default function DashboardPage() {
   const [currentFarmId, setCurrentFarmIdState] = useState("");
   const [farmName, setFarmName] = useState("");
   const [activeCrop, setActiveCrop] = useState<ActiveCrop | null>(null);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [msg, setMsg] = useState("Loading...");
+  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
 
   async function loadFarmName(farmId: string) {
     const r = await fetch("/api/farms/list");
     const data = await r.json();
 
-    if (!Array.isArray(data)) return;
+    if (!Array.isArray(data)) {
+      setFarmName("");
+      return;
+    }
 
     const farm = (data as Farm[]).find((f) => f.id === farmId);
-    if (farm) {
-      setFarmName(`${farm.name} (${farm.code})`);
-    } else {
-      setFarmName("");
-    }
+    setFarmName(farm ? `${farm.name} (${farm.code})` : "");
   }
 
   async function loadActiveCrop(farmId: string) {
@@ -72,61 +81,83 @@ export default function DashboardPage() {
     const data = await r.json();
 
     if (!r.ok) {
-      setMsg(data.error || "Error loading active crop.");
       setActiveCrop(null);
       setDashboard(null);
+      setMsg(data.error || "Error loading active crop.");
       return;
     }
 
     if (!data) {
-      setMsg("No active crop for the current farm.");
       setActiveCrop(null);
       setDashboard(null);
+      setMsg("No active crop for the current farm.");
       return;
     }
 
     setActiveCrop(data);
     setCurrentCropId(data.id);
     setMsg("");
-    await loadDashboard(data.id);
-  }
 
-  async function loadDashboard(cropId: string) {
-    const r = await fetch(`/api/dashboard/summary?cropId=${cropId}`);
-    const data = await r.json();
+    const dashboardResponse = await fetch(
+      `/api/dashboard/summary?cropId=${data.id}`
+    );
+    const dashboardData = await dashboardResponse.json();
 
-    if (!r.ok) {
-      setMsg(data.error || "Error loading dashboard.");
+    if (!dashboardResponse.ok) {
       setDashboard(null);
+      setMsg(dashboardData.error || "Error loading dashboard.");
       return;
     }
 
-    setDashboard(data);
+    setDashboard(dashboardData);
   }
 
   useEffect(() => {
-    const farmId = getCurrentFarmId();
+    async function loadPage() {
+      try {
+        const farmId = getCurrentFarmId();
 
-    if (!farmId) {
-      setMsg("Choose a farm in the top menu first.");
-      return;
+        if (!farmId) {
+          setMsg("Choose a farm in the top menu first.");
+          setLoading(false);
+          return;
+        }
+
+        setCurrentFarmIdState(farmId);
+        await loadFarmName(farmId);
+        await loadActiveCrop(farmId);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    setCurrentFarmIdState(farmId);
-    loadFarmName(farmId);
-    loadActiveCrop(farmId);
+    loadPage();
   }, []);
 
   const ageDays = useMemo(() => {
     if (!activeCrop?.placementDate) return null;
 
-    const placementDate = new Date(activeCrop.placementDate);
+    const placement = new Date(activeCrop.placementDate);
     const today = new Date();
 
-    return Math.floor(
-      (today.getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
+    const diff = Math.floor(
+      (today.getTime() - placement.getTime()) / (1000 * 60 * 60 * 24)
     );
+
+    return diff >= 0 ? diff : 0;
   }, [activeCrop]);
+
+  if (loading) {
+    return (
+      <div className="mobile-page">
+        <div className="page-shell">
+          <div className="mobile-card">
+            <p style={{ margin: 0 }}>Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mobile-page">
@@ -200,40 +231,50 @@ export default function DashboardPage() {
                 <div className="mobile-kpi-grid">
                   <div className="mobile-kpi">
                     <div className="mobile-kpi__label">Birds placed</div>
-                    <div className="mobile-kpi__value">{dashboard.totals.birdsPlaced}</div>
+                    <div className="mobile-kpi__value">
+                      {formatNumber(dashboard.totals.birdsPlaced)}
+                    </div>
                   </div>
                   <div className="mobile-kpi">
                     <div className="mobile-kpi__label">Mort</div>
-                    <div className="mobile-kpi__value">{dashboard.totals.mort}</div>
+                    <div className="mobile-kpi__value">
+                      {formatNumber(dashboard.totals.mort)}
+                    </div>
                   </div>
                   <div className="mobile-kpi">
                     <div className="mobile-kpi__label">Culls</div>
-                    <div className="mobile-kpi__value">{dashboard.totals.culls}</div>
+                    <div className="mobile-kpi__value">
+                      {formatNumber(dashboard.totals.culls)}
+                    </div>
                   </div>
                   <div className="mobile-kpi">
                     <div className="mobile-kpi__label">Total losses</div>
-                    <div className="mobile-kpi__value">{dashboard.totals.totalLosses}</div>
+                    <div className="mobile-kpi__value">
+                      {formatNumber(dashboard.totals.totalLosses)}
+                    </div>
                   </div>
                   <div className="mobile-kpi">
                     <div className="mobile-kpi__label">Birds alive</div>
-                    <div className="mobile-kpi__value">{dashboard.totals.birdsAlive}</div>
+                    <div className="mobile-kpi__value">
+                      {formatNumber(dashboard.totals.birdsAlive)}
+                    </div>
                   </div>
                   <div className="mobile-kpi">
                     <div className="mobile-kpi__label">Mortality %</div>
                     <div className="mobile-kpi__value">
-                      {dashboard.totals.mortalityPct.toFixed(2)}%
+                      {formatDecimal(dashboard.totals.mortalityPct)}%
                     </div>
                   </div>
                   <div className="mobile-kpi">
                     <div className="mobile-kpi__label">Feed kg</div>
                     <div className="mobile-kpi__value">
-                      {dashboard.totals.feedKg.toFixed(2)}
+                      {formatDecimal(dashboard.totals.feedKg)}
                     </div>
                   </div>
                   <div className="mobile-kpi">
                     <div className="mobile-kpi__label">Water L</div>
                     <div className="mobile-kpi__value">
-                      {dashboard.totals.waterL.toFixed(2)}
+                      {formatDecimal(dashboard.totals.waterL)}
                     </div>
                   </div>
                 </div>
@@ -247,82 +288,64 @@ export default function DashboardPage() {
                 <p style={{ margin: 0 }}>No house data available.</p>
               </div>
             ) : (
-              <>
-                <div className="mobile-record-list" style={{ marginBottom: 16 }}>
-                  {dashboard.houses.map((house) => (
-                    <div key={house.houseId} className="mobile-record-card">
-                      <h3 className="mobile-record-card__title">{house.houseName}</h3>
-                      <div className="mobile-record-card__grid">
-                        <div className="mobile-record-row">
-                          <strong>Birds placed</strong>
-                          <span>{house.birdsPlaced}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Mort</strong>
-                          <span>{house.mort}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Culls</strong>
-                          <span>{house.culls}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Total losses</strong>
-                          <span>{house.totalLosses}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Birds alive</strong>
-                          <span>{house.birdsAlive}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Mortality %</strong>
-                          <span>{house.mortalityPct.toFixed(2)}%</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Feed kg</strong>
-                          <span>{house.feedKg.toFixed(2)}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Water L</strong>
-                          <span>{house.waterL.toFixed(2)}</span>
-                        </div>
+              <div className="mobile-record-list">
+                {dashboard.houses.map((house) => (
+                  <div key={house.houseId} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">{house.houseName}</h3>
+
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row">
+                        <strong>Birds placed</strong>
+                        <span>{formatNumber(house.birdsPlaced)}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Mort</strong>
+                        <span>{formatNumber(house.mort)}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Culls</strong>
+                        <span>{formatNumber(house.culls)}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Total losses</strong>
+                        <span>{formatNumber(house.totalLosses)}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Birds alive</strong>
+                        <span>{formatNumber(house.birdsAlive)}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Mortality %</strong>
+                        <span>{formatDecimal(house.mortalityPct)}%</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Feed kg</strong>
+                        <span>{formatDecimal(house.feedKg)}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Water L</strong>
+                        <span>{formatDecimal(house.waterL)}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
 
-                <div className="mobile-table-wrap hide-mobile">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>House</th>
-                        <th>Birds placed</th>
-                        <th>Mort</th>
-                        <th>Culls</th>
-                        <th>Total losses</th>
-                        <th>Birds alive</th>
-                        <th>Mortality %</th>
-                        <th>Feed kg</th>
-                        <th>Water L</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dashboard.houses.map((house) => (
-                        <tr key={house.houseId}>
-                          <td>{house.houseName}</td>
-                          <td>{house.birdsPlaced}</td>
-                          <td>{house.mort}</td>
-                          <td>{house.culls}</td>
-                          <td>{house.totalLosses}</td>
-                          <td>{house.birdsAlive}</td>
-                          <td>{house.mortalityPct.toFixed(2)}%</td>
-                          <td>{house.feedKg.toFixed(2)}</td>
-                          <td>{house.waterL.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
+                    <div className="mobile-actions" style={{ marginTop: 12 }}>
+                      <Link
+                        href={`/app/houses/${house.houseId}/charts`}
+                        className="mobile-button mobile-button--secondary"
+                      >
+                        Charts
+                      </Link>
+
+                      <Link
+                        href={`/app/houses/${house.houseId}/table`}
+                        className="mobile-button mobile-button--secondary"
+                      >
+                        Table
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </>
         )}
