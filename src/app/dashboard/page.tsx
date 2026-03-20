@@ -330,14 +330,14 @@ export default function DashboardPage() {
 
                     <div className="mobile-actions" style={{ marginTop: 12 }}>
                       <Link
-                        href={`/app/houses/${house.houseId}/charts`}
+                        href={`/houses/${house.houseId}/charts`}
                         className="mobile-button mobile-button--secondary"
                       >
                         Charts
                       </Link>
 
                       <Link
-                        href={`/app/houses/${house.houseId}/table`}
+                        href={`/houses/${house.houseId}/table`}
                         className="mobile-button mobile-button--secondary"
                       >
                         Table

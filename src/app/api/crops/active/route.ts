@@ -7,41 +7,41 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const farmId = String(url.searchParams.get("farmId") || "").trim();
 
-    if (!uid) {
-      return NextResponse.json({ error: "Not logged in." }, { status: 401 });
-    }
-
-    if (!farmId) {
-      return NextResponse.json({ error: "farmId is required." }, { status: 400 });
-    }
+    if (!uid) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+    if (!farmId) return NextResponse.json({ error: "farmId is required." }, { status: 400 });
 
     const farmAccess = await prisma.farmUser.findFirst({
-      where: {
-        farmId,
-        userId: uid,
-      },
+      where: { farmId, userId: uid },
     });
 
-    if (!farmAccess) {
-      return NextResponse.json({ error: "No access to this farm." }, { status: 403 });
-    }
+    if (!farmAccess) return NextResponse.json({ error: "No access." }, { status: 403 });
 
     const crop = await prisma.crop.findFirst({
-      where: {
-        farmId,
-        status: "ACTIVE",
-      },
-      orderBy: {
-        placementDate: "desc",
-      },
+      where: { farmId, status: "ACTIVE" },
+      orderBy: { placementDate: "desc" },
+      include: {
+        placements: {
+          include: {
+            house: true
+          }
+        }
+      }
     });
 
-    return NextResponse.json(crop || null);
+    if (!crop) return NextResponse.json(null);
+
+    // Fetching daily records. Including fields for thinning and clearance detection.
+    const dailyRecords = await (prisma as any).dailyRecord.findMany({
+      where: { cropId: crop.id },
+      orderBy: { date: 'asc' }
+    });
+
+    return NextResponse.json({
+      ...crop,
+      dailyRecords
+    });
   } catch (error) {
-    console.error("ACTIVE CROP ERROR:", error);
-    return NextResponse.json(
-      { error: "Server error while loading active crop." },
-      { status: 500 }
-    );
+    console.error("API ERROR:", error);
+    return NextResponse.json({ error: "Server error." }, { status: 500 });
   }
 }

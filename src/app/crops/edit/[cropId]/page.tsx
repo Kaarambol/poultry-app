@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, use } from "react";
 
 type Placement = {
   id: string;
@@ -37,7 +37,10 @@ export default function EditCropPage({
 }: {
   params: Promise<{ cropId: string }>;
 }) {
-  const [cropId, setCropId] = useState("");
+  // Rozpakowanie params zgodnie z nowym standardem Next.js
+  const resolvedParams = use(params);
+  const cropId = resolvedParams.cropId;
+
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
@@ -60,10 +63,7 @@ export default function EditCropPage({
 
   useEffect(() => {
     async function init() {
-      const resolved = await params;
-      setCropId(resolved.cropId);
-
-      const r = await fetch(`/api/crops/details?cropId=${resolved.cropId}`);
+      const r = await fetch(`/api/crops/details?cropId=${cropId}`);
       const data = await r.json();
 
       if (!r.ok) {
@@ -73,7 +73,6 @@ export default function EditCropPage({
         return;
       }
 
-      // obsługa kilku możliwych formatów odpowiedzi
       const crop: CropHeader | null =
         data?.crop ??
         (data?.id && data?.cropNumber ? data : null);
@@ -107,9 +106,9 @@ export default function EditCropPage({
       setPlacements(placementsData);
 
       const [dailyRes, nightRes, medRes] = await Promise.all([
-        fetch(`/api/daily-records/list?cropId=${resolved.cropId}`),
-        fetch(`/api/night-check/list?cropId=${resolved.cropId}`),
-        fetch(`/api/medications/list?cropId=${resolved.cropId}`),
+        fetch(`/api/daily-records/list?cropId=${cropId}`),
+        fetch(`/api/night-check/list?cropId=${cropId}`),
+        fetch(`/api/medications/list?cropId=${cropId}`),
       ]);
 
       const [dailyData, nightData, medData] = await Promise.all([
@@ -128,7 +127,7 @@ export default function EditCropPage({
     }
 
     init();
-  }, [params]);
+  }, [cropId]);
 
   function updatePlacement(
     id: string,
@@ -188,10 +187,9 @@ export default function EditCropPage({
           hatchery: p.hatchery,
           flockNumber: p.flockNumber,
           birdsPlaced: Number(p.birdsPlaced || 0),
+          // POPRAWKA: Usunięcie porównania p.parentAgeWeeks === ""
           parentAgeWeeks:
-            p.parentAgeWeeks === null ||
-            p.parentAgeWeeks === undefined ||
-            p.parentAgeWeeks === ""
+            p.parentAgeWeeks === null || p.parentAgeWeeks === undefined
               ? null
               : Number(p.parentAgeWeeks),
           notes: p.notes,

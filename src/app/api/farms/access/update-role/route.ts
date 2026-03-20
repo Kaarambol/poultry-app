@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { canManageAccess } from "@/lib/permissions";
 import { writeChangeLog } from "@/lib/change-log";
-
-const ALLOWED_ROLES = ["OWNER", "MANAGER", "ASSISTANT_MANAGER", "VIEWER"];
+import { FarmRole } from "@prisma/client"; // Import typu z Prisma
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,8 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const farmUserId = String(body.farmUserId || "").trim();
-    const role = String(body.role || "").trim().toUpperCase();
+    const { farmUserId, role } = body;
 
     if (!farmUserId || !role) {
       return NextResponse.json(
@@ -24,46 +22,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!ALLOWED_ROLES.includes(role)) {
-      return NextResponse.json({ error: "Invalid role." }, { status: 400 });
-    }
-
-    const target = await prisma.farmUser.findUnique({
+    // Znajdź rekord dostępu, który chcemy zaktualizować
+    const targetAccess = await prisma.farmUser.findUnique({
       where: { id: farmUserId },
-      include: {
-        user: {
-          select: {
-            email: true,
-          },
-        },
-      },
     });
 
-    if (!target) {
-      return NextResponse.json({ error: "Access row not found." }, { status: 404 });
+    if (!targetAccess) {
+      return NextResponse.json({ error: "Access record not found." }, { status: 404 });
     }
 
+    // Sprawdź uprawnienia osoby wykonującej akcję
     const myAccess = await prisma.farmUser.findFirst({
       where: {
-        farmId: target.farmId,
+        farmId: targetAccess.farmId,
         userId: uid,
       },
     });
 
-    if (!myAccess) {
-      return NextResponse.json({ error: "No access to this farm." }, { status: 403 });
-    }
-
-    if (!canManageAccess(myAccess.role)) {
+    if (!myAccess || !canManageAccess(myAccess.role)) {
       return NextResponse.json(
-        { error: "Only OWNER can change roles." },
+        { error: "Only OWNER or MANAGER can update roles." },
         { status: 403 }
       );
     }
 
     const updated = await prisma.farmUser.update({
       where: { id: farmUserId },
-      data: { role },
+      data: { 
+        role: role as FarmRole // Poprawka: rzutowanie na typ FarmRole
+      },
       include: {
         user: {
           select: {
@@ -76,15 +63,15 @@ export async function POST(req: NextRequest) {
     });
 
     await writeChangeLog({
-      farmId: target.farmId,
+      farmId: targetAccess.farmId,
       userId: uid,
-      action: "CHANGE_USER_ROLE",
-      description: `Changed role for ${updated.user.email} to ${updated.role}.`,
+      action: "UPDATE_USER_ROLE",
+      description: `Updated role for ${updated.user.email} to ${updated.role}.`,
     });
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("FARM ACCESS UPDATE ROLE ERROR:", error);
+    console.error("UPDATE ROLE ERROR:", error);
     return NextResponse.json(
       { error: "Server error while updating role." },
       { status: 500 }

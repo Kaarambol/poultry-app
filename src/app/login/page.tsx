@@ -22,46 +22,41 @@ export default function LoginPage() {
     const data = await r.json();
 
     if (!r.ok) {
-      setMsg(data.error || "Error");
+      setMsg(data.error || "Błąd logowania");
       return;
     }
 
-    router.push("/app");
+    // Przekierowanie na właściwą stronę
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: "40px auto", fontFamily: "sans-serif" }}>
-      <h1>Log in</h1>
-
-      <form onSubmit={onSubmit}>
-        <label>Email</label>
-        <input
-          style={{ width: "100%", padding: 10, margin: "6px 0 12px" }}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          type="email"
-          required
-        />
-
-        <label>Password</label>
-        <input
-          style={{ width: "100%", padding: 10, margin: "6px 0 12px" }}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          type="password"
-          required
-        />
-
-        <button style={{ padding: 10, width: "100%" }} type="submit">
-          Log in
-        </button>
+    <div className="login-container"> 
+      <h1>Zaloguj się</h1>
+      <form onSubmit={onSubmit} className="login-form">
+        <div className="form-group">
+          <label>Email</label>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Hasło</label>
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            required
+          />
+        </div>
+        <button type="submit" className="btn-primary">Zaloguj</button>
       </form>
-
-      {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
-
-      <p style={{ marginTop: 16 }}>
-        No account? <a href="/register">Register</a>
-      </p>
+      {msg && <p className="error-msg">{msg}</p>}
+      <p>Nie masz konta? <a href="/register">Zarejestruj się</a></p>
     </div>
   );
 }

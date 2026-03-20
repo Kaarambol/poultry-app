@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     res.cookies.set("uid", user.id, {
       httpOnly: true,
       sameSite: "lax",
-      path: "/",
+      path: "/", // Poprawna ścieżka główna
     });
 
     return res;

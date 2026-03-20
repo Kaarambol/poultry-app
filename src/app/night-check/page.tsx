@@ -625,21 +625,21 @@ export default function NightCheckPage() {
 
             <div className="mobile-grid mobile-grid--2">
               {[
-                ["Water system OK", waterSystemOk, setWaterSystemOk],
-                ["Feed system OK", feedSystemOk, setFeedSystemOk],
-                ["Ventilation OK", ventilationOk, setVentilationOk],
-                ["Alarm OK", alarmOk, setAlarmOk],
-                ["Generator OK", generatorOk, setGeneratorOk],
-                ["Lighting OK", lightingOk, setLightingOk],
-                ["Fire extinguisher", fireExtinguisher, setFireExtinguisher],
-                ["Foot dip change", footDipChange, setFootDipChange],
-                ["Dosatron check", dosatronCheck, setDosatronCheck],
-                ["Vitamin add", vitaminAdd, setVitaminAdd],
-                ["Vaccination", vaccination, setVaccination],
-                ["Medication", medication, setMedication],
-                ["Pest control inspection", pestControlInspection, setPestControlInspection],
-                ["Water sanitizer", waterSanitizer, setWaterSanitizer],
-              ].map(([label, value, setter], idx) => (
+                { label: "Water system OK", value: waterSystemOk, setter: setWaterSystemOk },
+                { label: "Feed system OK", value: feedSystemOk, setter: setFeedSystemOk },
+                { label: "Ventilation OK", value: ventilationOk, setter: setVentilationOk },
+                { label: "Alarm OK", value: alarmOk, setter: setAlarmOk },
+                { label: "Generator OK", value: generatorOk, setter: setGeneratorOk },
+                { label: "Lighting OK", value: lightingOk, setter: setLightingOk },
+                { label: "Fire extinguisher", value: fireExtinguisher, setter: setFireExtinguisher },
+                { label: "Foot dip change", value: footDipChange, setter: setFootDipChange },
+                { label: "Dosatron check", value: dosatronCheck, setter: setDosatronCheck },
+                { label: "Vitamin add", value: vitaminAdd, setter: setVitaminAdd },
+                { label: "Vaccination", value: vaccination, setter: setVaccination },
+                { label: "Medication", value: medication, setter: setMedication },
+                { label: "Pest control inspection", value: pestControlInspection, setter: setPestControlInspection },
+                { label: "Water sanitizer", value: waterSanitizer, setter: setWaterSanitizer },
+              ].map(({ label, value, setter }, idx) => (
                 <label
                   key={idx}
                   style={{ display: "flex", gap: 8, alignItems: "center" }}
@@ -647,7 +647,7 @@ export default function NightCheckPage() {
                   <input
                     type="checkbox"
                     checked={Boolean(value)}
-                    onChange={(e) => (setter as (v: boolean) => void)(e.target.checked)}
+                    onChange={(e) => setter(e.target.checked)}
                     disabled={!farmId || !canOperate}
                   />
                   {label}
@@ -693,11 +693,11 @@ export default function NightCheckPage() {
 
             <div className="mobile-grid mobile-grid--2">
               {[
-                ["Calibration water meter", calibrationWaterMeter, setCalibrationWaterMeter],
-                ["Calibration temp probe", calibrationTempProbe, setCalibrationTempProbe],
-                ["Calibration humidity probe", calibrationHumidityProbe, setCalibrationHumidityProbe],
-                ["Calibration weigher", calibrationWeigher, setCalibrationWeigher],
-              ].map(([label, value, setter], idx) => (
+                { label: "Calibration water meter", value: calibrationWaterMeter, setter: setCalibrationWaterMeter },
+                { label: "Calibration temp probe", value: calibrationTempProbe, setter: setCalibrationTempProbe },
+                { label: "Calibration humidity probe", value: calibrationHumidityProbe, setter: setCalibrationHumidityProbe },
+                { label: "Calibration weigher", value: calibrationWeigher, setter: setCalibrationWeigher },
+              ].map(({ label, value, setter }, idx) => (
                 <label
                   key={idx}
                   style={{ display: "flex", gap: 8, alignItems: "center" }}
@@ -705,7 +705,7 @@ export default function NightCheckPage() {
                   <input
                     type="checkbox"
                     checked={Boolean(value)}
-                    onChange={(e) => (setter as (v: boolean) => void)(e.target.checked)}
+                    onChange={(e) => setter(e.target.checked)}
                     disabled={!farmId || !canOperate}
                   />
                   {label}

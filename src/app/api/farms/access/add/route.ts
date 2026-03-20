@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { canManageAccess } from "@/lib/permissions";
 import { writeChangeLog } from "@/lib/change-log";
+import { FarmRole } from "@prisma/client"; // Importujemy typ z Prisma
 
 const ALLOWED_ROLES = ["OWNER", "MANAGER", "ASSISTANT_MANAGER", "VIEWER"];
 
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
       data: {
         farmId,
         userId: user.id,
-        role,
+        role: role as FarmRole, // Poprawka: rzutowanie na typ FarmRole
       },
       include: {
         user: {

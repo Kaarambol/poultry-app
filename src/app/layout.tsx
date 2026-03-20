@@ -1,31 +1,36 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import type { ReactNode } from "react";
+import { cookies } from "next/headers";
+import AppNav from "@/components/AppNav";
+import "./globals.css"; // Upewnij się, że importujesz style!
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata: Metadata = {
-  title: "Poultry App",
-  description: "Farm, crop and poultry production management",
-};
-
-export default function RootLayout({
+export default async function AppLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: ReactNode;
+}) {
+  const cookieStore = await cookies();
+  const uid = cookieStore.get("uid")?.value;
+
+  // Jeśli użytkownik NIE jest zalogowany, pokazujemy TYLKO stronę logowania/rejestracji
+  // bez żadnych dodatkowych ramek i napisów "Not logged in"
+  if (!uid) {
+    return (
+      <html lang="pl">
+        <body>
+          <main>{children}</main>
+        </body>
+      </html>
+    );
+  }
+
+  // Jeśli użytkownik JEST zalogowany, pokazujemy pełny interfejs z nawigacją
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
+    <html lang="pl">
+      <body>
+        <div className="app-shell">
+          <AppNav />
+          <main className="app-main">{children}</main>
+        </div>
       </body>
     </html>
   );

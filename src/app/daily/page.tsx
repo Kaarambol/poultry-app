@@ -613,7 +613,8 @@ export default function DailyPage() {
           <h2>Crop Setup</h2>
           <p style={{ marginTop: 0 }}>Manage thin and clear dates per house.</p>
           <div className="mobile-actions">
-           <a href="/app/thin-clear" className="mobile-button mobile-button--secondary">
+           {/* NAPRAWIONY LINK - USUNIĘTO /app */}
+           <a href="/thin-clear" className="mobile-button mobile-button--secondary">
             Thin / Clear Setup
            </a>
          </div>
