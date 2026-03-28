@@ -230,7 +230,7 @@ export default function MedicationPage() {
               <div><label>Batch No</label><input value={batchNo} onChange={e => setBatchNo(e.target.value)} disabled={!canOperate} /></div>
             </div>
             <div className="mobile-grid mobile-grid--2">
-              <div><label>Expire Date</label><input type="date" value={expireDate} onChange={e => setExpireDate(e.target.value)} disabled={!canOperate} /></div>
+              <div><label>Expiry Date</label><input type="date" value={expireDate} onChange={e => setExpireDate(e.target.value)} disabled={!canOperate} /></div>
               <div><label>Finish Date</label><input type="date" value={finishDate} onChange={e => setFinishDate(e.target.value)} disabled={!canOperate} /></div>
             </div>
             <div className="mobile-grid mobile-grid--2">

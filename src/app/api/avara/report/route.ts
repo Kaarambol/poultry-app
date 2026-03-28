@@ -95,6 +95,7 @@ export async function GET(req: Request) {
         mortalityPct: number;
         feedKg: number;
         waterL: number;
+        avgWeightG: number | null;
         firstPlacementDate: Date | null;
         hatcheries: string[];
         flockNumbers: string[];
@@ -114,6 +115,7 @@ export async function GET(req: Request) {
           mortalityPct: 0,
           feedKg: 0,
           waterL: 0,
+          avgWeightG: null,
           firstPlacementDate: null,
           hatcheries: [],
           flockNumbers: [],
@@ -144,6 +146,9 @@ export async function GET(req: Request) {
       item.culls += record.culls;
       item.feedKg += record.feedKg;
       item.waterL += record.waterL;
+      if (record.avgWeightG !== null && record.avgWeightG !== undefined) {
+        item.avgWeightG = record.avgWeightG;
+      }
     }
 
     for (const key of Object.keys(houseMap)) {
@@ -189,6 +194,7 @@ export async function GET(req: Request) {
       totals,
       houses: houses.map((h) => ({
         ...h,
+        avgWeight: h.avgWeightG,
         firstPlacementDate: h.firstPlacementDate,
         hatcheries: h.hatcheries.join(", "),
         flockNumbers: h.flockNumbers.join(", "),

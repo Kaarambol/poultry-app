@@ -47,7 +47,7 @@ export default function FarmsPage() {
       setCode("");
 
       router.refresh();
-      // POPRAWIONE: Usunięto przedrostek /app
+      // Redirect to farm setup
       router.push("/farms/setup");
     } finally {
       setSubmitting(false);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { canManageAccess } from "@/lib/permissions";
 import { writeChangeLog } from "@/lib/change-log";
-import { FarmRole } from "@prisma/client"; // Import typu z Prisma
+import { FarmRole } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Znajdź rekord dostępu, który chcemy zaktualizować
+    // Find the access record to update
     const targetAccess = await prisma.farmUser.findUnique({
       where: { id: farmUserId },
     });
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Access record not found." }, { status: 404 });
     }
 
-    // Sprawdź uprawnienia osoby wykonującej akcję
+    // Check permissions of the requesting user
     const myAccess = await prisma.farmUser.findFirst({
       where: {
         farmId: targetAccess.farmId,
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     const updated = await prisma.farmUser.update({
       where: { id: farmUserId },
       data: { 
-        role: role as FarmRole // Poprawka: rzutowanie na typ FarmRole
+        role: role as FarmRole
       },
       include: {
         user: {

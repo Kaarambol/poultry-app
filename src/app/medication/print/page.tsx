@@ -154,7 +154,7 @@ export default function MedicationPrintPage() {
               <tr>
                 <td className="label">Batch No</td>
                 <td>{record.batchNo || ""}</td>
-                <td className="label">Expire Date</td>
+                <td className="label">Expiry Date</td>
                 <td>{formatDate(record.expireDate)}</td>
               </tr>
               <tr>

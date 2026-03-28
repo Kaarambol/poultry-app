@@ -44,6 +44,19 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     const feedContractor = String(body.feedContractor || "").trim() || null;
     const chickenSupplier = String(body.chickenSupplier || "").trim() || null;
 
+    const farmNumber            = String(body.farmNumber            || "").trim() || null;
+    const chpCode               = String(body.chpCode               || "").trim() || null;
+    const rodentControl         = String(body.rodentControl         || "").trim() || null;
+    const disinfectProgramme    = String(body.disinfectProgramme    || "").trim() || null;
+    const waterSanitizer        = String(body.waterSanitizer        || "").trim() || null;
+    const footDipDisinfectant   = String(body.footDipDisinfectant   || "").trim() || null;
+    const cleaningContractor    = String(body.cleaningContractor    || "").trim() || null;
+    const vetContractor         = String(body.vetContractor         || "").trim() || null;
+    const electricianContractor = String(body.electricianContractor || "").trim() || null;
+    const generatorService      = String(body.generatorService      || "").trim() || null;
+    const weedkiller            = String(body.weedkiller            || "").trim() || null;
+    const security              = String(body.security              || "").trim() || null;
+
     const feedPrice1 =
       body.feedPrice1 === undefined || body.feedPrice1 === null || body.feedPrice1 === ""
         ? null
@@ -147,6 +160,18 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         wheatPrice,
         chickenPrice,
         liveWeightPricePerKg,
+        farmNumber,
+        chpCode,
+        rodentControl,
+        disinfectProgramme,
+        waterSanitizer,
+        footDipDisinfectant,
+        cleaningContractor,
+        vetContractor,
+        electricianContractor,
+        generatorService,
+        weedkiller,
+        security,
       },
     });
 

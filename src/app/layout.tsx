@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import AppNav from "@/components/AppNav";
-import "./globals.css"; // Upewnij się, że importujesz style!
+import "./globals.css";
 
 export default async function AppLayout({
   children,
@@ -11,8 +11,7 @@ export default async function AppLayout({
   const cookieStore = await cookies();
   const uid = cookieStore.get("uid")?.value;
 
-  // Jeśli użytkownik NIE jest zalogowany, pokazujemy TYLKO stronę logowania/rejestracji
-  // bez żadnych dodatkowych ramek i napisów "Not logged in"
+  // If not logged in, show only login/register page without the app shell
   if (!uid) {
     return (
       <html lang="pl">
@@ -23,7 +22,7 @@ export default async function AppLayout({
     );
   }
 
-  // Jeśli użytkownik JEST zalogowany, pokazujemy pełny interfejs z nawigacją
+  // Logged in — show full app shell with navigation
   return (
     <html lang="pl">
       <body>

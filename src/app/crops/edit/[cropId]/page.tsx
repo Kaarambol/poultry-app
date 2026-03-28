@@ -187,7 +187,7 @@ export default function EditCropPage({
           hatchery: p.hatchery,
           flockNumber: p.flockNumber,
           birdsPlaced: Number(p.birdsPlaced || 0),
-          // POPRAWKA: Usunięcie porównania p.parentAgeWeeks === ""
+          // parentAgeWeeks is a number, avoid comparing with empty string
           parentAgeWeeks:
             p.parentAgeWeeks === null || p.parentAgeWeeks === undefined
               ? null

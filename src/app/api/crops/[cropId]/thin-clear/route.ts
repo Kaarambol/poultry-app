@@ -77,7 +77,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
       if (!existing) {
         grouped.set(p.houseId, {
-          placementId: p.id, // zapisujemy do pierwszego batcha tego house
+          placementId: p.id, // store reference to first batch for this house
           houseId: p.houseId,
           houseName: p.house.name,
           birdsPlaced: p.birdsPlaced,
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       } else {
         existing.birdsPlaced += p.birdsPlaced;
 
-        // jeśli pierwszy batch nie ma thin/clear, a kolejny ma, bierzemy pierwszą znalezioną wartość
+        // if first batch has no thin/clear but a later one does, use first found value
         if (!existing.thinDate && p.thinDate) existing.thinDate = p.thinDate;
         if (existing.thinBirds === null && p.thinBirds !== null) existing.thinBirds = p.thinBirds;
 
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
 
-    // zapisujemy na pierwszym batchu danego house
+    // save on the first batch for this house
     const primaryPlacement = allHousePlacements[0];
 
     if (!primaryPlacement) {

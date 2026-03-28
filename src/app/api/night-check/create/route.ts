@@ -39,8 +39,12 @@ export async function POST(req: NextRequest) {
     const humidityPct = parseOptionalFloat(body.humidityPct);
     const co2Ppm = parseOptionalInt(body.co2Ppm);
     const ammoniaPpm = parseOptionalFloat(body.ammoniaPpm);
+    const humidityOk = parseBoolean(body.humidityOk);
+    const co2Ok = parseBoolean(body.co2Ok);
+    const ammoniaOk = parseBoolean(body.ammoniaOk);
 
     const litterScore = parseOptionalInt(body.litterScore);
+    const litterOk = parseBoolean(body.litterOk);
     const wetAreas = parseBoolean(body.wetAreas);
     const capping = parseBoolean(body.capping);
     const litterNotes = String(body.litterNotes || "").trim();
@@ -228,7 +232,11 @@ export async function POST(req: NextRequest) {
       humidityPct,
       co2Ppm,
       ammoniaPpm,
+      humidityOk,
+      co2Ok,
+      ammoniaOk,
       litterScore,
+      litterOk,
       wetAreas,
       capping,
       litterNotes: litterNotes || null,

@@ -111,6 +111,14 @@ export default function ThinClearPage() {
   }
 
   async function saveRow(row: PlacementRow) {
+    if (row.thinDate && !row.thinBirds) {
+      setMsgType("info");
+      setMsg(`${row.houseName}: Thin Date 1 is set but Thin Birds 1 count is missing — targets won't adjust until birds count is entered.`);
+    }
+    if (row.thin2Date && !row.thin2Birds) {
+      setMsgType("info");
+      setMsg(`${row.houseName}: Thin Date 2 is set but Thin Birds 2 count is missing — targets won't adjust until birds count is entered.`);
+    }
     const r = await fetch(`/api/crops/${cropId}/thin-clear`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -121,8 +129,6 @@ export default function ThinClearPage() {
         thin2Date: row.thin2Date,
         thin2Birds: row.thin2Birds,
         clearDate: row.clearDate,
-        clearBirds: row.clearBirds,
-        notes: row.notes,
       }),
     });
 
@@ -247,35 +253,16 @@ export default function ThinClearPage() {
                   </div>
                 </div>
 
-                <div className="mobile-grid mobile-grid--2">
-                  <div>
-                    <label>Clear Date</label>
-                    <input
-                      type="date"
-                      value={row.clearDate ? row.clearDate.slice(0, 10) : ""}
-                      onChange={(e) =>
-                        updateRow(row.id, "clearDate", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label>Clear Birds</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.clearBirds ?? ""}
-                      onChange={(e) =>
-                        updateRow(row.id, "clearBirds", e.target.value)
-                      }
-                    />
-                  </div>
+                <div>
+                  <label>Clear Date</label>
+                  <input
+                    type="date"
+                    value={row.clearDate ? row.clearDate.slice(0, 10) : ""}
+                    onChange={(e) =>
+                      updateRow(row.id, "clearDate", e.target.value)
+                    }
+                  />
                 </div>
-
-                <label>Notes</label>
-                <textarea
-                  value={row.notes || ""}
-                  onChange={(e) => updateRow(row.id, "notes", e.target.value)}
-                />
 
                 <div className="mobile-actions" style={{ marginTop: 12 }}>
                   <button

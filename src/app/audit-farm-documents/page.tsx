@@ -112,6 +112,31 @@ function alertColor(severity: "SOON" | "OVERDUE") {
   return severity === "OVERDUE" ? "#b00020" : "#c77700";
 }
 
+function getDocumentStatusBadge(doc: FarmDocument): { label: string; color: string } {
+  const today = new Date();
+
+  if (doc.status === "EXPIRED") return { label: "Expired", color: "#b00020" };
+  if (doc.status === "ARCHIVED") return { label: "Archived", color: "#666" };
+
+  if (doc.expiryDate) {
+    const diffDays = Math.ceil(
+      (new Date(doc.expiryDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (diffDays < 0) return { label: "Expired", color: "#b00020" };
+    if (diffDays <= 30) return { label: "Expiry soon", color: "#c77700" };
+  }
+
+  if (doc.nextReviewDate) {
+    const diffDays = Math.ceil(
+      (new Date(doc.nextReviewDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (diffDays < 0) return { label: "Review overdue", color: "#b00020" };
+    if (diffDays <= 30) return { label: "Review soon", color: "#c77700" };
+  }
+
+  return { label: "Active", color: "#1f7a1f" };
+}
+
 export default function AuditFarmDocumentsPage() {
   const [currentFarmId, setCurrentFarmId] = useState("");
   const [farmName, setFarmName] = useState("");
@@ -145,6 +170,7 @@ export default function AuditFarmDocumentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<FarmDocument[]>([]);
   const [searchExecuted, setSearchExecuted] = useState(false);
+  const [allDocuments, setAllDocuments] = useState<FarmDocument[]>([]);
 
   const alertsRef = useRef<HTMLDivElement | null>(null);
   const formRef = useRef<HTMLDivElement | null>(null);
@@ -180,6 +206,19 @@ export default function AuditFarmDocumentsPage() {
     setAlerts(Array.isArray(data.alerts) ? data.alerts : []);
   }
 
+  async function loadAllDocuments(farmId: string) {
+    const r = await fetch(`/api/farm-documents/list?farmId=${farmId}`);
+    const data = await r.json();
+    if (!r.ok || !Array.isArray(data)) {
+      setAllDocuments([]);
+      return;
+    }
+    const sorted = [...data].sort((a, b) =>
+      (a.documentType || "").localeCompare(b.documentType || "")
+    );
+    setAllDocuments(sorted);
+  }
+
   useEffect(() => {
     const farmId = getCurrentFarmId();
 
@@ -193,6 +232,7 @@ export default function AuditFarmDocumentsPage() {
     loadFarmName(farmId);
     loadMyRole(farmId);
     loadAlerts(farmId);
+    loadAllDocuments(farmId);
     setMsg("");
   }, []);
 
@@ -261,6 +301,7 @@ export default function AuditFarmDocumentsPage() {
     setMsg(editingId ? "Document updated." : "Document added.");
     clearForm();
     await loadAlerts(currentFarmId);
+    await loadAllDocuments(currentFarmId);
 
     if (searchExecuted && searchQuery.trim().length >= 2) {
       await runSearch(searchQuery);
@@ -330,6 +371,7 @@ export default function AuditFarmDocumentsPage() {
     setMsgType("success");
     setMsg("Document deleted.");
     await loadAlerts(currentFarmId);
+    await loadAllDocuments(currentFarmId);
 
     if (searchExecuted && searchQuery.trim().length >= 2) {
       await runSearch(searchQuery);
@@ -783,6 +825,80 @@ export default function AuditFarmDocumentsPage() {
             )}
           </form>
         </div>
+
+        {allDocuments.length > 0 && (
+          <div className="mobile-card" style={{ overflowX: "auto" }}>
+            <h2>All Documents ({allDocuments.length})</h2>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Title</th>
+                  <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Type</th>
+                  <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Expiry date</th>
+                  <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Next review</th>
+                  {canOperate && (
+                    <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {allDocuments.map((doc, idx) => {
+                  const badge = getDocumentStatusBadge(doc);
+                  return (
+                    <tr
+                      key={doc.id}
+                      style={{ background: idx % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #eee" }}
+                    >
+                      <td style={{ padding: "8px 10px", wordBreak: "break-word", maxWidth: 260 }}>
+                        <span style={{ fontWeight: 500 }}>{doc.title}</span>
+                        <span
+                          style={{
+                            marginLeft: 8,
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            color: badge.color,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
+                        {formatDocumentTypeLabel(doc.documentType)}
+                      </td>
+                      <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
+                        {formatDate(doc.expiryDate)}
+                      </td>
+                      <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
+                        {formatDate(doc.nextReviewDate)}
+                      </td>
+                      {canOperate && (
+                        <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
+                          <button
+                            type="button"
+                            className="mobile-button mobile-button--secondary"
+                            style={{ marginRight: 6, padding: "4px 10px", fontSize: "0.8rem" }}
+                            onClick={() => startEdit(doc)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="mobile-button mobile-button--danger"
+                            style={{ padding: "4px 10px", fontSize: "0.8rem" }}
+                            onClick={() => deleteDocument(doc.id)}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {searchExecuted && (
           <>

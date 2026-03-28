@@ -36,6 +36,18 @@ export async function GET(req: NextRequest) {
         wheatPrice: true,
         chickenPrice: true,
         liveWeightPricePerKg: true,
+        farmNumber: true,
+        chpCode: true,
+        rodentControl: true,
+        disinfectProgramme: true,
+        waterSanitizer: true,
+        footDipDisinfectant: true,
+        cleaningContractor: true,
+        vetContractor: true,
+        electricianContractor: true,
+        generatorService: true,
+        weedkiller: true,
+        security: true,
       },
     });
 

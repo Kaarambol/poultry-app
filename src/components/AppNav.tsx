@@ -25,7 +25,7 @@ type AlertItem = {
   severity: "SOON" | "OVERDUE";
 };
 
-// POPRAWIONE LINKI - USUNIĘTO /app
+// Main navigation links
 const mainLinks = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
@@ -39,13 +39,14 @@ const setupLinks = [
   { href: "/farms", label: "Create Farm" },
   { href: "/farms/setup", label: "Farm Setup" },
   { href: "/crops", label: "Create Crop" },
+  { href: "/crops/targets", label: "Crop Targets" },
   { href: "/access", label: "Access" },
   { href: "/log", label: "Log" },
 ];
 
 const recordsLinks = [
   { href: "/check-flock", label: "Check Flock" },
-  { href: "/audit-farm-documents", label: "Farm Doc" },
+  { href: "/audit-farm-documents", label: "Farm Documents" },
   { href: "/medication", label: "Medication" },
   { href: "/history", label: "History" },
   { href: "/avara", label: "Week Report" },
@@ -193,7 +194,7 @@ export default function AppNav() {
           <div className="app-brand">
             <div className="app-brand__badge">PA</div>
             <div className="app-brand__text">
-              <div className="app-brand__title">Poultry App</div>
+              <div className="app-brand__title">Poultry Manage</div>
               <div className="app-brand__sub">{currentFarmLabel} · {currentCropLabel}</div>
             </div>
           </div>

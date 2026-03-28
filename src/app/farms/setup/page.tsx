@@ -16,6 +16,18 @@ type Farm = {
   wheatPrice?: number | null;
   chickenPrice?: number | null;
   liveWeightPricePerKg?: number | null;
+  farmNumber?: string | null;
+  chpCode?: string | null;
+  rodentControl?: string | null;
+  disinfectProgramme?: string | null;
+  waterSanitizer?: string | null;
+  footDipDisinfectant?: string | null;
+  cleaningContractor?: string | null;
+  vetContractor?: string | null;
+  electricianContractor?: string | null;
+  generatorService?: string | null;
+  weedkiller?: string | null;
+  security?: string | null;
 };
 
 type House = {
@@ -39,42 +51,56 @@ type House = {
 };
 
 export default function FarmSetupPage() {
-  const [farms, setFarms] = useState<Farm[]>([]);
-  const [farmId, setFarmId] = useState("");
+  const [farms, setFarms]     = useState<Farm[]>([]);
+  const [farmId, setFarmId]   = useState("");
   const [hasActiveCrop, setHasActiveCrop] = useState(false);
 
-  // Commercial Setup State
-  const [feedContractor, setFeedContractor] = useState("");
-  const [chickenSupplier, setChickenSupplier] = useState("");
-  const [feedPrice1, setFeedPrice1] = useState("");
-  const [feedPrice2, setFeedPrice2] = useState("");
-  const [feedPrice3, setFeedPrice3] = useState("");
-  const [feedPrice4, setFeedPrice4] = useState("");
-  const [feedPrice5, setFeedPrice5] = useState("");
-  const [wheatPrice, setWheatPrice] = useState("");
-  const [chickenPrice, setChickenPrice] = useState("");
-  const [liveWeightPricePerKg, setLiveWeightPricePerKg] = useState("");
+  // Commercial Setup
+  const [feedContractor, setFeedContractor]               = useState("");
+  const [chickenSupplier, setChickenSupplier]             = useState("");
+  const [feedPrice1, setFeedPrice1]                       = useState("");
+  const [feedPrice2, setFeedPrice2]                       = useState("");
+  const [feedPrice3, setFeedPrice3]                       = useState("");
+  const [feedPrice4, setFeedPrice4]                       = useState("");
+  const [feedPrice5, setFeedPrice5]                       = useState("");
+  const [wheatPrice, setWheatPrice]                       = useState("");
+  const [chickenPrice, setChickenPrice]                   = useState("");
+  const [liveWeightPricePerKg, setLiveWeightPricePerKg]   = useState("");
 
-  // House Technical Setup State
-  const [houseName, setHouseName] = useState("");
-  const [houseCode, setHouseCode] = useState("");
-  const [floorArea, setFloorArea] = useState("");
-  const [usableArea, setUsableArea] = useState("");
-  const [defaultCapacityBirds, setDefaultCapacityBirds] = useState("");
-  const [defaultDrinkerLineCount, setDefaultDrinkerLineCount] = useState("");
-  const [defaultNippleCount, setDefaultNippleCount] = useState("");
-  const [defaultFeederPanCount, setDefaultFeederPanCount] = useState("");
-  const [defaultFanCount, setDefaultFanCount] = useState("");
-  const [defaultHeaterCount, setDefaultHeaterCount] = useState("");
-  const [defaultMinTempC, setDefaultMinTempC] = useState("");
-  const [defaultMaxTempC, setDefaultMaxTempC] = useState("");
+  // Farm Info (always editable)
+  const [farmNumber, setFarmNumber]                       = useState("");
+  const [chpCode, setChpCode]                             = useState("");
+  const [rodentControl, setRodentControl]                 = useState("");
+  const [disinfectProgramme, setDisinfectProgramme]       = useState("");
+  const [waterSanitizer, setWaterSanitizer]               = useState("");
+  const [footDipDisinfectant, setFootDipDisinfectant]     = useState("");
+  const [cleaningContractor, setCleaningContractor]       = useState("");
+  const [vetContractor, setVetContractor]                 = useState("");
+  const [electricianContractor, setElectricianContractor] = useState("");
+  const [generatorService, setGeneratorService]           = useState("");
+  const [weedkiller, setWeedkiller]                       = useState("");
+  const [security, setSecurity]                           = useState("");
+
+  // House form
+  const [houseName, setHouseName]                               = useState("");
+  const [houseCode, setHouseCode]                               = useState("");
+  const [floorArea, setFloorArea]                               = useState("");
+  const [usableArea, setUsableArea]                             = useState("");
+  const [defaultCapacityBirds, setDefaultCapacityBirds]         = useState("");
+  const [defaultDrinkerLineCount, setDefaultDrinkerLineCount]   = useState("");
+  const [defaultNippleCount, setDefaultNippleCount]             = useState("");
+  const [defaultFeederPanCount, setDefaultFeederPanCount]       = useState("");
+  const [defaultFanCount, setDefaultFanCount]                   = useState("");
+  const [defaultHeaterCount, setDefaultHeaterCount]             = useState("");
+  const [defaultMinTempC, setDefaultMinTempC]                   = useState("");
+  const [defaultMaxTempC, setDefaultMaxTempC]                   = useState("");
   const [defaultTargetHumidityPct, setDefaultTargetHumidityPct] = useState("");
-  const [defaultMaxCo2Ppm, setDefaultMaxCo2Ppm] = useState("");
-  const [defaultMaxAmmoniaPpm, setDefaultMaxAmmoniaPpm] = useState("");
-  const [notes, setNotes] = useState("");
+  const [defaultMaxCo2Ppm, setDefaultMaxCo2Ppm]                 = useState("");
+  const [defaultMaxAmmoniaPpm, setDefaultMaxAmmoniaPpm]         = useState("");
+  const [notes, setNotes]                                       = useState("");
 
-  const [houses, setHouses] = useState<House[]>([]);
-  const [msg, setMsg] = useState("");
+  const [houses, setHouses]   = useState<House[]>([]);
+  const [msg, setMsg]         = useState("");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
 
   async function loadFarms() {
@@ -113,6 +139,19 @@ export default function FarmSetupPage() {
         setWheatPrice(f.wheatPrice != null ? String(f.wheatPrice) : "");
         setChickenPrice(f.chickenPrice != null ? String(f.chickenPrice) : "");
         setLiveWeightPricePerKg(f.liveWeightPricePerKg != null ? String(f.liveWeightPricePerKg) : "");
+
+        setFarmNumber(f.farmNumber || "");
+        setChpCode(f.chpCode || "");
+        setRodentControl(f.rodentControl || "");
+        setDisinfectProgramme(f.disinfectProgramme || "");
+        setWaterSanitizer(f.waterSanitizer || "");
+        setFootDipDisinfectant(f.footDipDisinfectant || "");
+        setCleaningContractor(f.cleaningContractor || "");
+        setVetContractor(f.vetContractor || "");
+        setElectricianContractor(f.electricianContractor || "");
+        setGeneratorService(f.generatorService || "");
+        setWeedkiller(f.weedkiller || "");
+        setSecurity(f.security || "");
       }
     }
   }, [farmId, farms]);
@@ -125,20 +164,49 @@ export default function FarmSetupPage() {
     setDefaultMaxCo2Ppm(""); setDefaultMaxAmmoniaPpm(""); setNotes("");
   }
 
+  function buildPatchBody() {
+    const selectedFarm = farms.find((f) => f.id === farmId);
+    if (!selectedFarm) return null;
+    return {
+      name: selectedFarm.name,
+      code: selectedFarm.code,
+      feedContractor, chickenSupplier,
+      feedPrice1, feedPrice2, feedPrice3, feedPrice4, feedPrice5,
+      wheatPrice, chickenPrice, liveWeightPricePerKg,
+      farmNumber, chpCode, rodentControl, disinfectProgramme,
+      waterSanitizer, footDipDisinfectant, cleaningContractor,
+      vetContractor, electricianContractor, generatorService,
+      weedkiller, security,
+    };
+  }
+
   async function saveFarmCommercialSetup(e: React.FormEvent) {
     e.preventDefault();
     if (hasActiveCrop) return;
+    const body = buildPatchBody();
+    if (!body) return;
     setMsg("Saving..."); setMsgType("info");
     const r = await fetch(`/api/farms/${farmId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        feedContractor, chickenSupplier, feedPrice1, feedPrice2, feedPrice3,
-        feedPrice4, feedPrice5, wheatPrice, chickenPrice, liveWeightPricePerKg,
-      }),
+      body: JSON.stringify(body),
     });
-    if (r.ok) { setMsg("Farm commercial setup saved."); setMsgType("success"); loadFarms(); }
-    else { setMsg("Failed to save farm setup."); setMsgType("error"); }
+    if (r.ok) { setMsg("Commercial setup saved."); setMsgType("success"); loadFarms(); }
+    else { const d = await r.json(); setMsg(d.error || "Failed to save."); setMsgType("error"); }
+  }
+
+  async function saveFarmInfo(e: React.FormEvent) {
+    e.preventDefault();
+    const body = buildPatchBody();
+    if (!body) return;
+    setMsg("Saving..."); setMsgType("info");
+    const r = await fetch(`/api/farms/${farmId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (r.ok) { setMsg("Farm information saved."); setMsgType("success"); loadFarms(); }
+    else { const d = await r.json(); setMsg(d.error || "Failed to save."); setMsgType("error"); }
   }
 
   async function addHouse(e: React.FormEvent) {
@@ -166,7 +234,7 @@ export default function FarmSetupPage() {
           <div className="page-intro__meta-card">
             <div className="page-intro__eyebrow">Infrastructure</div>
             <h1 className="page-intro__title">Farm Setup</h1>
-            <p className="page-intro__subtitle">Configure commercial terms and manage technical house data.</p>
+            <p className="page-intro__subtitle">Configure farm information, commercial terms and house data.</p>
           </div>
         </div>
 
@@ -183,8 +251,43 @@ export default function FarmSetupPage() {
 
         {farmId && (
           <>
+            {/* ── Farm Information (always editable) ─────────────────────── */}
             <div className="mobile-card">
-              <h2>Commercial Setup {hasActiveCrop && <span style={{color:'red', fontSize:'12px'}}>(Locked - Active Crop)</span>}</h2>
+              <h2>Farm Information</h2>
+              <form onSubmit={saveFarmInfo}>
+                <div className="mobile-grid mobile-grid--2">
+                  <div><label>Farm Number</label><input value={farmNumber} onChange={(e) => setFarmNumber(e.target.value)} placeholder="e.g. 12345" /></div>
+                  <div><label>CHP Code</label><input value={chpCode} onChange={(e) => setChpCode(e.target.value)} placeholder="e.g. ABC123" /></div>
+                </div>
+                <label>Rodent Control</label>
+                <input value={rodentControl} onChange={(e) => setRodentControl(e.target.value)} placeholder="Company / programme name" />
+                <label>Disinfect Programme</label>
+                <input value={disinfectProgramme} onChange={(e) => setDisinfectProgramme(e.target.value)} placeholder="Programme / product name" />
+                <label>Water Sanitizer</label>
+                <input value={waterSanitizer} onChange={(e) => setWaterSanitizer(e.target.value)} placeholder="Product name" />
+                <label>Foot Dip Disinfectant</label>
+                <input value={footDipDisinfectant} onChange={(e) => setFootDipDisinfectant(e.target.value)} placeholder="Product name" />
+                <label>Cleaning Contractor</label>
+                <input value={cleaningContractor} onChange={(e) => setCleaningContractor(e.target.value)} placeholder="Company name" />
+                <label>Vet Contractor</label>
+                <input value={vetContractor} onChange={(e) => setVetContractor(e.target.value)} placeholder="Practice / vet name" />
+                <label>Electrician Contractor</label>
+                <input value={electricianContractor} onChange={(e) => setElectricianContractor(e.target.value)} placeholder="Company name" />
+                <label>Generator Service</label>
+                <input value={generatorService} onChange={(e) => setGeneratorService(e.target.value)} placeholder="Company name" />
+                <label>Weedkiller</label>
+                <input value={weedkiller} onChange={(e) => setWeedkiller(e.target.value)} placeholder="Product / contractor" />
+                <label>Security</label>
+                <input value={security} onChange={(e) => setSecurity(e.target.value)} placeholder="Company / system" />
+                <button className="mobile-full-button" type="submit" style={{ marginTop: 12 }}>
+                  Save Farm Information
+                </button>
+              </form>
+            </div>
+
+            {/* ── Commercial Setup (locked when active crop) ──────────────── */}
+            <div className="mobile-card">
+              <h2>Commercial Setup {hasActiveCrop && <span style={{ color: "red", fontSize: "12px" }}>(Locked - Active Crop)</span>}</h2>
               <form onSubmit={saveFarmCommercialSetup}>
                 <label>Feed Contractor</label>
                 <input disabled={hasActiveCrop} value={feedContractor} onChange={(e) => setFeedContractor(e.target.value)} placeholder="Contractor name" />
@@ -202,16 +305,18 @@ export default function FarmSetupPage() {
                   <div><label>Live Weight Price / kg</label><input disabled={hasActiveCrop} type="number" step="0.001" value={liveWeightPricePerKg} onChange={(e) => setLiveWeightPricePerKg(e.target.value)} /></div>
                 </div>
 
-                <div className="mobile-sticky-actions">
-                  <div className="mobile-sticky-actions__inner">
-                    <button className="mobile-full-button" type="submit" disabled={hasActiveCrop}>
-                      {hasActiveCrop ? "Locked: Active Crop in Progress" : "Save Farm Setup"}
-                    </button>
+                {hasActiveCrop && (
+                  <div className="mobile-alert" style={{ marginTop: 12 }}>
+                    Commercial setup is locked while an active crop is in progress.
                   </div>
-                </div>
+                )}
+                <button className="mobile-full-button" type="submit" disabled={hasActiveCrop} style={{ marginTop: 12 }}>
+                  Save Commercial Setup
+                </button>
               </form>
             </div>
 
+            {/* ── Add New House ───────────────────────────────────────────── */}
             <div className="mobile-card">
               <h2>Add New House</h2>
               <form onSubmit={addHouse}>
@@ -256,7 +361,7 @@ export default function FarmSetupPage() {
 
             <h2 className="mobile-section-title">Existing Houses</h2>
             <div className="mobile-record-list">
-              {houses.length === 0 ? <p style={{padding: 16}}>No houses defined yet.</p> : houses.map((h) => (
+              {houses.length === 0 ? <p style={{ padding: 16 }}>No houses defined yet.</p> : houses.map((h) => (
                 <div key={h.id} className="mobile-record-card">
                   <h3 className="mobile-record-card__title">{h.name} {h.code ? `(${h.code})` : ""}</h3>
                   <div className="mobile-record-card__grid">
@@ -264,8 +369,8 @@ export default function FarmSetupPage() {
                     <div className="mobile-record-row"><strong>Capacity</strong><span>{h.defaultCapacityBirds || "-"} birds</span></div>
                     <div className="mobile-record-row"><strong>Lines / Nipples</strong><span>{h.defaultDrinkerLineCount || "-"}/{h.defaultNippleCount || "-"}</span></div>
                     <div className="mobile-record-row"><strong>Pans / Fans / Heaters</strong><span>{h.defaultFeederPanCount || "-"}/{h.defaultFanCount || "-"}/{h.defaultHeaterCount || "-"}</span></div>
-                    <div className="mobile-record-row"><strong>Environmental Set</strong><span>{h.defaultMinTempC || "-"} - {h.defaultMaxTempC || "-"} °C | {h.defaultTargetHumidityPct || "-"}% Hum</span></div>
-                    <div className="mobile-record-row"><strong>Gas Limits</strong><span>CO2: {h.defaultMaxCo2Ppm || "-"} | NH3: {h.defaultMaxAmmoniaPpm || "-"}</span></div>
+                    <div className="mobile-record-row"><strong>Environmental Set</strong><span>{h.defaultMinTempC || "-"} – {h.defaultMaxTempC || "-"} °C | {h.defaultTargetHumidityPct || "-"}% Hum</span></div>
+                    <div className="mobile-record-row"><strong>Gas Limits</strong><span>CO₂: {h.defaultMaxCo2Ppm || "-"} | NH₃: {h.defaultMaxAmmoniaPpm || "-"}</span></div>
                     {h.notes && <div className="mobile-record-row"><strong>Notes</strong><span>{h.notes}</span></div>}
                   </div>
                 </div>

@@ -3,17 +3,15 @@ import { NextResponse, NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
-// Definiujemy typ dla parametrów zgodnie z wymogami nowego Next.js
 type RouteContext = {
   params: Promise<{ documentId: string }>;
 };
 
 export async function GET(
-  request: NextRequest, // Zmieniamy na NextRequest dla lepszej kompatybilności
+  request: NextRequest,
   context: RouteContext
 ) {
   try {
-    // Rozpakowujemy params, ponieważ są teraz Obietnicą
     const { documentId } = await context.params;
 
     const doc = await prisma.farmDocument.findUnique({
@@ -21,14 +19,13 @@ export async function GET(
     });
 
     if (!doc || !doc.fileUrl) {
-      return new NextResponse("Dokument nie istnieje", { status: 404 });
+      return new NextResponse("Document not found", { status: 404 });
     }
 
-    // Przekierowanie do pliku
     return NextResponse.redirect(new URL(doc.fileUrl));
-    
+
   } catch (error) {
-    console.error("Błąd pobierania:", error);
-    return new NextResponse("Błąd serwera", { status: 500 });
+    console.error("Download error:", error);
+    return new NextResponse("Server error", { status: 500 });
   }
 }

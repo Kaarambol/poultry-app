@@ -118,6 +118,22 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
     }
 
+    // If the crop has no cloned target profile, fall back to the farm's global template
+    let targetProfileDays = crop.targetProfile?.days ?? [];
+    let profileHumidityDefault = crop.targetProfile?.humidityTargetPct ?? null;
+
+    if (targetProfileDays.length === 0) {
+      const farmTemplate = await prisma.targetProfile.findFirst({
+        where: { farmId: house.farmId, scope: "GLOBAL_TEMPLATE" },
+        include: { days: { orderBy: { dayNumber: "asc" } } },
+        orderBy: { updatedAt: "desc" },
+      });
+      if (farmTemplate) {
+        targetProfileDays = farmTemplate.days;
+        profileHumidityDefault = farmTemplate.humidityTargetPct ?? null;
+      }
+    }
+
     const daily = await prisma.dailyRecord.findMany({
       where: {
         cropId,
@@ -158,8 +174,36 @@ export async function GET(req: NextRequest, context: RouteContext) {
         : crop.placementDate;
 
     const targetMap = new Map(
-      (crop.targetProfile?.days || []).map((day) => [day.dayNumber, day])
+      targetProfileDays.map((day) => [day.dayNumber, day])
     );
+
+    // Build map: dayNumber → birds removed by thinning on that day (for chartData else branch)
+    const thinEventsMap = new Map<number, number>();
+    for (const p of crop.placements) {
+      const addThin = (date: Date | null | undefined, birds: number | null | undefined) => {
+        if (!date || !birds) return;
+        const d = Math.floor(
+          (new Date(date).getTime() - new Date(housePlacementDate).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        if (d >= 1) thinEventsMap.set(d, (thinEventsMap.get(d) || 0) + birds);
+      };
+      addThin(p.thinDate, p.thinBirds);
+      addThin(p.thin2Date, p.thin2Birds);
+    }
+
+    // Helper: cumulative thinned birds up to and including a given date string (YYYY-MM-DD)
+    const getCumulativeThinned = (recordDateStr: string): number => {
+      let total = 0;
+      for (const p of crop.placements) {
+        if (p.thinBirds && p.thinDate) {
+          if (new Date(p.thinDate).toISOString().slice(0, 10) <= recordDateStr) total += p.thinBirds;
+        }
+        if (p.thin2Birds && p.thin2Date) {
+          if (new Date(p.thin2Date).toISOString().slice(0, 10) <= recordDateStr) total += p.thin2Birds;
+        }
+      }
+      return total;
+    };
 
     let previousBirdsAlive = birdsPlaced;
 
@@ -196,12 +240,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
       const placementDate = new Date(housePlacementDate);
       const recordDate = new Date(d.date);
 
-      // DAY 1 = placement date itself
-      const dayNumber =
-        Math.floor(
-          (recordDate.getTime() - placementDate.getTime()) /
-            (1000 * 60 * 60 * 24)
-        ) + 1;
+      // DAY 1 = first day after placement
+      const dayNumber = Math.floor(
+        (recordDate.getTime() - placementDate.getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
 
       const safeDayNumber = dayNumber < 1 ? 1 : dayNumber;
 
@@ -212,7 +255,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
           ? (dailyLosses / previousBirdsAlive) * 100
           : 0;
 
-      const currentBirdsAlive = previousBirdsAlive - dailyLosses;
+      const thinOnThisDay = thinEventsMap.get(safeDayNumber) || 0;
+      const currentBirdsAlive = Math.max(0, previousBirdsAlive - dailyLosses - thinOnThisDay);
       const target = targetMap.get(safeDayNumber);
 
       const weightPercent =
@@ -261,32 +305,35 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
       if (actual) {
         carriedAlive = actual.birdsAliveCurrentDay;
+      } else {
+        // No daily record but thin may have happened on this day
+        const thinOnThisDay = thinEventsMap.get(dayNumber) || 0;
+        if (thinOnThisDay > 0) carriedAlive = Math.max(0, carriedAlive - thinOnThisDay);
       }
-
-      const aliveForTarget = carriedAlive > 0 ? carriedAlive : 0;
-
-      const scaledFeedTarget =
-        target?.feedTargetG !== null && target?.feedTargetG !== undefined
-          ? (target.feedTargetG * aliveForTarget) / 1000
-          : null;
-
-      const scaledWaterTarget =
-        target?.waterTargetMl !== null && target?.waterTargetMl !== undefined
-          ? (target.waterTargetMl * aliveForTarget) / 1000
-          : null;
 
       const calculatedTemperatureTarget = Number(
         (32.5 - (dayNumber - 1) * 0.3).toFixed(2)
       );
 
+      // actual per-bird values — directly comparable to per-bird targets
+      const birdsAlive = actual?.birdsAliveCurrentDay ?? carriedAlive;
+      const feedPerBird =
+        actual?.feedKg != null && birdsAlive > 0
+          ? (actual.feedKg * 1000) / birdsAlive
+          : null;
+      const waterPerBird =
+        actual?.waterL != null && birdsAlive > 0
+          ? (actual.waterL * 1000) / birdsAlive
+          : null;
+
       return {
         dayNumber,
         label: `Day ${dayNumber}`,
         date: actual?.date ?? null,
-        birdsAliveCurrentDay: actual?.birdsAliveCurrentDay ?? aliveForTarget,
+        birdsAliveCurrentDay: birdsAlive,
         dailyMortalityPct: actual?.dailyMortalityPct ?? null,
-        feedKg: actual?.feedKg ?? null,
-        waterL: actual?.waterL ?? null,
+        feedPerBird,
+        waterPerBird,
         weightPercent: actual?.weightPercent ?? null,
         temperatureMinC: actual?.temperatureMinC ?? null,
         temperatureMaxC: actual?.temperatureMaxC ?? null,
@@ -294,17 +341,38 @@ export async function GET(req: NextRequest, context: RouteContext) {
         humidityMaxPct: actual?.humidityMaxPct ?? null,
         co2MinPpm: actual?.co2MinPpm ?? null,
         co2MaxPpm: actual?.co2MaxPpm ?? null,
-        feedTargetScaled: scaledFeedTarget,
-        waterTargetScaled: scaledWaterTarget,
+        feedTargetG: target?.feedTargetG ?? null,
+        waterTargetMl: target?.waterTargetMl ?? null,
         weightTargetG: target?.weightTargetG ?? null,
         temperatureTargetC: calculatedTemperatureTarget,
         humidityTargetPct:
           target?.humidityTargetPct ??
-          crop.targetProfile?.humidityTargetPct ??
+          profileHumidityDefault ??
           55,
         notes: actual?.notes ?? null,
       };
     });
+
+    const toDay = (date: Date | null) => {
+      if (!date) return null;
+      const diff = Math.floor(
+        (new Date(date).getTime() - new Date(housePlacementDate).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return diff >= 1 ? diff : null;
+    };
+
+    const thinDays = Array.from(new Set(
+      crop.placements.map(p => toDay(p.thinDate)).filter((d): d is number => d !== null)
+    ));
+    const thin2Days = Array.from(new Set(
+      crop.placements.map(p => toDay(p.thin2Date)).filter((d): d is number => d !== null)
+    ));
+    const clearDays = Array.from(new Set(
+      crop.placements.map(p => toDay(p.clearDate)).filter((d): d is number => d !== null)
+    ));
+
+    const thinBirdsTotal = crop.placements.reduce((s, p) => s + (p.thinBirds || 0), 0);
+    const thin2BirdsTotal = crop.placements.reduce((s, p) => s + (p.thin2Birds || 0), 0);
 
     return NextResponse.json({
       house: {
@@ -320,6 +388,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
         placementDate: crop.placementDate,
       },
       birdsPlaced,
+      thinBirdsTotal,
+      thin2BirdsTotal,
+      thinDays,
+      thin2Days,
+      clearDays,
       chartData,
     });
   } catch (error) {

@@ -21,6 +21,10 @@ type CropPlacement = {
     name: string;
   };
   birdsPlaced: number;
+  thinDate: string | null;
+  thinBirds: number | null;
+  thin2Date: string | null;
+  thin2Birds: number | null;
 };
 
 type CropDetails = {
@@ -499,10 +503,23 @@ export default function DailyPage() {
       item.culls += record.culls;
     }
 
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
     for (const key of Object.keys(grouped)) {
       const item = grouped[key];
       item.totalLosses = item.mort + item.culls;
-      item.birdsAlive = item.birdsPlaced - item.totalLosses;
+
+      let thinned = 0;
+      if (cropDetails) {
+        for (const p of cropDetails.placements) {
+          if (p.house.id !== key) continue;
+          if (p.thinBirds && p.thinDate && new Date(p.thinDate) <= today) thinned += p.thinBirds;
+          if (p.thin2Birds && p.thin2Date && new Date(p.thin2Date) <= today) thinned += p.thin2Birds;
+        }
+      }
+
+      item.birdsAlive = item.birdsPlaced - item.totalLosses - thinned;
       item.mortalityPct =
         item.birdsPlaced > 0 ? (item.totalLosses / item.birdsPlaced) * 100 : 0;
     }

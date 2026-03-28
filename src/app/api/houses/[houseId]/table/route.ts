@@ -74,6 +74,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
         id: true,
         cropNumber: true,
         placementDate: true,
+        placements: {
+          where: { houseId, isActive: true },
+          select: { thinDate: true, thin2Date: true, clearDate: true },
+        },
       },
     });
 
@@ -124,6 +128,18 @@ export async function GET(req: NextRequest, context: RouteContext) {
       };
     });
 
+    const toDateStr = (d: Date | null) => d ? new Date(d).toISOString().slice(0, 10) : null;
+
+    const thinDates = Array.from(new Set(
+      crop.placements.map(p => toDateStr(p.thinDate)).filter(Boolean)
+    )) as string[];
+    const thin2Dates = Array.from(new Set(
+      crop.placements.map(p => toDateStr(p.thin2Date)).filter(Boolean)
+    )) as string[];
+    const clearDates = Array.from(new Set(
+      crop.placements.map(p => toDateStr(p.clearDate)).filter(Boolean)
+    )) as string[];
+
     return NextResponse.json({
       house: {
         id: house.id,
@@ -137,6 +153,9 @@ export async function GET(req: NextRequest, context: RouteContext) {
         cropNumber: crop.cropNumber,
         placementDate: crop.placementDate,
       },
+      thinDates,
+      thin2Dates,
+      clearDates,
       rows: tableRows,
     });
   } catch (error) {

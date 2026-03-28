@@ -28,8 +28,8 @@ type ChartRow = {
   date: string | null;
   birdsAliveCurrentDay: number;
   dailyMortalityPct: number | null;
-  feedKg: number | null;
-  waterL: number | null;
+  feedPerBird: number | null;
+  waterPerBird: number | null;
   weightPercent: number | null;
   temperatureMinC: number | null;
   temperatureMaxC: number | null;
@@ -37,8 +37,8 @@ type ChartRow = {
   humidityMaxPct: number | null;
   co2MinPpm: number | null;
   co2MaxPpm: number | null;
-  feedTargetScaled: number | null;
-  waterTargetScaled: number | null;
+  feedTargetG: number | null;
+  waterTargetMl: number | null;
   weightTargetG: number | null;
   temperatureTargetC: number | null;
   humidityTargetPct: number | null;
@@ -59,8 +59,39 @@ type ChartsResponse = {
     placementDate: string;
   };
   birdsPlaced: number;
+  thinBirdsTotal: number;
+  thin2BirdsTotal: number;
+  thinDays: number[];
+  thin2Days: number[];
+  clearDays: number[];
   chartData: ChartRow[];
 };
+
+// Custom plugin: draws vertical red lines at thin/clear day indices
+const verticalLinesPlugin = {
+  id: "verticalLines",
+  afterDraw(chart: any) {
+    const lines: { index: number; color: string; dash: number[] }[] =
+      chart.options.plugins?.verticalLines?.lines || [];
+    if (!lines.length) return;
+    const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+    for (const line of lines) {
+      const xPos = x.getPixelForTick(line.index);
+      if (xPos == null) continue;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(xPos, top);
+      ctx.lineTo(xPos, bottom);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = line.color;
+      ctx.setLineDash(line.dash);
+      ctx.stroke();
+      ctx.restore();
+    }
+  },
+};
+
+ChartJS.register(verticalLinesPlugin);
 
 export default function HouseChartsPage({
   params,
@@ -72,6 +103,12 @@ export default function HouseChartsPage({
   const [houseCode, setHouseCode] = useState<string | null>(null);
   const [cropLabel, setCropLabel] = useState("");
   const [data, setData] = useState<ChartRow[]>([]);
+  const [birdsPlaced, setBirdsPlaced] = useState(0);
+  const [thinBirdsTotal, setThinBirdsTotal] = useState(0);
+  const [thin2BirdsTotal, setThin2BirdsTotal] = useState(0);
+  const [thinDays, setThinDays] = useState<number[]>([]);
+  const [thin2Days, setThin2Days] = useState<number[]>([]);
+  const [clearDays, setClearDays] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -104,6 +141,12 @@ export default function HouseChartsPage({
         setHouseName(payload.house.name);
         setHouseCode(payload.house.code);
         setCropLabel(`Crop ${payload.crop.cropNumber}`);
+        setBirdsPlaced(payload.birdsPlaced || 0);
+        setThinBirdsTotal(payload.thinBirdsTotal || 0);
+        setThin2BirdsTotal(payload.thin2BirdsTotal || 0);
+        setThinDays(payload.thinDays || []);
+        setThin2Days(payload.thin2Days || []);
+        setClearDays(payload.clearDays || []);
         setData(payload.chartData || []);
       } catch (err: any) {
         setError(err.message || "Failed to load chart data.");
@@ -115,14 +158,30 @@ export default function HouseChartsPage({
     load();
   }, [houseId]);
 
+  function buildLines() {
+    const lines: { index: number; color: string; dash: number[] }[] = [];
+    for (const d of thinDays) {
+      const idx = d - 1;
+      if (idx >= 0 && idx < 45) lines.push({ index: idx, color: "#dc2626", dash: [6, 3] });
+    }
+    for (const d of thin2Days) {
+      const idx = d - 1;
+      if (idx >= 0 && idx < 45) lines.push({ index: idx, color: "#dc2626", dash: [6, 3] });
+    }
+    for (const d of clearDays) {
+      const idx = d - 1;
+      if (idx >= 0 && idx < 45) lines.push({ index: idx, color: "#7f1d1d", dash: [4, 2] });
+    }
+    return lines;
+  }
+
   function baseOptions() {
     return {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          display: true,
-        },
+        legend: { display: true },
+        verticalLines: { lines: buildLines() },
       },
     };
   }
@@ -163,7 +222,7 @@ export default function HouseChartsPage({
       <div className="mobile-page">
         <div className="page-shell">
           <div className="mobile-alert mobile-alert--error">{error}</div>
-          <Link href="/app/dashboard" className="mobile-button mobile-button--secondary">
+          <Link href="/dashboard" className="mobile-button mobile-button--secondary">
             Back to Dashboard
           </Link>
         </div>
@@ -188,9 +247,18 @@ export default function HouseChartsPage({
         </div>
 
         <div className="mobile-card" style={{ marginBottom: 16 }}>
-          <Link href="/app/dashboard" className="mobile-button mobile-button--secondary">
+          <Link href="/dashboard" className="mobile-button mobile-button--secondary">
             Back to Dashboard
           </Link>
+          <div style={{ marginTop: 10, fontSize: '0.8rem', color: '#555' }}>
+            <strong>Birds Placed:</strong> {birdsPlaced.toLocaleString()}
+            {thinDays.length > 0 && (
+              <> | <strong>Thin 1:</strong> {thinBirdsTotal > 0 ? `${thinBirdsTotal.toLocaleString()} birds (day ${thinDays[0]})` : <span style={{color:'red'}}>day {thinDays[0]} — birds count missing!</span>}</>
+            )}
+            {thin2Days.length > 0 && (
+              <> | <strong>Thin 2:</strong> {thin2BirdsTotal > 0 ? `${thin2BirdsTotal.toLocaleString()} birds (day ${thin2Days[0]})` : <span style={{color:'red'}}>day {thin2Days[0]} — birds count missing!</span>}</>
+            )}
+          </div>
         </div>
 
         {data.length === 0 ? (
@@ -219,7 +287,7 @@ export default function HouseChartsPage({
             </div>
 
             <div className="mobile-card">
-              <h2>Feed</h2>
+              <h2>Feed (g/bird)</h2>
               <div style={{ height: 320 }}>
                 <Line
                   options={baseOptions()}
@@ -227,13 +295,13 @@ export default function HouseChartsPage({
                     labels,
                     datasets: [
                       lineDataset(
-                        "Feed Actual",
-                        data.map((d) => d.feedKg),
+                        "Feed Actual (g/bird)",
+                        data.map((d) => d.feedPerBird),
                         "#2563eb"
                       ),
                       lineDataset(
-                        "Feed Target",
-                        data.map((d) => d.feedTargetScaled),
+                        "Feed Target (g/bird)",
+                        data.map((d) => d.feedTargetG),
                         "#dc2626"
                       ),
                     ],
@@ -243,7 +311,7 @@ export default function HouseChartsPage({
             </div>
 
             <div className="mobile-card">
-              <h2>Water</h2>
+              <h2>Water (ml/bird)</h2>
               <div style={{ height: 320 }}>
                 <Line
                   options={baseOptions()}
@@ -251,13 +319,13 @@ export default function HouseChartsPage({
                     labels,
                     datasets: [
                       lineDataset(
-                        "Water Actual",
-                        data.map((d) => d.waterL),
+                        "Water Actual (ml/bird)",
+                        data.map((d) => d.waterPerBird),
                         "#2563eb"
                       ),
                       lineDataset(
-                        "Water Target",
-                        data.map((d) => d.waterTargetScaled),
+                        "Water Target (ml/bird)",
+                        data.map((d) => d.waterTargetMl),
                         "#dc2626"
                       ),
                     ],

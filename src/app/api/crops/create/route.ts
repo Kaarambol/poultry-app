@@ -68,6 +68,8 @@ export async function POST(req: NextRequest) {
     const chickenPricePerKg = parseOptionalFloat(body.chickenPricePerKg);
     const salePricePerKgAllIn = parseOptionalFloat(body.salePricePerKgAllIn);
     const currency = String(body.currency || "GBP").trim();
+    const openingFeedStockKg = parseOptionalFloat(body.openingFeedStockKg) ?? 0;
+    const openingWheatStockKg = parseOptionalFloat(body.openingWheatStockKg) ?? 0;
 
     const placements = Array.isArray(body.placements) ? body.placements : [];
     const houseConfigs = Array.isArray(body.houseConfigs) ? body.houseConfigs : [];
@@ -240,6 +242,8 @@ export async function POST(req: NextRequest) {
           salePricePerKgAllIn,
           currency: currency || "GBP",
           notes: notes || null,
+          openingFeedStockKg,
+          openingWheatStockKg,
           placements: {
             create: usedPlacementsWithBatchNo.map((p) => ({
               houseId: p.houseId,

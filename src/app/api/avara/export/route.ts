@@ -5,434 +5,261 @@ import ExcelJS from "exceljs";
 import path from "path";
 import fs from "fs";
 
-type StageKey =
-  | "DAY_3"
-  | "DAY_7"
-  | "DAY_14"
-  | "DAY_21"
-  | "DAY_26"
-  | "DAY_28"
-  | "THIN_35"
-  | "TOTAL_CLEAR";
-
-function getMaxDayForStage(stage: string) {
-  switch (stage) {
-    case "DAY_3":
-      return 3;
-    case "DAY_7":
-      return 7;
-    case "DAY_14":
-      return 14;
-    case "DAY_21":
-      return 21;
-    case "DAY_26":
-      return 26;
-    case "DAY_28":
-      return 28;
-    case "THIN_35":
-      return 35;
-    case "TOTAL_CLEAR":
-      return 9999;
-    default:
-      return null;
-  }
-}
-
-function getStageLabel(stage: string) {
-  switch (stage) {
-    case "DAY_3":
-      return "Day 3";
-    case "DAY_7":
-      return "Day 7";
-    case "DAY_14":
-      return "Day 14";
-    case "DAY_21":
-      return "Day 21";
-    case "DAY_26":
-      return "Day 26";
-    case "DAY_28":
-      return "Day 28";
-    case "THIN_35":
-      return "Thin / Day 35";
-    case "TOTAL_CLEAR":
-      return "Total Clear";
-    default:
-      return stage;
-  }
-}
-
-function getHousePlacementCells(houseNumber: number) {
-  const map: Record<number, { breed: string; total: string; firstDate: string }> = {
-    1: { breed: "D6", total: "C15", firstDate: "D5" },
-    2: { breed: "J6", total: "I15", firstDate: "J5" },
-    3: { breed: "P6", total: "O15", firstDate: "P5" },
-    4: { breed: "V6", total: "U15", firstDate: "V5" },
-    5: { breed: "D19", total: "C28", firstDate: "D18" },
-    6: { breed: "J19", total: "I28", firstDate: "J18" },
-    7: { breed: "P19", total: "O28", firstDate: "P18" },
-    8: { breed: "V19", total: "U28", firstDate: "V18" },
-    9: { breed: "D32", total: "C41", firstDate: "D31" },
-    10: { breed: "J32", total: "I41", firstDate: "J31" },
-    11: { breed: "P32", total: "O41", firstDate: "P31" },
-    12: { breed: "V32", total: "U41", firstDate: "V31" },
-    13: { breed: "D45", total: "C54", firstDate: "D44" },
-    14: { breed: "J45", total: "I54", firstDate: "J44" },
-    15: { breed: "P45", total: "O54", firstDate: "P44" },
-  };
-
-  return map[houseNumber] || null;
-}
-
-function getStageRowMap(stage: StageKey) {
-  const map: Record<
-    StageKey,
-    {
-      mortRow: number;
-      legCullsRow: number;
-      otherCullsRow: number;
-      weightRow?: number;
-    }
-  > = {
-    DAY_3: { mortRow: 11, legCullsRow: 12, otherCullsRow: 13 },
-    DAY_7: { mortRow: 37, legCullsRow: 38, otherCullsRow: 39, weightRow: 40 },
-    DAY_14: { mortRow: 65, legCullsRow: 66, otherCullsRow: 67, weightRow: 68 },
-    DAY_21: { mortRow: 93, legCullsRow: 94, otherCullsRow: 95, weightRow: 96 },
-    DAY_26: { mortRow: 0, legCullsRow: 0, otherCullsRow: 0, weightRow: 119 },
-    DAY_28: { mortRow: 144, legCullsRow: 145, otherCullsRow: 146, weightRow: 147 },
-    THIN_35: { mortRow: 173, legCullsRow: 174, otherCullsRow: 175 },
-    TOTAL_CLEAR: { mortRow: 199, legCullsRow: 200, otherCullsRow: 201 },
-  };
-
-  return map[stage];
-}
-
-function getHouseColumn(houseNumber: number) {
-  const cols = [
-    "",
-    "D",
-    "E",
-    "F",
-    "G",
-    "H",
-    "I",
-    "J",
-    "K",
-    "L",
-    "M",
-    "N",
-    "O",
-    "P",
-    "Q",
-    "R",
-  ];
-  return cols[houseNumber] || null;
-}
+// Period day ranges for each stage
+const STAGES = [
+  { key: "DAY_3",       label: "Day 3",        fromDay: 1,  toDay: 3    },
+  { key: "DAY_7",       label: "Day 7",         fromDay: 4,  toDay: 7    },
+  { key: "DAY_14",      label: "Day 14",        fromDay: 8,  toDay: 14   },
+  { key: "DAY_21",      label: "Day 21",        fromDay: 15, toDay: 21   },
+  { key: "DAY_26",      label: "Day 26",        fromDay: 22, toDay: 26   },
+  { key: "DAY_28",      label: "Day 28",        fromDay: 27, toDay: 28   },
+  { key: "THIN_35",     label: "Thin / Day 35", fromDay: 29, toDay: 35   },
+  { key: "TOTAL_CLEAR", label: "Total Clear",   fromDay: 36, toDay: 9999 },
+] as const;
 
 export async function POST(req: NextRequest) {
   try {
     const uid = req.cookies.get("uid")?.value;
-
-    if (!uid) {
-      return NextResponse.json(
-        { error: "Not logged in." },
-        { status: 401 }
-      );
-    }
+    if (!uid) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
 
     const body = await req.json();
     const cropId = String(body.cropId || "").trim();
-    const stage = String(body.stage || "").trim() as StageKey;
-
-    if (!cropId || !stage) {
-      return NextResponse.json(
-        { error: "cropId and stage are required." },
-        { status: 400 }
-      );
-    }
-
-    const maxDay = getMaxDayForStage(stage);
-    if (maxDay === null) {
-      return NextResponse.json(
-        { error: "Invalid stage." },
-        { status: 400 }
-      );
-    }
+    if (!cropId) return NextResponse.json({ error: "cropId is required." }, { status: 400 });
 
     const crop = await prisma.crop.findUnique({
       where: { id: cropId },
       include: {
         farm: true,
         placements: {
-          include: {
-            house: true,
-          },
+          include: { house: true },
+          orderBy: [{ houseId: "asc" }, { batchNo: "asc" }],
         },
         daily: {
-          include: {
-            house: true,
-          },
           orderBy: [{ houseId: "asc" }, { date: "asc" }],
         },
       },
     });
 
-    if (!crop) {
-      return NextResponse.json(
-        { error: "Crop not found." },
-        { status: 404 }
-      );
-    }
+    if (!crop) return NextResponse.json({ error: "Crop not found." }, { status: 404 });
 
     const role = await getUserRoleOnFarm(uid, crop.farmId);
-
     if (!canOperate(role)) {
-      return NextResponse.json(
-        { error: "You do not have permission to export Avara files." },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "No permission to export." }, { status: 403 });
     }
 
-    const mainPlacementDate = new Date(crop.placementDate);
-
-    const dailyWithAge = crop.daily.map((record) => {
-      const recordDate = new Date(record.date);
-      const ageDays =
-        Math.floor(
-          (recordDate.getTime() - mainPlacementDate.getTime()) / (1000 * 60 * 60 * 24)
-        ) + 1;
-
-      return {
-        ...record,
-        ageDays,
-      };
-    });
-
-    const filteredDaily = dailyWithAge.filter((record) => record.ageDays <= maxDay);
-
-    const houseMap: Record<
-      string,
-      {
-        houseId: string;
-        houseName: string;
-        houseNumber: number;
-        birdsPlaced: number;
-        mort: number;
-        culls: number;
-        totalLosses: number;
-        birdsAlive: number;
-        mortalityPct: number;
-        feedKg: number;
-        waterL: number;
-        weightKg: number | null;
-        firstPlacementDate: Date | null;
-        hatcheries: string[];
-        flockNumbers: string[];
+    // ── Houses ────────────────────────────────────────────────────────────────
+    const houseMap: Record<string, { id: string; name: string; number: number; birdsPlaced: number }> = {};
+    for (const p of crop.placements) {
+      if (!houseMap[p.houseId]) {
+        const m = String(p.house.name).match(/(\d+)/);
+        houseMap[p.houseId] = { id: p.houseId, name: p.house.name, number: m ? Number(m[1]) : 0, birdsPlaced: 0 };
       }
-    > = {};
-
-    for (const placement of crop.placements) {
-      const match = String(placement.house.name).match(/(\d+)/);
-      const houseNumber = match ? Number(match[1]) : 0;
-
-      if (!houseMap[placement.houseId]) {
-        houseMap[placement.houseId] = {
-          houseId: placement.houseId,
-          houseName: placement.house.name,
-          houseNumber,
-          birdsPlaced: 0,
-          mort: 0,
-          culls: 0,
-          totalLosses: 0,
-          birdsAlive: 0,
-          mortalityPct: 0,
-          feedKg: 0,
-          waterL: 0,
-          weightKg: null,
-          firstPlacementDate: null,
-          hatcheries: [],
-          flockNumbers: [],
-        };
-      }
-
-      const item = houseMap[placement.houseId];
-      item.birdsPlaced += placement.birdsPlaced;
-
-      const thisPlacementDate = new Date(placement.placementDate);
-      if (!item.firstPlacementDate || thisPlacementDate < item.firstPlacementDate) {
-        item.firstPlacementDate = thisPlacementDate;
-      }
-
-      if (placement.hatchery && !item.hatcheries.includes(placement.hatchery)) {
-        item.hatcheries.push(placement.hatchery);
-      }
-
-      if (placement.flockNumber && !item.flockNumbers.includes(placement.flockNumber)) {
-        item.flockNumbers.push(placement.flockNumber);
-      }
+      houseMap[p.houseId].birdsPlaced += p.birdsPlaced;
     }
+    const houses = Object.values(houseMap).sort((a, b) => a.number - b.number);
 
-    for (const record of filteredDaily) {
-      const item = houseMap[record.houseId];
-      if (!item) continue;
+    // ── Annotate daily records with age day ───────────────────────────────────
+    const placed = new Date(crop.placementDate);
+    const daily = crop.daily.map(r => ({
+      ...r,
+      ageDay: Math.floor((new Date(r.date).getTime() - placed.getTime()) / 86400000) + 1,
+    }));
 
-      item.mort += record.mort;
-      item.culls += record.culls;
-      item.feedKg += record.feedKg;
-      item.waterL += record.waterL;
+    // ── Per-house cumulative trackers for CDMR ────────────────────────────────
+    const cumMort:  Record<string, number> = {};
+    const cumCulls: Record<string, number> = {};
+    for (const h of houses) { cumMort[h.id] = 0; cumCulls[h.id] = 0; }
 
-      if (record.avgWeightG !== null && record.avgWeightG !== undefined) {
-        item.weightKg = Number(record.avgWeightG) / 1000;
-      }
-    }
-
-    for (const key of Object.keys(houseMap)) {
-      const item = houseMap[key];
-      item.totalLosses = item.mort + item.culls;
-      item.birdsAlive = item.birdsPlaced - item.totalLosses;
-      item.mortalityPct =
-        item.birdsPlaced > 0 ? (item.totalLosses / item.birdsPlaced) * 100 : 0;
-    }
-
-    const houses = Object.values(houseMap).sort((a, b) => a.houseNumber - b.houseNumber);
-
-    const totals = {
-      birdsPlaced: houses.reduce((sum, h) => sum + h.birdsPlaced, 0),
-      mort: houses.reduce((sum, h) => sum + h.mort, 0),
-      culls: houses.reduce((sum, h) => sum + h.culls, 0),
-      totalLosses: houses.reduce((sum, h) => sum + h.totalLosses, 0),
-      birdsAlive: houses.reduce((sum, h) => sum + h.birdsAlive, 0),
-      feedKg: houses.reduce((sum, h) => sum + h.feedKg, 0),
-      waterL: houses.reduce((sum, h) => sum + h.waterL, 0),
-      mortalityPct: 0,
+    type Row = {
+      houseName: string;
+      birdsPlaced: number;
+      mort: number;
+      cullsSmall: number;
+      cullsLeg: number;
+      weight: number | null;
+      periodLossPct: number;
+      cdmr: number;
     };
 
-    totals.mortalityPct =
-      totals.birdsPlaced > 0 ? (totals.totalLosses / totals.birdsPlaced) * 100 : 0;
+    type StageBlock = { label: string; fromDay: number; toDay: number; rows: Row[] };
+    const blocks: StageBlock[] = [];
 
-    const templatePath = path.join(process.cwd(), "templates", "avara-template.xlsx");
-    if (!fs.existsSync(templatePath)) {
-      return NextResponse.json(
-        { error: "Template file not found." },
-        { status: 500 }
-      );
+    for (const stage of STAGES) {
+      const rows: Row[] = [];
+
+      for (const house of houses) {
+        const recs = daily.filter(r =>
+          r.houseId === house.id && r.ageDay >= stage.fromDay && r.ageDay <= stage.toDay
+        );
+
+        const mort       = recs.reduce((s, r) => s + r.mort,       0);
+        const cullsSmall = recs.reduce((s, r) => s + r.cullsSmall, 0);
+        const cullsLeg   = recs.reduce((s, r) => s + r.cullsLeg,   0);
+        const otherCulls = recs.reduce((s, r) => s + r.culls,      0);
+
+        let weight: number | null = null;
+        for (const r of recs) {
+          if (r.avgWeightG != null) weight = r.avgWeightG / 1000;
+        }
+
+        const allCulls = cullsSmall + cullsLeg + otherCulls;
+        cumMort[house.id]  += mort;
+        cumCulls[house.id] += allCulls;
+
+        const totalLoss    = mort + allCulls;
+        const periodLossPct = house.birdsPlaced > 0 ? (totalLoss      / house.birdsPlaced) * 100 : 0;
+        const cdmr          = house.birdsPlaced > 0 ? ((cumMort[house.id] + cumCulls[house.id]) / house.birdsPlaced) * 100 : 0;
+
+        rows.push({ houseName: house.name, birdsPlaced: house.birdsPlaced, mort, cullsSmall, cullsLeg, weight, periodLossPct, cdmr });
+      }
+
+      blocks.push({ label: stage.label, fromDay: stage.fromDay, toDay: stage.toDay, rows });
     }
 
+    // ── Build Excel ───────────────────────────────────────────────────────────
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Poultry App";
+    const ws = wb.addWorksheet("Weekly Return");
+
+    ws.columns = [
+      { key: "house",    width: 16 },
+      { key: "placed",   width: 13 },
+      { key: "mort",     width: 9  },
+      { key: "cullsSm",  width: 11 },
+      { key: "cullsLeg", width: 11 },
+      { key: "weight",   width: 10 },
+      { key: "periodPct",width: 12 },
+      { key: "cdmr",     width: 10 },
+    ];
+
+    const NCOLS = 8;
+    const BG_NAVY   = "FF1B3A5C";
+    const BG_HEADER = "FFD9E8F5";
+    const BG_TOTAL  = "FFEDEDED";
+    const BG_EVEN   = "FFFAFCFF";
+    const FG_WHITE  = "FFFFFFFF";
+    const FG_NAVY   = "FF1B3A5C";
+
+    function mergedHeader(text: string, bgArgb: string, fgArgb: string, size = 11) {
+      const r = ws.addRow([text]);
+      ws.mergeCells(r.number, 1, r.number, NCOLS);
+      const c = r.getCell(1);
+      c.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
+      c.font   = { bold: true, size, color: { argb: fgArgb } };
+      c.alignment = { horizontal: "center", vertical: "middle" };
+      r.height = size === 14 ? 28 : 22;
+      return r;
+    }
+
+    // Farm / crop title
+    mergedHeader(`${crop.farm.name}  |  Crop: ${crop.cropNumber}  |  Placed: ${new Date(crop.placementDate).toLocaleDateString("en-GB")}  |  Breed: ${crop.breed || "—"}`, BG_NAVY, FG_WHITE, 12);
+    mergedHeader(`Farm code: ${crop.farm.code}  |  Generated: ${new Date().toLocaleDateString("en-GB")}`, "FFF0F4F9", FG_NAVY, 10);
+
+    ws.addRow([]); // spacer
+
+    for (const block of blocks) {
+      const periodLabel = block.toDay === 9999
+        ? `Days ${block.fromDay} to end`
+        : `Days ${block.fromDay} – ${block.toDay}`;
+
+      // Stage title
+      mergedHeader(`${block.label}  ·  ${periodLabel}`, BG_NAVY, FG_WHITE, 11);
+
+      // Column headers
+      const hdr = ws.addRow(["House", "Birds\nPlaced", "Mort", "Culls\nSmall", "Culls\nLeg", "Weight\n(kg)", "Period\nLoss %", "CDMR\n%"]);
+      hdr.height = 32;
+      hdr.eachCell((cell, col) => {
+        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: BG_HEADER } };
+        cell.font      = { bold: true, size: 9, color: { argb: FG_NAVY } };
+        cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle", wrapText: true };
+        cell.border    = {
+          top:    { style: "thin", color: { argb: "FFB8CCE0" } },
+          bottom: { style: "thin", color: { argb: "FFB8CCE0" } },
+          left:   { style: "thin", color: { argb: "FFB8CCE0" } },
+          right:  { style: "thin", color: { argb: "FFB8CCE0" } },
+        };
+      });
+
+      // Data rows
+      let totMort = 0, totCullsSm = 0, totCullsLeg = 0, totBirds = 0;
+
+      block.rows.forEach((r, i) => {
+        totMort      += r.mort;
+        totCullsSm   += r.cullsSmall;
+        totCullsLeg  += r.cullsLeg;
+        totBirds     += r.birdsPlaced;
+
+        const dr = ws.addRow([
+          r.houseName,
+          r.birdsPlaced,
+          r.mort       || "",
+          r.cullsSmall || "",
+          r.cullsLeg   || "",
+          r.weight !== null ? r.weight : "",
+          r.periodLossPct,
+          r.cdmr,
+        ]);
+
+        dr.eachCell((cell, col) => {
+          cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: i % 2 === 0 ? BG_EVEN : "FFFFFFFF" } };
+          cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle" };
+          cell.border    = {
+            left:   { style: "hair", color: { argb: "FFD0D8E8" } },
+            right:  { style: "hair", color: { argb: "FFD0D8E8" } },
+            bottom: { style: "hair", color: { argb: "FFD0D8E8" } },
+          };
+          cell.font      = { size: 10 };
+        });
+
+        if (r.weight !== null) {
+          dr.getCell(6).numFmt = "0.000";
+        }
+        dr.getCell(7).numFmt = "0.0000";
+        dr.getCell(8).numFmt = "0.0000";
+      });
+
+      // Total row
+      const totalPct  = totBirds > 0 ? ((totMort + totCullsSm + totCullsLeg) / totBirds) * 100 : 0;
+      // CDMR for total: weighted average from the last stage rows
+      const totalCdmr = totBirds > 0
+        ? block.rows.reduce((s, r) => s + (r.cdmr / 100) * r.birdsPlaced, 0) / totBirds * 100
+        : 0;
+
+      const tr = ws.addRow(["TOTAL", totBirds, totMort || "", totCullsSm || "", totCullsLeg || "", "", totalPct, totalCdmr]);
+      tr.eachCell((cell, col) => {
+        cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: BG_TOTAL } };
+        cell.font   = { bold: true, size: 10 };
+        cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle" };
+        cell.border = {
+          top:    { style: "medium", color: { argb: "FF9EB4CC" } },
+          bottom: { style: "medium", color: { argb: "FF9EB4CC" } },
+          left:   { style: "thin",   color: { argb: "FFD0D8E8" } },
+          right:  { style: "thin",   color: { argb: "FFD0D8E8" } },
+        };
+      });
+      tr.getCell(7).numFmt = "0.0000";
+      tr.getCell(8).numFmt = "0.0000";
+
+      ws.addRow([]); // blank separator between stages
+    }
+
+    // ── Save ──────────────────────────────────────────────────────────────────
     const exportDir = path.join(process.cwd(), "public", "exports");
-    if (!fs.existsSync(exportDir)) {
-      fs.mkdirSync(exportDir, { recursive: true });
-    }
+    if (!fs.existsSync(exportDir)) fs.mkdirSync(exportDir, { recursive: true });
 
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(templatePath);
-
-    const weeklySheet = workbook.getWorksheet("Weekly Return");
-    const placementSheet = workbook.getWorksheet("Placement Information");
-    const weights35Sheet = workbook.getWorksheet("35 day weights");
-
-    if (!weeklySheet || !placementSheet) {
-      return NextResponse.json(
-        { error: "Required worksheets not found in template." },
-        { status: 500 }
-      );
-    }
-
-    weeklySheet.getCell("C2").value = crop.farm.name;
-    weeklySheet.getCell("C3").value = crop.cropNumber;
-    weeklySheet.getCell("C4").value = crop.farm.code;
-
-    placementSheet.getCell("C2").value = crop.farm.name;
-    placementSheet.getCell("D5").value = mainPlacementDate;
-
-    for (const house of houses) {
-      if (!house.houseNumber) continue;
-
-      const cellMap = getHousePlacementCells(house.houseNumber);
-      if (!cellMap) continue;
-
-      placementSheet.getCell(cellMap.firstDate).value = house.firstPlacementDate || mainPlacementDate;
-
-      const hatcheryText = house.hatcheries.join(", ");
-      const flockText = house.flockNumbers.join(", ");
-      const descriptionParts = [crop.breed || "", hatcheryText, flockText].filter(Boolean);
-
-      placementSheet.getCell(cellMap.breed).value = descriptionParts.join(" / ");
-      placementSheet.getCell(cellMap.total).value = house.birdsPlaced;
-    }
-
-    const stageRows = getStageRowMap(stage);
-
-    if (stageRows.mortRow > 0) {
-      for (const house of houses) {
-        const col = getHouseColumn(house.houseNumber);
-        if (!col) continue;
-
-        weeklySheet.getCell(`${col}${stageRows.mortRow}`).value = house.mort;
-        weeklySheet.getCell(`${col}${stageRows.legCullsRow}`).value = 0;
-        weeklySheet.getCell(`${col}${stageRows.otherCullsRow}`).value = house.culls;
-
-        if (stageRows.weightRow && house.weightKg !== null) {
-          weeklySheet.getCell(`${col}${stageRows.weightRow}`).value = house.weightKg;
-        }
-      }
-    } else if (stageRows.weightRow) {
-      for (const house of houses) {
-        const col = getHouseColumn(house.houseNumber);
-        if (!col) continue;
-
-        if (house.weightKg !== null) {
-          weeklySheet.getCell(`${col}${stageRows.weightRow}`).value = house.weightKg;
-        }
-      }
-    }
-
-    if (weights35Sheet && stage === "THIN_35") {
-      weights35Sheet.getCell("B4").value = crop.farm.name;
-      weights35Sheet.getCell("B5").value = crop.cropNumber;
-      weights35Sheet.getCell("B6").value = crop.farm.code;
-
-      for (const house of houses) {
-        const col = getHouseColumn(house.houseNumber);
-        if (!col) continue;
-
-        if (house.weightKg !== null) {
-          weights35Sheet.getCell(`${col}10`).value = house.weightKg;
-        }
-      }
-    }
-
-    weeklySheet.getCell("D232").value = 0;
-    weeklySheet.getCell("D233").value = Number(totals.feedKg.toFixed(2));
-    weeklySheet.getCell("D234").value = 0;
-    weeklySheet.getCell("D235").value = 0;
-    weeklySheet.getCell("D237").value = 0;
-
-    const safeStage = stage.toLowerCase();
-    const fileName = `avara-${crop.cropNumber}-${safeStage}-${Date.now()}.xlsx`;
+    const fileName     = `avara-${crop.cropNumber}-${Date.now()}.xlsx`;
+    const fullPath     = path.join(exportDir, fileName);
     const relativePath = `/exports/${fileName}`;
-    const fullPath = path.join(exportDir, fileName);
 
-    await workbook.xlsx.writeFile(fullPath);
+    await wb.xlsx.writeFile(fullPath);
 
-    const savedExport = await prisma.avaraExport.create({
-      data: {
-        cropId: crop.id,
-        stage: getStageLabel(stage),
-        fileName,
-        filePath: relativePath,
-      },
+    const saved = await prisma.avaraExport.create({
+      data: { cropId: crop.id, stage: "FULL_REPORT", fileName, filePath: relativePath },
     });
 
-    return NextResponse.json({
-      ok: true,
-      exportId: savedExport.id,
-      fileName,
-      filePath: relativePath,
-    });
+    return NextResponse.json({ ok: true, exportId: saved.id, fileName, filePath: relativePath });
   } catch (error) {
     console.error("AVARA EXPORT ERROR:", error);
-    return NextResponse.json(
-      { error: "Server error while exporting Avara file." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server error while exporting." }, { status: 500 });
   }
 }

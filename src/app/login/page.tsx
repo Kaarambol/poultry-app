@@ -22,18 +22,17 @@ export default function LoginPage() {
     const data = await r.json();
 
     if (!r.ok) {
-      setMsg(data.error || "Błąd logowania");
+      setMsg(data.error || "Login error.");
       return;
     }
 
-    // Przekierowanie na właściwą stronę
     router.push("/dashboard");
     router.refresh();
   }
 
   return (
-    <div className="login-container"> 
-      <h1>Zaloguj się</h1>
+    <div className="login-container">
+      <h1>Log in</h1>
       <form onSubmit={onSubmit} className="login-form">
         <div className="form-group">
           <label>Email</label>
@@ -45,7 +44,7 @@ export default function LoginPage() {
           />
         </div>
         <div className="form-group">
-          <label>Hasło</label>
+          <label>Password</label>
           <input
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -53,10 +52,10 @@ export default function LoginPage() {
             required
           />
         </div>
-        <button type="submit" className="btn-primary">Zaloguj</button>
+        <button type="submit" className="btn-primary">Log in</button>
       </form>
       {msg && <p className="error-msg">{msg}</p>}
-      <p>Nie masz konta? <a href="/register">Zarejestruj się</a></p>
+      <p>Don&apos;t have an account? <a href="/register">Register</a></p>
     </div>
   );
 }

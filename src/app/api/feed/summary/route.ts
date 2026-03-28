@@ -21,10 +21,21 @@ export async function GET(req: Request) {
       );
     }
 
-    const records = await prisma.feedRecord.findMany({
-      where: { cropId },
-      orderBy: [{ date: "asc" }],
-    });
+    const [records, crop] = await Promise.all([
+      prisma.feedRecord.findMany({
+        where: { cropId },
+        orderBy: [{ date: "asc" }],
+      }),
+      prisma.crop.findUnique({
+        where: { id: cropId },
+        select: {
+          openingFeedStockKg: true,
+          openingWheatStockKg: true,
+          closingFeedStockKg: true,
+          closingWheatStockKg: true,
+        },
+      }),
+    ]);
 
     const byProduct = FEED_PRODUCTS.map((product) => {
       const productRecords = records.filter((item) => item.feedProduct === product);
@@ -68,6 +79,15 @@ export async function GET(req: Request) {
       return sum + feedCost + wheatCost;
     }, 0);
 
+    const openingFeedStockKg = crop?.openingFeedStockKg ?? 0;
+    const openingWheatStockKg = crop?.openingWheatStockKg ?? 0;
+    const closingFeedStockKg = crop?.closingFeedStockKg ?? 0;
+    const closingWheatStockKg = crop?.closingWheatStockKg ?? 0;
+
+    const netFeedKg = totalFeedKg + openingFeedStockKg - closingFeedStockKg;
+    const netWheatKg = totalWheatKg + openingWheatStockKg - closingWheatStockKg;
+    const netTotalKg = netFeedKg + netWheatKg;
+
     return NextResponse.json({
       totals: {
         totalFeedKg,
@@ -75,6 +95,13 @@ export async function GET(req: Request) {
         totalDeliveredKg,
         totalCostGbp,
         recordsCount: records.length,
+        openingFeedStockKg,
+        openingWheatStockKg,
+        closingFeedStockKg,
+        closingWheatStockKg,
+        netFeedKg,
+        netWheatKg,
+        netTotalKg,
       },
       byProduct,
     });

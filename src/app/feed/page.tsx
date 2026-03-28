@@ -47,6 +47,13 @@ type FeedSummary = {
     totalDeliveredKg: number;
     totalCostGbp: number;
     recordsCount: number;
+    openingFeedStockKg: number;
+    openingWheatStockKg: number;
+    closingFeedStockKg: number;
+    closingWheatStockKg: number;
+    netFeedKg: number;
+    netWheatKg: number;
+    netTotalKg: number;
   };
   byProduct: Array<{
     feedProduct: string;
@@ -92,6 +99,11 @@ export default function FeedPage() {
   const [msg, setMsg] = useState("Loading...");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
 
+  const [closingFeedStockKg, setClosingFeedStockKg] = useState("");
+  const [closingWheatStockKg, setClosingWheatStockKg] = useState("");
+  const [stockMsg, setStockMsg] = useState("");
+  const [savingStock, setSavingStock] = useState(false);
+
   async function loadFarmData(farmId: string) {
     const r = await fetch("/api/farms/list");
     const data = await r.json();
@@ -107,13 +119,13 @@ export default function FeedPage() {
   function updatePrices(productValue: string, farm: Farm | null) {
     if (!farm) return;
     const product = FEED_PRODUCTS.find(p => p.value === productValue);
-    if (product && product.priceKey && product.priceKey.startsWith("feedPrice")) {
-      const price = farm[product.priceKey as keyof Farm];
-      setFeedPricePerTonneGbp(price ? String(price) : "");
+    if (product?.priceKey && product.priceKey.startsWith("feedPrice")) {
+      const price = farm[product.priceKey as keyof Farm] as number | null | undefined;
+      setFeedPricePerTonneGbp(price != null ? String(price) : "");
+    } else {
+      setFeedPricePerTonneGbp("");
     }
-    if (farm.wheatPrice) {
-      setWheatPricePerTonneGbp(String(farm.wheatPrice));
-    }
+    setWheatPricePerTonneGbp(farm.wheatPrice != null ? String(farm.wheatPrice) : "");
   }
 
   async function loadMyRole(farmId: string) {
@@ -153,7 +165,32 @@ export default function FeedPage() {
   async function loadSummary(selectedCropId: string) {
     const r = await fetch(`/api/feed/summary?cropId=${selectedCropId}`);
     const data = await r.json();
-    if (r.ok) setSummary(data);
+    if (r.ok) {
+      setSummary(data);
+      setClosingFeedStockKg(String(data.totals.closingFeedStockKg || ""));
+      setClosingWheatStockKg(String(data.totals.closingWheatStockKg || ""));
+    }
+  }
+
+  async function saveClosingStock() {
+    if (!cropId) return;
+    setSavingStock(true);
+    setStockMsg("");
+    const r = await fetch(`/api/crops/${cropId}/feed-stock`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        closingFeedStockKg: Number(closingFeedStockKg || 0),
+        closingWheatStockKg: Number(closingWheatStockKg || 0),
+      }),
+    });
+    if (r.ok) {
+      setStockMsg("Closing stock saved.");
+      await loadSummary(cropId);
+    } else {
+      setStockMsg("Error saving closing stock.");
+    }
+    setSavingStock(false);
   }
 
   useEffect(() => {
@@ -318,10 +355,44 @@ export default function FeedPage() {
             <div className="mobile-card">
               <h2>Feed Summary</h2>
               <div className="mobile-kpi-grid">
-                <div className="mobile-kpi"><div className="mobile-kpi__label">Feed kg</div><div className="mobile-kpi__value">{summary.totals.totalFeedKg.toFixed(0)}</div></div>
-                <div className="mobile-kpi"><div className="mobile-kpi__label">Wheat kg</div><div className="mobile-kpi__value">{summary.totals.totalWheatKg.toFixed(0)}</div></div>
-                <div className="mobile-kpi"><div className="mobile-kpi__label">Delivered kg</div><div className="mobile-kpi__value">{summary.totals.totalDeliveredKg.toFixed(0)}</div></div>
+                <div className="mobile-kpi"><div className="mobile-kpi__label">Feed Delivered</div><div className="mobile-kpi__value">{summary.totals.totalFeedKg.toFixed(0)} kg</div></div>
+                <div className="mobile-kpi"><div className="mobile-kpi__label">Wheat Delivered</div><div className="mobile-kpi__value">{summary.totals.totalWheatKg.toFixed(0)} kg</div></div>
+                <div className="mobile-kpi"><div className="mobile-kpi__label">Total Delivered</div><div className="mobile-kpi__value">{summary.totals.totalDeliveredKg.toFixed(0)} kg</div></div>
                 <div className="mobile-kpi"><div className="mobile-kpi__label">Cost GBP</div><div className="mobile-kpi__value">{summary.totals.totalCostGbp.toFixed(2)}</div></div>
+              </div>
+
+              {(summary.totals.openingFeedStockKg > 0 || summary.totals.openingWheatStockKg > 0) && (
+                <div className="mobile-record-card__grid" style={{ marginTop: 12, background: '#f0f7ff', padding: '10px', borderRadius: '8px' }}>
+                  <div className="mobile-record-row"><strong>Opening Feed Stock</strong><span>{summary.totals.openingFeedStockKg.toFixed(0)} kg</span></div>
+                  <div className="mobile-record-row"><strong>Opening Wheat Stock</strong><span>{summary.totals.openingWheatStockKg.toFixed(0)} kg</span></div>
+                </div>
+              )}
+
+              <div style={{ marginTop: 16 }}>
+                <h3 style={{ marginBottom: 8 }}>Closing Stock (feed remaining for next crop)</h3>
+                <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 8 }}>Enter how much feed is left at end of crop — this is not charged to this crop's cost.</p>
+                <div className="mobile-grid mobile-grid--2">
+                  <div>
+                    <label>Closing Feed Stock (kg)</label>
+                    <input type="number" step="0.01" placeholder="0" value={closingFeedStockKg} onChange={(e) => setClosingFeedStockKg(e.target.value)} disabled={!canOperate} />
+                  </div>
+                  <div>
+                    <label>Closing Wheat Stock (kg)</label>
+                    <input type="number" step="0.01" placeholder="0" value={closingWheatStockKg} onChange={(e) => setClosingWheatStockKg(e.target.value)} disabled={!canOperate} />
+                  </div>
+                </div>
+                {canOperate && (
+                  <button className="mobile-full-button" style={{ marginTop: 8 }} onClick={saveClosingStock} disabled={savingStock}>
+                    {savingStock ? "Saving..." : "Save Closing Stock"}
+                  </button>
+                )}
+                {stockMsg && <div className="mobile-alert" style={{ marginTop: 8 }}>{stockMsg}</div>}
+              </div>
+
+              <div className="mobile-record-card__grid" style={{ marginTop: 16, background: '#dff0d8', padding: '10px', borderRadius: '8px', border: '1px solid #d6e9c6' }}>
+                <div className="mobile-record-row"><strong>Net Feed Consumed</strong><span>{summary.totals.netFeedKg.toFixed(0)} kg</span></div>
+                <div className="mobile-record-row"><strong>Net Wheat Consumed</strong><span>{summary.totals.netWheatKg.toFixed(0)} kg</span></div>
+                <div className="mobile-record-row"><strong>Net Total Consumed</strong><span>{summary.totals.netTotalKg.toFixed(0)} kg</span></div>
               </div>
             </div>
             <h2 className="mobile-section-title">By Product</h2>

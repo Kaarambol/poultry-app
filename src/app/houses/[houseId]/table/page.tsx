@@ -36,6 +36,9 @@ type TableResponse = {
     cropNumber: string;
     placementDate: string;
   };
+  thinDates: string[];
+  thin2Dates: string[];
+  clearDates: string[];
   rows: TableRow[];
 };
 
@@ -54,6 +57,9 @@ export default function HouseTablePage({
   const [houseCode, setHouseCode] = useState<string | null>(null);
   const [cropLabel, setCropLabel] = useState("");
   const [rows, setRows] = useState<TableRow[]>([]);
+  const [thinDates, setThinDates] = useState<string[]>([]);
+  const [thin2Dates, setThin2Dates] = useState<string[]>([]);
+  const [clearDates, setClearDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -86,6 +92,9 @@ export default function HouseTablePage({
         setHouseName(payload.house.name);
         setHouseCode(payload.house.code);
         setCropLabel(`Crop ${payload.crop.cropNumber}`);
+        setThinDates(payload.thinDates || []);
+        setThin2Dates(payload.thin2Dates || []);
+        setClearDates(payload.clearDates || []);
         setRows(payload.rows || []);
       } catch (err: any) {
         setError(err.message || "Failed to load table data.");
@@ -114,7 +123,7 @@ export default function HouseTablePage({
       <div className="mobile-page">
         <div className="page-shell">
           <div className="mobile-alert mobile-alert--error">{error}</div>
-          <Link href="/app/dashboard" className="mobile-button mobile-button--secondary">
+          <Link href="/dashboard" className="mobile-button mobile-button--secondary">
             Back to Dashboard
           </Link>
         </div>
@@ -140,11 +149,11 @@ export default function HouseTablePage({
 
         <div className="mobile-card" style={{ marginBottom: 16 }}>
           <div className="mobile-actions">
-            <Link href="/app/dashboard" className="mobile-button mobile-button--secondary">
+            <Link href="/dashboard" className="mobile-button mobile-button--secondary">
               Back to Dashboard
             </Link>
             <Link
-              href={`/app/houses/${houseId}/charts`}
+              href={`/houses/${houseId}/charts`}
               className="mobile-button mobile-button--secondary"
             >
               Open Charts
@@ -180,9 +189,24 @@ export default function HouseTablePage({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id}>
-                    <td>{new Date(row.date).toLocaleDateString()}</td>
+                {rows.map((row) => {
+                  const dateStr = new Date(row.date).toISOString().slice(0, 10);
+                  const isThin = thinDates.includes(dateStr);
+                  const isThin2 = thin2Dates.includes(dateStr);
+                  const isClear = clearDates.includes(dateStr);
+                  const rowStyle: React.CSSProperties = isClear
+                    ? { background: '#ffe0e0', fontWeight: 'bold' }
+                    : (isThin || isThin2)
+                    ? { background: '#fff0f0' }
+                    : {};
+                  return (
+                  <tr key={row.id} style={rowStyle}>
+                    <td>
+                      {new Date(row.date).toLocaleDateString()}
+                      {isThin && <span style={{ marginLeft: 4, color: '#c00', fontSize: '0.7rem', fontWeight: 'bold' }}>THIN</span>}
+                      {isThin2 && <span style={{ marginLeft: 4, color: '#c00', fontSize: '0.7rem', fontWeight: 'bold' }}>THIN2</span>}
+                      {isClear && <span style={{ marginLeft: 4, color: '#c00', fontSize: '0.7rem', fontWeight: 'bold' }}>CLEAR</span>}
+                    </td>
                     <td>{row.ageDays}</td>
                     <td>{row.mort}</td>
                     <td>{row.culls}</td>
@@ -199,7 +223,8 @@ export default function HouseTablePage({
                     <td>{formatCell(row.avgWeightG)}</td>
                     <td>{row.notes || "-"}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

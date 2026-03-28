@@ -55,6 +55,8 @@ export default function CropsPage() {
   const [currency, setCurrency] = useState("GBP");
 
   const [cropNotes, setCropNotes] = useState("");
+  const [openingFeedStockKg, setOpeningFeedStockKg] = useState("");
+  const [openingWheatStockKg, setOpeningWheatStockKg] = useState("");
 
   const [placements, setPlacements] = useState<Record<string, PlacementBatch[]>>(
     {}
@@ -170,6 +172,8 @@ export default function CropsPage() {
         salePricePerKgAllIn,
         currency,
         notes: cropNotes,
+        openingFeedStockKg,
+        openingWheatStockKg,
         placements: payloadPlacements,
         houseConfigs: [],
       }),
@@ -297,6 +301,33 @@ export default function CropsPage() {
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
             />
+
+            <h3 style={{ marginTop: 18 }}>Opening Feed Stock (from previous crop)</h3>
+            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: 8 }}>
+              Feed left over from the previous crop — not charged to this crop's cost.
+            </p>
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Opening Feed Stock (kg)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0"
+                  value={openingFeedStockKg}
+                  onChange={(e) => setOpeningFeedStockKg(e.target.value)}
+                />
+              </div>
+              <div>
+                <label>Opening Wheat Stock (kg)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="0"
+                  value={openingWheatStockKg}
+                  onChange={(e) => setOpeningWheatStockKg(e.target.value)}
+                />
+              </div>
+            </div>
 
             <label>Crop Notes</label>
             <textarea

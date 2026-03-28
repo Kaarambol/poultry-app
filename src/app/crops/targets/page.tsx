@@ -283,7 +283,7 @@ export default function CropTargetsPage() {
 
         <div className="mobile-card" style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <Link href="/app/crops" className="mobile-button mobile-button--secondary">
+            <Link href="/crops" className="mobile-button mobile-button--secondary">
               ← Back to Create Crop
             </Link>
           </div>

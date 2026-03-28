@@ -51,6 +51,19 @@ model Farm {
   chickenPrice         Float?
   liveWeightPricePerKg Float?
 
+  farmNumber            String?
+  chpCode               String?
+  rodentControl         String?
+  disinfectProgramme    String?
+  waterSanitizer        String?
+  footDipDisinfectant   String?
+  cleaningContractor    String?
+  vetContractor         String?
+  electricianContractor String?
+  generatorService      String?
+  weedkiller            String?
+  security              String?
+
   houses         House[]
   crops          Crop[]
   farmUsers      FarmUser[]
@@ -112,6 +125,11 @@ model Crop {
 
   notes String?
 
+  openingFeedStockKg  Float? @default(0)
+  openingWheatStockKg Float? @default(0)
+  closingFeedStockKg  Float? @default(0)
+  closingWheatStockKg Float? @default(0)
+
   farm             Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
   placements       CropHousePlacement[]
   daily            DailyRecord[]
@@ -162,8 +180,12 @@ model NightCheck {
   humidityPct Float?
   co2Ppm      Int?
   ammoniaPpm  Float?
+  humidityOk  Boolean @default(false)
+  co2Ok       Boolean @default(false)
+  ammoniaOk   Boolean @default(false)
 
   litterScore Int?
+  litterOk    Boolean @default(false)
   wetAreas    Boolean @default(false)
   capping     Boolean @default(false)
   litterNotes String?
