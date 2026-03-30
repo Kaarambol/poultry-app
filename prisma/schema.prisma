@@ -27,9 +27,12 @@ model User {
 
   farmsCreated Farm[] @relation("FarmCreatedBy")
 
-  farmUsers   FarmUser[]
-  changeLogs  ChangeLog[]
-  nightChecks NightCheck[]
+  farmUsers     FarmUser[]
+  changeLogs    ChangeLog[]
+  nightChecks   NightCheck[]
+  forumTopics   ForumTopic[]       @relation("ForumTopicAuthor")
+  forumPosts    ForumPost[]        @relation("ForumPostAuthor")
+  forumLanguage UserForumLanguage?
 }
 
 model Farm {
@@ -440,6 +443,40 @@ model TargetProfile {
   @@unique([cropId])
   @@index([farmId, scope])
   @@index([cropId])
+}
+
+model ForumTopic {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  authorId   String
+  createdAt  DateTime @default(now())
+  lastPostAt DateTime @default(now())
+
+  author User        @relation("ForumTopicAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  posts  ForumPost[]
+
+  @@index([lastPostAt])
+}
+
+model ForumPost {
+  id        String   @id @default(cuid())
+  topicId   String
+  content   String
+  authorId  String
+  createdAt DateTime @default(now())
+
+  topic  ForumTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  author User       @relation("ForumPostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([topicId])
+}
+
+model UserForumLanguage {
+  userId   String @id
+  language String @default("en")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model TargetProfileDay {

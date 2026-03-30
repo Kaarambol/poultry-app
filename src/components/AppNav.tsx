@@ -50,6 +50,7 @@ const recordsLinks = [
   { href: "/medication", label: "Medication" },
   { href: "/history", label: "History" },
   { href: "/avara", label: "Week Report" },
+  { href: "/forum", label: "Forum" },
 ];
 
 export default function AppNav() {
