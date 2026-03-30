@@ -13,11 +13,17 @@ export async function GET(req: Request) {
       );
     }
 
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
     const placements = await prisma.cropHousePlacement.findMany({
       where: {
         flockNumber: {
           contains: query,
           mode: "insensitive",
+        },
+        placementDate: {
+          gte: oneYearAgo,
         },
       },
       include: {
@@ -31,10 +37,7 @@ export async function GET(req: Request) {
         },
         house: true,
       },
-      orderBy: [
-        { flockNumber: "asc" },
-        { placementDate: "desc" },
-      ],
+      orderBy: { placementDate: "desc" },
     });
 
     const groupedMap = new Map<
@@ -155,18 +158,30 @@ export async function GET(req: Request) {
       });
     }
 
-    const results = Array.from(groupedMap.values()).map((group) => {
-      const uniqueFarmIds = new Set(group.items.map((item) => item.farmId));
-      const uniqueCropIds = new Set(group.items.map((item) => item.cropId));
-      const uniqueHouseIds = new Set(group.items.map((item) => item.houseId));
+    const results = Array.from(groupedMap.values())
+      .map((group) => {
+        const uniqueFarmIds = new Set(group.items.map((item) => item.farmId));
+        const uniqueCropIds = new Set(group.items.map((item) => item.cropId));
+        const uniqueHouseIds = new Set(group.items.map((item) => item.houseId));
 
-      return {
-        ...group,
-        farmsCount: uniqueFarmIds.size,
-        cropsCount: uniqueCropIds.size,
-        housesCount: uniqueHouseIds.size,
-      };
-    });
+        // Sort items within each group: most recent placement first
+        group.items.sort(
+          (a, b) => new Date(b.placementDate).getTime() - new Date(a.placementDate).getTime()
+        );
+
+        return {
+          ...group,
+          farmsCount: uniqueFarmIds.size,
+          cropsCount: uniqueCropIds.size,
+          housesCount: uniqueHouseIds.size,
+        };
+      })
+      // Sort groups: most recent latestPlacementDate first
+      .sort((a, b) => {
+        const ta = a.latestPlacementDate ? new Date(a.latestPlacementDate).getTime() : 0;
+        const tb = b.latestPlacementDate ? new Date(b.latestPlacementDate).getTime() : 0;
+        return tb - ta;
+      });
 
     return NextResponse.json({
       query,
