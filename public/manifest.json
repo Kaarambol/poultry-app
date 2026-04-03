@@ -2,7 +2,7 @@
   "name": "Poultry Manager",
   "short_name": "Poultry",
   "description": "Zarządzanie fermą drobiu",
-  "start_url": "/dashboard",
+  "start_url": "/daily",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#2563eb",
