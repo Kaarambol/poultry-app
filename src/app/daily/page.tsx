@@ -51,6 +51,8 @@ type DailyRecord = {
   humidityMaxPct: number | null;
   co2MinPpm: number | null;
   co2MaxPpm: number | null;
+  litterScore: number | null;
+  ammoniaPpm: number | null;
   notes: string | null;
   houseId: string;
   house: {
@@ -95,12 +97,29 @@ export default function DailyPage() {
   const [co2MinPpm, setCo2MinPpm] = useState("");
   const [co2MaxPpm, setCo2MaxPpm] = useState("");
 
+  const [litterScore, setLitterScore] = useState("");
+  const [ammoniaPpm, setAmmoniaPpm] = useState("");
+
   const [notes, setNotes] = useState("");
 
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
   const [editingId, setEditingId] = useState("");
+
+  const isWeeklyDay = useMemo(() => {
+    if (!cropDetails?.placementDate || !date) return false;
+    const placementDate = new Date(cropDetails.placementDate);
+    const recordDate = new Date(date);
+    const ageDays = Math.floor(
+      (recordDate.getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return ageDays > 0 && ageDays % 7 === 0;
+  }, [cropDetails, date]);
+
+  const showLitterFields =
+    isWeeklyDay ||
+    (!!editingId && (litterScore !== "" || ammoniaPpm !== ""));
 
   async function loadFarmName(farmId: string) {
     const r = await fetch("/api/farms/list");
@@ -323,6 +342,8 @@ export default function DailyPage() {
         humidityMaxPct: humidityMaxPct === "" ? null : Number(humidityMaxPct),
         co2MinPpm: co2MinPpm === "" ? null : Number(co2MinPpm),
         co2MaxPpm: co2MaxPpm === "" ? null : Number(co2MaxPpm),
+        litterScore: litterScore === "" ? null : Number(litterScore),
+        ammoniaPpm: ammoniaPpm === "" ? null : Number(ammoniaPpm),
         notes,
       }),
     });
@@ -357,6 +378,8 @@ export default function DailyPage() {
     setHumidityMaxPct(record.humidityMaxPct !== null ? String(record.humidityMaxPct) : "");
     setCo2MinPpm(record.co2MinPpm !== null ? String(record.co2MinPpm) : "");
     setCo2MaxPpm(record.co2MaxPpm !== null ? String(record.co2MaxPpm) : "");
+    setLitterScore(record.litterScore !== null ? String(record.litterScore) : "");
+    setAmmoniaPpm(record.ammoniaPpm !== null ? String(record.ammoniaPpm) : "");
     setNotes(record.notes || "");
     setMsg("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -399,6 +422,8 @@ export default function DailyPage() {
         humidityMaxPct: humidityMaxPct === "" ? null : Number(humidityMaxPct),
         co2MinPpm: co2MinPpm === "" ? null : Number(co2MinPpm),
         co2MaxPpm: co2MaxPpm === "" ? null : Number(co2MaxPpm),
+        litterScore: litterScore === "" ? null : Number(litterScore),
+        ammoniaPpm: ammoniaPpm === "" ? null : Number(ammoniaPpm),
         notes,
       }),
     });
@@ -461,6 +486,8 @@ export default function DailyPage() {
     setHumidityMaxPct("");
     setCo2MinPpm("");
     setCo2MaxPpm("");
+    setLitterScore("");
+    setAmmoniaPpm("");
     setNotes("");
     setDate(new Date().toISOString().slice(0, 10));
   }
@@ -745,6 +772,41 @@ export default function DailyPage() {
               </div>
             </div>
 
+            {showLitterFields && cropDetails && (
+              <>
+                <h3 style={{ marginTop: 16, marginBottom: 10, color: "#c0392b" }}>
+                  Weekly Check (day {Math.floor((new Date(date).getTime() - new Date(cropDetails.placementDate).getTime()) / (1000 * 60 * 60 * 24))})
+                </h3>
+                <div className="mobile-grid mobile-grid--2">
+                  <div>
+                    <label style={{ color: "#c0392b", fontWeight: 700 }}>Litter Score (1–5)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="5"
+                      step="1"
+                      value={litterScore}
+                      onChange={(e) => setLitterScore(e.target.value)}
+                      disabled={!cropId || !canOperate}
+                      style={{ borderColor: "#c0392b" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ color: "#c0392b", fontWeight: 700 }}>Ammonia (ppm)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={ammoniaPpm}
+                      onChange={(e) => setAmmoniaPpm(e.target.value)}
+                      disabled={!cropId || !canOperate}
+                      style={{ borderColor: "#c0392b" }}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             <label>Notes</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!cropId || !canOperate} />
 
@@ -854,6 +916,12 @@ export default function DailyPage() {
                       <div className="mobile-record-row"><strong>Temp min/max</strong><span>{record.temperatureMinC ?? "-"} / {record.temperatureMaxC ?? "-"}</span></div>
                       <div className="mobile-record-row"><strong>Humidity min/max</strong><span>{record.humidityMinPct ?? "-"} / {record.humidityMaxPct ?? "-"}</span></div>
                       <div className="mobile-record-row"><strong>CO2 min/max</strong><span>{record.co2MinPpm ?? "-"} / {record.co2MaxPpm ?? "-"}</span></div>
+                      {record.litterScore !== null && (
+                        <div className="mobile-record-row"><strong style={{ color: "#c0392b" }}>Litter score</strong><span>{record.litterScore}</span></div>
+                      )}
+                      {record.ammoniaPpm !== null && (
+                        <div className="mobile-record-row"><strong style={{ color: "#c0392b" }}>Ammonia (ppm)</strong><span>{record.ammoniaPpm}</span></div>
+                      )}
                       <div className="mobile-record-row"><strong>Notes</strong><span>{record.notes || "-"}</span></div>
                     </div>
 

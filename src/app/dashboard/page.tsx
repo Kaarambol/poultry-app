@@ -30,6 +30,8 @@ type DashboardHouse = {
   mortalityPct: number;
   feedKg: number;
   waterL: number;
+  lastLitterScore: number | null;
+  lastAmmoniaPpm: number | null;
 };
 
 type DashboardData = {
@@ -326,6 +328,18 @@ export default function DashboardPage() {
                         <strong>Water L</strong>
                         <span>{formatDecimal(house.waterL)}</span>
                       </div>
+                      {house.lastLitterScore !== null && (
+                        <div className="mobile-record-row">
+                          <strong>Litter score</strong>
+                          <span>{house.lastLitterScore}</span>
+                        </div>
+                      )}
+                      {house.lastAmmoniaPpm !== null && (
+                        <div className="mobile-record-row">
+                          <strong>Ammonia (ppm)</strong>
+                          <span>{house.lastAmmoniaPpm}</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mobile-actions" style={{ marginTop: 12 }}>

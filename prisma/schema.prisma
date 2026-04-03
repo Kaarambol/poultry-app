@@ -346,6 +346,9 @@ model DailyRecord {
   co2MinPpm       Int?
   co2MaxPpm       Int?
 
+  litterScore Int?
+  ammoniaPpm  Float?
+
   notes String?
 
   crop  Crop  @relation(fields: [cropId], references: [id], onDelete: Cascade)

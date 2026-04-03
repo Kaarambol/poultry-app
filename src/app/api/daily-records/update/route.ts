@@ -83,6 +83,9 @@ export async function POST(req: NextRequest) {
     const co2MinPpm = parseOptionalInt(body.co2MinPpm);
     const co2MaxPpm = parseOptionalInt(body.co2MaxPpm);
 
+    const litterScore = parseOptionalInt(body.litterScore);
+    const ammoniaPpm = parseOptionalFloat(body.ammoniaPpm);
+
     const notes = String(body.notes || "").trim();
 
     if (
@@ -175,6 +178,8 @@ export async function POST(req: NextRequest) {
         humidityMaxPct,
         co2MinPpm,
         co2MaxPpm,
+        litterScore,
+        ammoniaPpm,
         notes: notes || null,
       },
       include: {
