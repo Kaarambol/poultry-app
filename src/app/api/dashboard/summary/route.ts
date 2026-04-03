@@ -101,6 +101,8 @@ export async function GET(req: NextRequest) {
         mortalityPct: number;
         feedKg: number;
         waterL: number;
+        lastLitterScore: number | null;
+        lastAmmoniaPpm: number | null;
       }
     > = {};
 
@@ -117,6 +119,8 @@ export async function GET(req: NextRequest) {
           mortalityPct: 0,
           feedKg: 0,
           waterL: 0,
+          lastLitterScore: null,
+          lastAmmoniaPpm: null,
         };
       }
 
@@ -136,6 +140,8 @@ export async function GET(req: NextRequest) {
           mortalityPct: 0,
           feedKg: 0,
           waterL: 0,
+          lastLitterScore: null,
+          lastAmmoniaPpm: null,
         };
       }
 
@@ -144,6 +150,8 @@ export async function GET(req: NextRequest) {
       item.culls += record.culls;
       item.feedKg += record.feedKg;
       item.waterL += record.waterL;
+      if (record.litterScore !== null) item.lastLitterScore = record.litterScore;
+      if (record.ammoniaPpm !== null) item.lastAmmoniaPpm = record.ammoniaPpm;
     }
 
     for (const key of Object.keys(houseMap)) {
