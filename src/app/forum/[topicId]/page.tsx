@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 async function translateTexts(texts: string[], targetLang: string): Promise<string[]> {
-  if (targetLang === "en") return texts;
   try {
     const r = await fetch("/api/forum/translate", {
       method: "POST",
@@ -82,7 +81,7 @@ export default function TopicPage({ params }: { params: Promise<{ topicId: strin
 
   // Translate content when language or topic changes
   useEffect(() => {
-    if (!topic || language === "en") {
+    if (!topic) {
       setTranslatedTitle("");
       setTranslatedContent("");
       setTranslatedPosts({});

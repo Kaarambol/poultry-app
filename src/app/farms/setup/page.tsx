@@ -99,9 +99,10 @@ export default function FarmSetupPage() {
   const [defaultMaxAmmoniaPpm, setDefaultMaxAmmoniaPpm]         = useState("");
   const [notes, setNotes]                                       = useState("");
 
-  const [houses, setHouses]   = useState<House[]>([]);
-  const [msg, setMsg]         = useState("");
-  const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
+  const [houses, setHouses]         = useState<House[]>([]);
+  const [editingHouseId, setEditingHouseId] = useState<string | null>(null);
+  const [msg, setMsg]               = useState("");
+  const [msgType, setMsgType]       = useState<"error" | "success" | "info">("info");
 
   async function loadFarms() {
     const r = await fetch("/api/farms/list");
@@ -157,11 +158,34 @@ export default function FarmSetupPage() {
   }, [farmId, farms]);
 
   function resetHouseForm() {
+    setEditingHouseId(null);
     setHouseName(""); setHouseCode(""); setFloorArea(""); setUsableArea("");
     setDefaultCapacityBirds(""); setDefaultDrinkerLineCount(""); setDefaultNippleCount("");
     setDefaultFeederPanCount(""); setDefaultFanCount(""); setDefaultHeaterCount("");
     setDefaultMinTempC(""); setDefaultMaxTempC(""); setDefaultTargetHumidityPct("");
     setDefaultMaxCo2Ppm(""); setDefaultMaxAmmoniaPpm(""); setNotes("");
+  }
+
+  function startEditHouse(h: House) {
+    setEditingHouseId(h.id);
+    setHouseName(h.name);
+    setHouseCode(h.code || "");
+    setFloorArea(String(h.floorAreaM2));
+    setUsableArea(h.usableAreaM2 != null ? String(h.usableAreaM2) : "");
+    setDefaultCapacityBirds(String(h.defaultCapacityBirds || ""));
+    setDefaultDrinkerLineCount(String(h.defaultDrinkerLineCount || ""));
+    setDefaultNippleCount(String(h.defaultNippleCount || ""));
+    setDefaultFeederPanCount(String(h.defaultFeederPanCount || ""));
+    setDefaultFanCount(String(h.defaultFanCount || ""));
+    setDefaultHeaterCount(String(h.defaultHeaterCount || ""));
+    setDefaultMinTempC(h.defaultMinTempC != null ? String(h.defaultMinTempC) : "");
+    setDefaultMaxTempC(h.defaultMaxTempC != null ? String(h.defaultMaxTempC) : "");
+    setDefaultTargetHumidityPct(h.defaultTargetHumidityPct != null ? String(h.defaultTargetHumidityPct) : "");
+    setDefaultMaxCo2Ppm(h.defaultMaxCo2Ppm != null ? String(h.defaultMaxCo2Ppm) : "");
+    setDefaultMaxAmmoniaPpm(h.defaultMaxAmmoniaPpm != null ? String(h.defaultMaxAmmoniaPpm) : "");
+    setNotes(h.notes || "");
+    // Scroll form into view
+    setTimeout(() => document.getElementById("house-form")?.scrollIntoView({ behavior: "smooth" }), 50);
   }
 
   function buildPatchBody() {
@@ -209,22 +233,35 @@ export default function FarmSetupPage() {
     else { const d = await r.json(); setMsg(d.error || "Failed to save."); setMsgType("error"); }
   }
 
-  async function addHouse(e: React.FormEvent) {
+  async function saveHouse(e: React.FormEvent) {
     e.preventDefault();
-    setMsg("Adding house..."); setMsgType("info");
-    const r = await fetch("/api/houses/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        farmId, name: houseName, code: houseCode, floorAreaM2: floorArea,
-        usableAreaM2: usableArea, defaultCapacityBirds, defaultDrinkerLineCount,
-        defaultNippleCount, defaultFeederPanCount, defaultFanCount,
-        defaultHeaterCount, defaultMinTempC, defaultMaxTempC,
-        defaultTargetHumidityPct, defaultMaxCo2Ppm, defaultMaxAmmoniaPpm, notes,
-      }),
-    });
-    if (r.ok) { setMsg("House added successfully."); setMsgType("success"); resetHouseForm(); loadHouses(farmId); }
-    else { setMsg("Error adding house."); setMsgType("error"); }
+    const payload = {
+      farmId, name: houseName, code: houseCode, floorAreaM2: floorArea,
+      usableAreaM2: usableArea, defaultCapacityBirds, defaultDrinkerLineCount,
+      defaultNippleCount, defaultFeederPanCount, defaultFanCount,
+      defaultHeaterCount, defaultMinTempC, defaultMaxTempC,
+      defaultTargetHumidityPct, defaultMaxCo2Ppm, defaultMaxAmmoniaPpm, notes,
+    };
+
+    if (editingHouseId) {
+      setMsg("Saving changes..."); setMsgType("info");
+      const r = await fetch(`/api/houses/${editingHouseId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (r.ok) { setMsg("House updated successfully."); setMsgType("success"); resetHouseForm(); loadHouses(farmId); }
+      else { const d = await r.json(); setMsg(d.error || "Error updating house."); setMsgType("error"); }
+    } else {
+      setMsg("Adding house..."); setMsgType("info");
+      const r = await fetch("/api/houses/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (r.ok) { setMsg("House added successfully."); setMsgType("success"); resetHouseForm(); loadHouses(farmId); }
+      else { const d = await r.json(); setMsg(d.error || "Error adding house."); setMsgType("error"); }
+    }
   }
 
   return (
@@ -316,10 +353,18 @@ export default function FarmSetupPage() {
               </form>
             </div>
 
-            {/* ── Add New House ───────────────────────────────────────────── */}
-            <div className="mobile-card">
-              <h2>Add New House</h2>
-              <form onSubmit={addHouse}>
+            {/* ── Add / Edit House ────────────────────────────────────────── */}
+            <div className="mobile-card" id="house-form">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <h2 style={{ margin: 0 }}>{editingHouseId ? "Edit House" : "Add New House"}</h2>
+                {editingHouseId && (
+                  <button type="button" onClick={resetHouseForm}
+                    style={{ background: "#f0f0f0", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontSize: "0.85rem" }}>
+                    Cancel
+                  </button>
+                )}
+              </div>
+              <form onSubmit={saveHouse}>
                 <label>House Name</label>
                 <input value={houseName} onChange={(e) => setHouseName(e.target.value)} required placeholder="e.g. House 1" />
                 <label>House Code</label>
@@ -353,7 +398,9 @@ export default function FarmSetupPage() {
 
                 <div className="mobile-sticky-actions">
                   <div className="mobile-sticky-actions__inner">
-                    <button className="mobile-full-button" type="submit">Add House</button>
+                    <button className="mobile-full-button" type="submit">
+                      {editingHouseId ? "Save Changes" : "Add House"}
+                    </button>
                   </div>
                 </div>
               </form>
@@ -363,7 +410,13 @@ export default function FarmSetupPage() {
             <div className="mobile-record-list">
               {houses.length === 0 ? <p style={{ padding: 16 }}>No houses defined yet.</p> : houses.map((h) => (
                 <div key={h.id} className="mobile-record-card">
-                  <h3 className="mobile-record-card__title">{h.name} {h.code ? `(${h.code})` : ""}</h3>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <h3 className="mobile-record-card__title" style={{ margin: 0 }}>{h.name} {h.code ? `(${h.code})` : ""}</h3>
+                    <button type="button" onClick={() => startEditHouse(h)}
+                      style={{ background: "var(--primary)", color: "#fff", border: "none", borderRadius: 8, padding: "5px 14px", cursor: "pointer", fontSize: "0.8rem", flexShrink: 0 }}>
+                      Edit
+                    </button>
+                  </div>
                   <div className="mobile-record-card__grid">
                     <div className="mobile-record-row"><strong>Area (Total/Usable)</strong><span>{h.floorAreaM2} / {h.usableAreaM2 || "-"} m²</span></div>
                     <div className="mobile-record-row"><strong>Capacity</strong><span>{h.defaultCapacityBirds || "-"} birds</span></div>

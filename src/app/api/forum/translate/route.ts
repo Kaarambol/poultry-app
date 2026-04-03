@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
     const texts: string[] = Array.isArray(body.texts) ? body.texts : [];
     const targetLang: string = String(body.targetLang || "en");
 
-    if (targetLang === "en" || texts.length === 0) {
+    if (texts.length === 0) {
       return NextResponse.json({ translations: texts });
     }
 
@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
         continue;
       }
       try {
-        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${targetLang}`;
+        // autodetect source language so any language gets translated to target
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetLang}`;
         const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
         const data = await r.json();
         const translated = data?.responseData?.translatedText;

@@ -47,7 +47,6 @@ function getExpiryInfo(lastPostAt: string) {
 }
 
 async function translateTexts(texts: string[], targetLang: string): Promise<string[]> {
-  if (targetLang === "en") return texts;
   try {
     const r = await fetch("/api/forum/translate", {
       method: "POST",
@@ -85,7 +84,7 @@ export default function ForumPage() {
   }, []);
 
   useEffect(() => {
-    if (language === "en" || topics.length === 0) {
+    if (topics.length === 0) {
       setTranslatedTitles({});
       return;
     }
