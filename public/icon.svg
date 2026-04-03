@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#2563eb"/>
+  <!-- Barn roof -->
+  <polygon points="80,240 256,100 432,240" fill="white" opacity="0.95"/>
+  <!-- Barn body -->
+  <rect x="120" y="240" width="272" height="172" fill="white" opacity="0.95"/>
+  <!-- Barn door -->
+  <rect x="216" y="310" width="80" height="102" fill="#2563eb"/>
+  <!-- Barn window -->
+  <rect x="148" y="268" width="52" height="52" rx="4" fill="#2563eb"/>
+  <rect x="312" y="268" width="52" height="52" rx="4" fill="#2563eb"/>
+</svg>
