@@ -8,7 +8,7 @@ type Farm = {
   id: string;
   name: string;
   code: string;
-  floorArea?: number; // Added for margin calculation
+  floorAreaM2?: number;
 };
 
 type FinancialSummary = {
@@ -34,6 +34,7 @@ type FinancialSummary = {
     birdsAlive: number;
     mortalityPct: number;
     lastAvgWeightKg: number | null;
+    totalFloorAreaM2: number;
   };
   feed: {
     totalFeedKg: number;
@@ -105,7 +106,7 @@ export default function TotalPage() {
       lengthCrop = (age + 10) / 7;
     }
 
-    const floorArea = farmData?.floorArea || 1; // Default to 1 to avoid division by zero
+    const floorArea = summary.production.totalFloorAreaM2 || 1;
     
     const chickCost = birdsPlaced * (summary.crop.chickenPricePerKg || 0);
     const feedCost = summary.feed.totalFeedCostGbp;
@@ -114,7 +115,7 @@ export default function TotalPage() {
     const activeMargin = (totalSales - feedCost - chickCost) / lengthCrop / floorArea;
 
     return { age, fcr, epef, lengthCrop, activeMargin, chickCost, totalSales };
-  }, [summary, farmData, prevCropFinishDate]);
+  }, [summary, prevCropFinishDate]);
 
   // --- Functions ---
 

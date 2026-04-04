@@ -16,7 +16,9 @@ export async function GET(req: Request) {
     const crop = await prisma.crop.findUnique({
       where: { id: cropId },
       include: {
-        placements: true,
+        placements: {
+          include: { house: { select: { floorAreaM2: true } } },
+        },
         daily: {
           orderBy: [{ date: "asc" }],
         },
@@ -29,6 +31,16 @@ export async function GET(req: Request) {
         { error: "Crop not found." },
         { status: 404 }
       );
+    }
+
+    // Sum floor area once per unique house (placements can have multiple batches per house)
+    const seenHouseIds = new Set<string>();
+    let totalFloorAreaM2 = 0;
+    for (const p of crop.placements) {
+      if (!seenHouseIds.has(p.houseId)) {
+        seenHouseIds.add(p.houseId);
+        totalFloorAreaM2 += p.house.floorAreaM2;
+      }
     }
 
     const birdsPlaced = crop.placements.reduce((sum, p) => sum + p.birdsPlaced, 0);
@@ -88,6 +100,7 @@ export async function GET(req: Request) {
         cropNumber: crop.cropNumber,
         status: crop.status,
         currency: crop.currency || "GBP",
+        placementDate: crop.placementDate,
         chickenPricePerKg: crop.chickenPricePerKg,
         salePricePerKgAllIn: crop.salePricePerKgAllIn,
         finalBirdsSold: crop.finalBirdsSold,
@@ -103,6 +116,7 @@ export async function GET(req: Request) {
         birdsAlive,
         mortalityPct,
         lastAvgWeightKg: liveAvgWeightKg,
+        totalFloorAreaM2,
       },
       feed: {
         totalFeedKg,
