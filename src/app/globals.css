@@ -368,6 +368,22 @@ p {
   margin: 22px 0 12px;
 }
 
+.mobile-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.mobile-table th,
+.mobile-table td {
+  border: 1px solid #cbd5e1;
+  padding: 4px 6px;
+}
+
+.mobile-table thead th {
+  background: #f1f5f9;
+  font-weight: 600;
+}
+
 .mobile-table-wrap {
   width: 100%;
   overflow-x: auto;

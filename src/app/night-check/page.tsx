@@ -519,9 +519,9 @@ export default function NightCheckPage() {
           </div>
         ) : (
           <div className="mobile-card" style={{ overflowX: "auto" }}>
-            <table className="mobile-table" style={{ fontSize: "0.75rem", whiteSpace: "nowrap", textAlign: "center" }}>
+            <table className="mobile-table" style={{ fontSize: "0.65rem", whiteSpace: "nowrap", textAlign: "center", borderCollapse: "collapse" }}>
               <thead>
-                <tr>
+                <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
                   <th>Date</th>
                   <th>Time</th>
                   <th>By</th>
@@ -577,7 +577,7 @@ export default function NightCheckPage() {
                     <td style={{ color: r.feedSystemOk ? undefined : "#b00020" }}>{r.feedSystemOk ? "OK" : "!"}</td>
                     <td style={{ color: r.ventilationOk ? undefined : "#b00020" }}>{r.ventilationOk ? "OK" : "!"}</td>
                     <td style={{ color: r.alarmOk ? undefined : "#b00020" }}>{r.alarmOk ? "OK" : "!"}</td>
-                    <td style={{ color: r.generatorOk ? undefined : "#b00020" }}>{r.generatorOk ? "OK" : "!"}</td>
+                    <td>{r.generatorOk ? "OK" : "–"}</td>
                     <td style={{ color: r.lightingOk ? undefined : "#b00020" }}>{r.lightingOk ? "OK" : "!"}</td>
                     <td>{chk(r.windowsOpen)}</td>
                     <td>{chk(r.fridgeTemp)}</td>
