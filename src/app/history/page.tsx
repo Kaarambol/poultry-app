@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentFarmId } from "@/lib/app-context";
 
@@ -244,6 +245,11 @@ export default function HistoryPage() {
             <p className="page-intro__subtitle">
               Review finished crops, daily records, medication history and export files.
             </p>
+            <div style={{ marginTop: 12 }}>
+              <Link href="/history/compare" className="mobile-button mobile-button--secondary">
+                Porównaj cropy →
+              </Link>
+            </div>
           </div>
 
           <div className="page-intro__meta">
