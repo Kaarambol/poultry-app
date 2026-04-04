@@ -386,7 +386,7 @@ export default function NightCheckPage() {
             </div>
 
             <h3 style={{ marginTop: 18, marginBottom: 10 }}>Climate checked</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="mobile-grid mobile-grid--2">
               {[
                 { label: "Humidity", value: humidityOk, setter: setHumidityOk },
                 { label: "CO2", value: co2Ok, setter: setCo2Ok },
@@ -395,14 +395,15 @@ export default function NightCheckPage() {
                 { label: "Wet areas", value: wetAreas, setter: setWetAreas },
                 { label: "Capping", value: capping, setter: setCapping },
               ].map(({ label, value, setter }) => (
-                <label key={label} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label key={label} style={{ display: "grid", gridTemplateColumns: "18px 1fr", gap: 8, alignItems: "center", cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={Boolean(value)}
                     onChange={(e) => setter(e.target.checked)}
                     disabled={!farmId || !canOperate}
+                    style={{ margin: 0, justifySelf: "start" }}
                   />
-                  {label}
+                  <span>{label}</span>
                 </label>
               ))}
             </div>
@@ -415,7 +416,7 @@ export default function NightCheckPage() {
             />
 
             <h3 style={{ marginTop: 18, marginBottom: 10 }}>Systems</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="mobile-grid mobile-grid--2">
               {[
                 { label: "Water system OK", value: waterSystemOk, setter: setWaterSystemOk },
                 { label: "Feed system OK", value: feedSystemOk, setter: setFeedSystemOk },
@@ -435,53 +436,56 @@ export default function NightCheckPage() {
                 { label: "Pest control", value: pestControlInspection, setter: setPestControlInspection },
                 { label: "Water sanitizer", value: waterSanitizer, setter: setWaterSanitizer },
               ].map(({ label, value, setter }) => (
-                <label key={label} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label key={label} style={{ display: "grid", gridTemplateColumns: "18px 1fr", gap: 8, alignItems: "center", cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={Boolean(value)}
                     onChange={(e) => setter(e.target.checked)}
                     disabled={!farmId || !canOperate}
+                    style={{ margin: 0, justifySelf: "start" }}
                   />
-                  {label}
+                  <span>{label}</span>
                 </label>
               ))}
             </div>
 
             <h3 style={{ marginTop: 18, marginBottom: 10 }}>Bird condition</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="mobile-grid mobile-grid--2">
               {[
                 { label: "Birds OK", value: birdsOk, setter: setBirdsOk },
                 { label: "Crop fill OK", value: cropFillOk, setter: setCropFillOk },
                 { label: "Unusual behaviour", value: unusualBehaviour, setter: setUnusualBehaviour },
               ].map(({ label, value, setter }) => (
-                <label key={label} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label key={label} style={{ display: "grid", gridTemplateColumns: "18px 1fr", gap: 8, alignItems: "center", cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={Boolean(value)}
                     onChange={(e) => setter(e.target.checked)}
                     disabled={!farmId || !canOperate}
+                    style={{ margin: 0, justifySelf: "start" }}
                   />
-                  {label}
+                  <span>{label}</span>
                 </label>
               ))}
             </div>
 
             <h3 style={{ marginTop: 18, marginBottom: 10 }}>Calibration</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="mobile-grid mobile-grid--2">
               {[
                 { label: "Water meter", value: calibrationWaterMeter, setter: setCalibrationWaterMeter },
                 { label: "Temp probe", value: calibrationTempProbe, setter: setCalibrationTempProbe },
                 { label: "Humidity probe", value: calibrationHumidityProbe, setter: setCalibrationHumidityProbe },
                 { label: "Weigher", value: calibrationWeigher, setter: setCalibrationWeigher },
               ].map(({ label, value, setter }) => (
-                <label key={label} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label key={label} style={{ display: "grid", gridTemplateColumns: "18px 1fr", gap: 8, alignItems: "center", cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={Boolean(value)}
                     onChange={(e) => setter(e.target.checked)}
                     disabled={!farmId || !canOperate}
+                    style={{ margin: 0, justifySelf: "start" }}
                   />
-                  {label}
+                  <span>{label}</span>
                 </label>
               ))}
             </div>
