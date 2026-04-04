@@ -33,7 +33,10 @@ type FinancialSummary = {
     totalLosses: number;
     birdsAlive: number;
     mortalityPct: number;
+    currentLiveBirds: number;
     lastAvgWeightKg: number | null;
+    liveFCR: number | null;
+    ageDays: number;
     totalFloorAreaM2: number;
   };
   feed: {
@@ -41,6 +44,7 @@ type FinancialSummary = {
     totalWheatKg: number;
     totalDeliveredKg: number;
     totalFeedCostGbp: number;
+    totalFeedUsedKg: number;
   };
   liveEstimate: {
     estimatedRevenueGbp: number | null;
@@ -75,23 +79,16 @@ export default function TotalPage() {
   const metrics = useMemo(() => {
     if (!summary) return null;
 
-    const birdsPlaced = summary.production.birdsPlaced;
-    const birdsAlive = summary.production.birdsAlive;
-    const totalFeedKg = summary.feed.totalFeedKg;
-    const avgWeightKg = summary.production.lastAvgWeightKg || 0;
-    
-    // Calculate Age
-    const start = new Date(summary.crop.placementDate);
-    const today = new Date();
-    const age = Math.max(1, Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-
-    // FCR (Feed Conversion Ratio)
-    const totalWeightGain = birdsAlive * avgWeightKg;
-    const fcr = totalWeightGain > 0 ? totalFeedKg / totalWeightGain : 0;
+    const birdsPlaced   = summary.production.birdsPlaced;
+    const currentLiveBirds = summary.production.currentLiveBirds;
+    const avgWeightKg   = summary.production.lastAvgWeightKg ?? 0;
+    const fcr           = summary.production.liveFCR ?? 0;
+    const age           = summary.production.ageDays;
 
     // EPEF (European Production Efficiency Factor)
-    const survivalPct = (birdsAlive / birdsPlaced) * 100;
-    const epef = (age > 0 && fcr > 0)
+    // uses current live birds (after thinning) and pre-computed FCR
+    const survivalPct = birdsPlaced > 0 ? (currentLiveBirds / birdsPlaced) * 100 : 0;
+    const epef = (age > 0 && fcr > 0 && avgWeightKg > 0)
       ? (survivalPct * avgWeightKg * 100) / (age * fcr)
       : 0;
 
@@ -100,7 +97,8 @@ export default function TotalPage() {
     let lengthCrop: number;
     if (prevCropFinishDate) {
       const prevEnd = new Date(prevCropFinishDate);
-      const daysSincePrev = Math.max(1, Math.floor((today.getTime() - prevEnd.getTime()) / (1000 * 60 * 60 * 24)));
+      const now = Date.now();
+      const daysSincePrev = Math.max(1, Math.floor((now - prevEnd.getTime()) / (1000 * 60 * 60 * 24)));
       lengthCrop = daysSincePrev / 7;
     } else {
       lengthCrop = (age + 10) / 7;
@@ -108,9 +106,9 @@ export default function TotalPage() {
 
     const floorArea = summary.production.totalFloorAreaM2 || 1;
     
-    const chickCost = birdsPlaced * (summary.crop.chickenPricePerKg || 0);
-    const feedCost = summary.feed.totalFeedCostGbp;
-    const totalSales = birdsAlive * avgWeightKg * (summary.crop.salePricePerKgAllIn || 0);
+    const chickCost  = birdsPlaced * (summary.crop.chickenPricePerKg || 0);
+    const feedCost   = summary.feed.totalFeedCostGbp;
+    const totalSales = currentLiveBirds * avgWeightKg * (summary.crop.salePricePerKgAllIn || 0);
     
     const activeMargin = (totalSales - feedCost - chickCost) / lengthCrop / floorArea;
 

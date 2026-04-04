@@ -64,35 +64,83 @@ export async function GET(req: Request) {
       return sum + feedCost + wheatCost;
     }, 0);
 
-    // Weighted average weight across all houses on the most recent day with weight data
-    // weight = sum(avgWeightG × birdsTotal) / sum(birdsTotal)
-    const weightRecords = crop.daily.filter((r) => r.avgWeightG !== null);
-    let liveAvgWeightKg: number | null = null;
+    // --- Per-house calculations for weight, FCR (using actual feed consumed) ---
+    type HouseCalc = {
+      birdsPlaced: number;
+      thinBirds: number;
+      thin2Birds: number;
+      clearBirds: number;
+      isCleared: boolean;
+      mort: number;
+      culls: number;
+      feedUsedKg: number;       // from daily records (actual consumption)
+      lastAvgWeightG: number | null;
+    };
 
-    if (weightRecords.length > 0) {
-      const latestWeightTime = Math.max(...weightRecords.map((r) => new Date(r.date).getTime()));
-      const latestDayRecords = weightRecords.filter(
-        (r) => new Date(r.date).getTime() === latestWeightTime
-      );
+    const houseCalcMap: Record<string, HouseCalc> = {};
 
-      const totalBirds = latestDayRecords.reduce((sum, r) => sum + r.birdsTotal, 0);
-      if (totalBirds > 0) {
-        const weightedSum = latestDayRecords.reduce(
-          (sum, r) => sum + r.avgWeightG! * r.birdsTotal,
-          0
-        );
-        liveAvgWeightKg = weightedSum / totalBirds / 1000;
-      } else {
-        // fallback: simple average if birdsTotal not filled
-        const simpleAvg =
-          latestDayRecords.reduce((sum, r) => sum + r.avgWeightG!, 0) / latestDayRecords.length;
-        liveAvgWeightKg = simpleAvg / 1000;
+    // Aggregate thinning / placement data per house
+    for (const p of crop.placements) {
+      if (!houseCalcMap[p.houseId]) {
+        houseCalcMap[p.houseId] = {
+          birdsPlaced: 0, thinBirds: 0, thin2Birds: 0, clearBirds: 0,
+          isCleared: false, mort: 0, culls: 0, feedUsedKg: 0, lastAvgWeightG: null,
+        };
       }
+      const h = houseCalcMap[p.houseId];
+      h.birdsPlaced += p.birdsPlaced;
+      h.thinBirds   += p.thinBirds  ?? 0;
+      h.thin2Birds  += p.thin2Birds ?? 0;
+      h.clearBirds  += p.clearBirds ?? 0;
+      if (p.clearDate) h.isCleared = true;
     }
+
+    // Aggregate daily records per house (mort, culls, feed used, last weight)
+    for (const r of crop.daily) {
+      const h = houseCalcMap[r.houseId];
+      if (!h) continue;
+      h.mort        += r.mort;
+      h.culls       += r.culls;
+      h.feedUsedKg  += r.feedKg;
+      if (r.avgWeightG !== null) h.lastAvgWeightG = r.avgWeightG;
+    }
+
+    // Current live birds per house (after mort, culls, and thinning)
+    const houseList = Object.values(houseCalcMap).map((h) => ({
+      ...h,
+      currentBirds: h.isCleared
+        ? 0
+        : Math.max(0, h.birdsPlaced - h.mort - h.culls - h.thinBirds - h.thin2Birds),
+    }));
+
+    // Weighted avg weight: only houses with live birds AND a weight reading
+    const housesForWeight = houseList.filter((h) => h.currentBirds > 0 && h.lastAvgWeightG !== null);
+    const totalWeightedBirds  = housesForWeight.reduce((s, h) => s + h.currentBirds, 0);
+    const totalWeightedG      = housesForWeight.reduce((s, h) => s + h.currentBirds * h.lastAvgWeightG!, 0);
+    const liveAvgWeightKg: number | null =
+      totalWeightedBirds > 0 ? totalWeightedG / totalWeightedBirds / 1000 : null;
+
+    // Total feed USED across all houses (from daily records)
+    const totalFeedUsedKg = houseList.reduce((s, h) => s + h.feedUsedKg, 0);
+
+    // Current live birds on farm
+    const currentLiveBirds = houseList.reduce((s, h) => s + h.currentBirds, 0);
+
+    // FCR = total feed used / total current live weight
+    const totalCurrentLiveWeightKg =
+      housesForWeight.reduce((s, h) => s + h.currentBirds * (h.lastAvgWeightG! / 1000), 0);
+    const liveFCR: number | null =
+      totalCurrentLiveWeightKg > 0 ? totalFeedUsedKg / totalCurrentLiveWeightKg : null;
+
+    // Age in days (same for all houses — placement date is crop-level)
+    const ageDays = Math.max(
+      1,
+      Math.floor((Date.now() - new Date(crop.placementDate).getTime()) / (1000 * 60 * 60 * 24))
+    );
 
     const liveEstimatedRevenueGbp =
       liveAvgWeightKg !== null && crop.salePricePerKgAllIn !== null
-        ? birdsAlive * liveAvgWeightKg * crop.salePricePerKgAllIn
+        ? currentLiveBirds * liveAvgWeightKg * crop.salePricePerKgAllIn
         : null;
 
     const liveEstimatedMarginGbp =
@@ -133,7 +181,10 @@ export async function GET(req: Request) {
         totalLosses,
         birdsAlive,
         mortalityPct,
+        currentLiveBirds,
         lastAvgWeightKg: liveAvgWeightKg,
+        liveFCR,
+        ageDays,
         totalFloorAreaM2,
       },
       feed: {
@@ -141,6 +192,7 @@ export async function GET(req: Request) {
         totalWheatKg,
         totalDeliveredKg,
         totalFeedCostGbp,
+        totalFeedUsedKg,
       },
       liveEstimate: {
         estimatedRevenueGbp: liveEstimatedRevenueGbp,
