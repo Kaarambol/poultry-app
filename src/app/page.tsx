@@ -238,7 +238,7 @@ export default function HomePage() {
 
             // Calculated supply quantities (based on totalPlaced for this house)
             const balesOfShavings = totalPlaced > 0 ? Math.ceil(totalPlaced * 1.5 / 1000) : null;
-            const metersOfPerch   = totalPlaced > 0 ? Math.ceil(totalPlaced * 1.5 / 1000) : null;
+            const metersOfPerch   = totalPlaced > 0 ? Math.ceil(totalPlaced * 2 / 1000) : null;
             const packingObjects  = totalPlaced > 0 ? Math.ceil(totalPlaced / 1000) : null;
 
             // Daily records for this house sorted by date ascending
