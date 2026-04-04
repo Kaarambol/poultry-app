@@ -94,6 +94,8 @@ export default function FeedPage() {
   const [houseId, setHouseId] = useState("");
   const [notes, setNotes] = useState("");
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   const [records, setRecords] = useState<FeedRecord[]>([]);
   const [summary, setSummary] = useState<FeedSummary | null>(null);
   const [msg, setMsg] = useState("Loading...");
@@ -211,6 +213,32 @@ export default function FeedPage() {
     updatePrices(feedProduct, farmData);
   }, [feedProduct, farmData]);
 
+  function startEdit(record: FeedRecord) {
+    setEditingId(record.id);
+    setDate(record.date.slice(0, 10));
+    setFeedProduct(record.feedProduct);
+    setFeedKg(String(record.feedKg));
+    setWheatKg(String(record.wheatKg));
+    setTicketNumber(record.ticketNumber);
+    setFeedPricePerTonneGbp(record.feedPricePerTonneGbp != null ? String(record.feedPricePerTonneGbp) : "");
+    setWheatPricePerTonneGbp(record.wheatPricePerTonneGbp != null ? String(record.wheatPricePerTonneGbp) : "");
+    setSupplier(record.supplier || "");
+    setHouseId(record.house?.id || "");
+    setNotes(record.notes || "");
+    setMsg("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setDate(new Date().toISOString().slice(0, 10));
+    setFeedProduct("STARTER_CRUMB_185");
+    setFeedKg(""); setWheatKg(""); setTicketNumber("");
+    setFeedPricePerTonneGbp(""); setWheatPricePerTonneGbp("");
+    setSupplier(""); setHouseId(""); setNotes("");
+    updatePrices("STARTER_CRUMB_185", farmData);
+  }
+
   function validateForm() {
     if (!cropId) return "No active crop selected.";
     if (!date) return "Choose delivery date.";
@@ -227,23 +255,35 @@ export default function FeedPage() {
       return;
     }
 
-    const r = await fetch("/api/feed/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        farmId: currentFarmId, cropId, houseId, date, feedProduct,
-        feedKg: Number(feedKg || 0), wheatKg: Number(wheatKg || 0),
-        ticketNumber, feedPricePerTonneGbp, wheatPricePerTonneGbp,
-        supplier, notes
-      }),
-    });
+    const payload = {
+      farmId: currentFarmId, cropId, houseId, date, feedProduct,
+      feedKg: Number(feedKg || 0), wheatKg: Number(wheatKg || 0),
+      ticketNumber, feedPricePerTonneGbp, wheatPricePerTonneGbp,
+      supplier, notes,
+    };
+
+    const r = editingId
+      ? await fetch("/api/feed/update", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, id: editingId }),
+        })
+      : await fetch("/api/feed/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
     if (r.ok) {
       setMsgType("success");
-      setMsg("Feed delivery saved!");
-      setFeedKg(""); setWheatKg(""); setTicketNumber(""); setNotes("");
+      setMsg(editingId ? "Delivery updated!" : "Feed delivery saved!");
+      cancelEdit();
       await loadRecords(cropId);
       await loadSummary(cropId);
+    } else {
+      const data = await r.json();
+      setMsgType("error");
+      setMsg(data.error || "Error saving record.");
     }
   }
 
@@ -290,7 +330,7 @@ export default function FeedPage() {
         {readOnly && <div className="mobile-alert mobile-alert--warning" style={{ marginBottom: 16 }}>Read-only mode.</div>}
 
         <div className="mobile-card">
-          <h2>Add Feed Delivery</h2>
+          <h2>{editingId ? "Edit Feed Delivery" : "Add Feed Delivery"}</h2>
           <form onSubmit={saveRecord}>
             <div className="mobile-grid mobile-grid--2">
               <div>
@@ -341,7 +381,19 @@ export default function FeedPage() {
             {canOperate && (
               <div className="mobile-sticky-actions">
                 <div className="mobile-sticky-actions__inner">
-                  <button className="mobile-full-button" type="submit" disabled={!cropId}>Save Delivery</button>
+                  {editingId && (
+                    <button
+                      type="button"
+                      className="mobile-full-button mobile-button--secondary"
+                      onClick={cancelEdit}
+                      style={{ marginBottom: 8 }}
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                  <button className="mobile-full-button" type="submit" disabled={!cropId}>
+                    {editingId ? "Update Delivery" : "Save Delivery"}
+                  </button>
                 </div>
               </div>
             )}
@@ -415,7 +467,7 @@ export default function FeedPage() {
         <h2 className="mobile-section-title">Feed Deliveries</h2>
         <div className="mobile-record-list">
           {records.map((record) => (
-            <div key={record.id} className="mobile-record-card">
+            <div key={record.id} className="mobile-record-card" style={editingId === record.id ? { border: "2px solid #2563eb" } : {}}>
               <h3 className="mobile-record-card__title">{getFeedLabel(record.feedProduct)} · {new Date(record.date).toLocaleDateString()}</h3>
               <div className="mobile-record-card__grid">
                 <div className="mobile-record-row"><strong>Total kg</strong><span>{(record.feedKg + record.wheatKg).toFixed(2)}</span></div>
@@ -423,6 +475,17 @@ export default function FeedPage() {
                 <div className="mobile-record-row"><strong>House</strong><span>{record.house?.name || "Crop level"}</span></div>
                 <div className="mobile-record-row"><strong>Cost</strong><span>{getRecordTotalCost(record).toFixed(2)} GBP</span></div>
               </div>
+              {canOperate && (
+                <div className="mobile-actions" style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="mobile-button mobile-button--secondary"
+                    onClick={() => startEdit(record)}
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
