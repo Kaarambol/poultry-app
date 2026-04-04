@@ -16,30 +16,18 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    const cropId = String(body.cropId || "").trim();
+    const farmId = String(body.farmId || "").trim();
     const startDate = String(body.startDate || "").trim();
     const medicineName = String(body.medicineName || "").trim();
 
-    if (!cropId || !startDate || !medicineName) {
+    if (!farmId || !startDate || !medicineName) {
       return NextResponse.json(
-        { error: "cropId, startDate and medicineName are required." },
+        { error: "farmId, startDate and medicineName are required." },
         { status: 400 }
       );
     }
 
-    const crop = await prisma.crop.findUnique({
-      where: { id: cropId },
-    });
-
-    if (!crop) {
-      return NextResponse.json(
-        { error: "Crop not found." },
-        { status: 404 }
-      );
-    }
-
-    const role = await getUserRoleOnFarm(uid, crop.farmId);
-
+    const role = await getUserRoleOnFarm(uid, farmId);
     if (!canOperate(role)) {
       return NextResponse.json(
         { error: "You do not have permission to modify data." },
@@ -47,17 +35,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (crop.status === "FINISHED") {
+    const startDateObj = new Date(startDate);
+
+    // Auto-assign to the crop whose date range contains startDate
+    const crop = await prisma.crop.findFirst({
+      where: {
+        farmId,
+        placementDate: { lte: startDateObj },
+        OR: [
+          { finishDate: null },
+          { finishDate: { gte: startDateObj } },
+        ],
+      },
+      orderBy: { placementDate: "desc" },
+    });
+
+    if (!crop) {
       return NextResponse.json(
-        { error: "Cannot add medication records to a finished crop." },
-        { status: 409 }
+        { error: "No crop found matching this start date. Check placement and finish dates." },
+        { status: 404 }
       );
     }
+
+    const cropId = crop.id;
 
     const record = await prisma.medicationRecord.create({
       data: {
         cropId,
-        startDate: new Date(startDate),
+        startDate: startDateObj,
         medicineName,
         supplier: body.supplier || null,
         batchNo: body.batchNo || null,

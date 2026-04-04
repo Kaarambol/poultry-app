@@ -2,19 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { getCurrentFarmId, setCurrentCropId } from "@/lib/app-context";
-import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
+import { FarmRole, canOperateUi } from "@/lib/ui-permissions";
 
-type Farm = {
-  id: string;
-  name: string;
-  code: string;
-};
-
-type House = {
-  id: string;
-  name: string;
-  code: string | null;
-};
+type Farm = { id: string; name: string; code: string };
+type House = { id: string; name: string; code: string | null };
 
 type MedicationRecord = {
   id: string;
@@ -40,19 +31,32 @@ type MedicationRecord = {
   prescription: string | null;
 };
 
+type CropFolder = {
+  cropId: string;
+  cropNumber: string;
+  placementDate: string;
+  finishDate: string | null;
+  status: string;
+  records: MedicationRecord[];
+};
+
+function fmtDate(d: string | null) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-GB");
+}
+
 export default function MedicationPage() {
   const [currentFarmId, setCurrentFarmIdState] = useState("");
   const [farmName, setFarmName] = useState("");
   const [myRole, setMyRole] = useState<FarmRole>("");
-  const [cropId, setCropId] = useState("");
-  const [cropLabel, setCropLabel] = useState("");
 
   const [houses, setHouses] = useState<House[]>([]);
   const [vetModeOpen, setVetModeOpen] = useState(false);
+  const [vetCropId, setVetCropId] = useState("");
   const [vetHouseId, setVetHouseId] = useState("");
   const [vetGenerating, setVetGenerating] = useState(false);
 
-  // FULL STATE - NO ROWS REMOVED
+  // Form state
   const [startDate, setStartDate] = useState("");
   const [medicineName, setMedicineName] = useState("");
   const [supplier, setSupplier] = useState("");
@@ -74,7 +78,8 @@ export default function MedicationPage() {
   const [report, setReport] = useState("");
   const [prescription, setPrescription] = useState("");
 
-  const [records, setRecords] = useState<MedicationRecord[]>([]);
+  const [folders, setFolders] = useState<CropFolder[]>([]);
+  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
 
@@ -96,14 +101,7 @@ export default function MedicationPage() {
   async function loadActiveCrop(farmId: string) {
     const r = await fetch(`/api/crops/active?farmId=${farmId}`);
     const data = await r.json();
-    if (r.ok && data) {
-      setCropId(data.id);
-      setCropLabel(data.cropNumber);
-      setCurrentCropId(data.id);
-      loadRecords(data.id);
-    } else {
-      setMsg("No active crop found.");
-    }
+    if (r.ok && data) setCurrentCropId(data.id);
   }
 
   async function loadHouses(farmId: string) {
@@ -112,10 +110,16 @@ export default function MedicationPage() {
     if (Array.isArray(data)) setHouses(data);
   }
 
-  async function loadRecords(selectedCropId: string) {
-    const r = await fetch(`/api/medications/list?cropId=${selectedCropId}`);
+  async function loadAllRecords(farmId: string) {
+    const r = await fetch(`/api/medications/list-all?farmId=${farmId}`);
     const data = await r.json();
-    if (Array.isArray(data)) setRecords(data);
+    if (Array.isArray(data)) {
+      setFolders(data);
+      // Auto-open the most recent crop folder
+      if (data.length > 0) {
+        setOpenFolders(new Set([data[0].cropId]));
+      }
+    }
   }
 
   useEffect(() => {
@@ -126,31 +130,40 @@ export default function MedicationPage() {
     loadMyRole(farmId);
     loadActiveCrop(farmId);
     loadHouses(farmId);
+    loadAllRecords(farmId);
   }, []);
 
+  function toggleFolder(cropId: string) {
+    setOpenFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(cropId)) next.delete(cropId);
+      else next.add(cropId);
+      return next;
+    });
+  }
+
   async function generateVetPdf() {
-    if (!cropId || !vetHouseId) {
+    if (!vetCropId || !vetHouseId) {
       setMsgType("error");
-      setMsg("Please select a house.");
+      setMsg("Please select a crop and house.");
       return;
     }
     try {
       setVetGenerating(true);
-      const url = `/api/medications/vet-report?cropId=${encodeURIComponent(cropId)}&houseId=${encodeURIComponent(vetHouseId)}`;
+      const url = `/api/medications/vet-report?cropId=${encodeURIComponent(vetCropId)}&houseId=${encodeURIComponent(vetHouseId)}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error("Server error");
-      
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
-      link.download = `Vet-Report-House-${vetHouseId}.csv`;
+      link.download = `Vet-Report-Crop-${vetCropId}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       setMsgType("success");
       setMsg("Report downloaded.");
-    } catch (error) {
+    } catch {
       setMsgType("error");
       setMsg("Error generating report.");
     } finally {
@@ -158,30 +171,44 @@ export default function MedicationPage() {
     }
   }
 
+  function clearForm() {
+    setStartDate(""); setMedicineName(""); setSupplier(""); setBatchNo("");
+    setExpireDate(""); setQuantityPurchased(""); setQuantityUsed("");
+    setAnimalIdentity("Broiler"); setHousesTreated(""); setBirdsTreated("");
+    setFinishDate(""); setWithdrawalPeriod(""); setSafeSlaughterDate("");
+    setAdministratorName(""); setReasonForTreatment(""); setMethodOfTreatment("");
+    setDose(""); setTotalMgPcu(""); setReport(""); setPrescription("");
+  }
+
   async function saveMedication(e: React.FormEvent) {
     e.preventDefault();
+    if (!currentFarmId) {
+      setMsgType("error");
+      setMsg("No farm selected.");
+      return;
+    }
     const r = await fetch("/api/medications/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        cropId, startDate, medicineName, supplier, batchNo, expireDate,
+        farmId: currentFarmId,
+        startDate, medicineName, supplier, batchNo, expireDate,
         quantityPurchased, quantityUsed, animalIdentity, housesTreated,
         birdsTreated: birdsTreated === "" ? null : Number(birdsTreated),
         finishDate, withdrawalPeriod, safeSlaughterDate, administratorName,
         reasonForTreatment, methodOfTreatment, dose, totalMgPcu, report, prescription,
       }),
     });
-    if (r.ok) {
-      setMsgType("success");
-      setMsg("Saved successfully!");
-      setStartDate(""); setMedicineName(""); setSupplier(""); setBatchNo("");
-      setExpireDate(""); setQuantityPurchased(""); setQuantityUsed("");
-      setAnimalIdentity("Broiler"); setHousesTreated(""); setBirdsTreated("");
-      setFinishDate(""); setWithdrawalPeriod(""); setSafeSlaughterDate("");
-      setAdministratorName(""); setReasonForTreatment(""); setWithdrawalPeriod("");
-      setMethodOfTreatment(""); setDose(""); setTotalMgPcu(""); setReport(""); setPrescription("");
-      loadRecords(cropId);
+    const data = await r.json();
+    if (!r.ok) {
+      setMsgType("error");
+      setMsg(data.error || "Error saving.");
+      return;
     }
+    setMsgType("success");
+    setMsg(`Saved — assigned to Crop ${data.cropId ? "" : ""}${folders.find(f => f.cropId === data.cropId)?.cropNumber ?? ""}`);
+    clearForm();
+    loadAllRecords(currentFarmId);
   }
 
   const canOperate = canOperateUi(myRole);
@@ -192,12 +219,15 @@ export default function MedicationPage() {
         <div className="page-intro">
           <div className="page-intro__meta-card">
             <h1 className="page-intro__title">Medication Records</h1>
-            <p>{farmName} | Crop: {cropLabel}</p>
+            <p className="page-intro__subtitle">
+              {farmName} — records are auto-assigned to the crop matching the start date.
+            </p>
           </div>
         </div>
 
-        {msg && <div className={`mobile-alert mobile-alert--${msgType}`}>{msg}</div>}
+        {msg && <div className={`mobile-alert mobile-alert--${msgType}`} style={{ marginBottom: 12 }}>{msg}</div>}
 
+        {/* VET REPORT */}
         <div className="mobile-card" style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 style={{ margin: 0 }}>Vet Report</h2>
@@ -207,23 +237,42 @@ export default function MedicationPage() {
           </div>
           {vetModeOpen && (
             <div style={{ marginTop: 16 }}>
+              <label>Crop</label>
+              <select value={vetCropId} onChange={(e) => setVetCropId(e.target.value)}>
+                <option value="">-- select crop --</option>
+                {folders.map((f) => (
+                  <option key={f.cropId} value={f.cropId}>
+                    Crop {f.cropNumber} ({fmtDate(f.placementDate)} – {fmtDate(f.finishDate)})
+                  </option>
+                ))}
+              </select>
+              <label style={{ marginTop: 10 }}>House</label>
               <select value={vetHouseId} onChange={(e) => setVetHouseId(e.target.value)}>
                 <option value="">-- select house --</option>
                 {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
-              <button className="mobile-full-button" style={{ marginTop: 10 }} onClick={generateVetPdf} disabled={vetGenerating || !vetHouseId}>
+              <button
+                className="mobile-full-button"
+                style={{ marginTop: 10 }}
+                onClick={generateVetPdf}
+                disabled={vetGenerating || !vetCropId || !vetHouseId}
+              >
                 {vetGenerating ? "Generating..." : "Download Vet Report (CSV)"}
               </button>
             </div>
           )}
         </div>
 
-        <div className="mobile-card">
+        {/* ADD FORM */}
+        <div className="mobile-card" style={{ marginBottom: 16 }}>
           <h2>Add Medication</h2>
+          <p style={{ marginTop: 0, fontSize: "0.85rem", color: "#64748b" }}>
+            The crop is determined automatically from the start date.
+          </p>
           <form onSubmit={saveMedication}>
             <div className="mobile-grid mobile-grid--2">
-              <div><label>Start Date</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required disabled={!canOperate} /></div>
-              <div><label>Medicine Name</label><input value={medicineName} onChange={e => setMedicineName(e.target.value)} required disabled={!canOperate} /></div>
+              <div><label>Start Date *</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required disabled={!canOperate} /></div>
+              <div><label>Medicine Name *</label><input value={medicineName} onChange={e => setMedicineName(e.target.value)} required disabled={!canOperate} /></div>
             </div>
             <div className="mobile-grid mobile-grid--2">
               <div><label>Supplier</label><input value={supplier} onChange={e => setSupplier(e.target.value)} disabled={!canOperate} /></div>
@@ -261,22 +310,91 @@ export default function MedicationPage() {
               <div><label>Report</label><input value={report} onChange={e => setReport(e.target.value)} disabled={!canOperate} /></div>
               <div><label>Prescription</label><input value={prescription} onChange={e => setPrescription(e.target.value)} disabled={!canOperate} /></div>
             </div>
-            <button className="mobile-full-button" type="submit" disabled={!canOperate}>Save Record</button>
+            <button className="mobile-full-button" type="submit" disabled={!canOperate}>
+              Save Record
+            </button>
           </form>
         </div>
 
-        <div className="mobile-record-list" style={{ marginTop: 24 }}>
-          {records.map((record) => (
-            <div key={record.id} className="mobile-record-card">
-              <h3>{record.medicineName} ({new Date(record.startDate).toLocaleDateString()})</h3>
-              <div className="mobile-actions" style={{ marginTop: 12 }}>
-                <a href={`/medication/print?id=${record.id}`} target="_blank" className="mobile-button mobile-button--secondary">
-                  Print
-                </a>
+        {/* CROP FOLDERS */}
+        {folders.length === 0 ? (
+          <div className="mobile-card">
+            <p style={{ margin: 0, color: "#64748b" }}>No medication records yet.</p>
+          </div>
+        ) : (
+          folders.map((folder) => {
+            const isOpen = openFolders.has(folder.cropId);
+            return (
+              <div key={folder.cropId} className="mobile-card" style={{ marginBottom: 12, padding: 0, overflow: "hidden" }}>
+                {/* Folder header */}
+                <button
+                  type="button"
+                  onClick={() => toggleFolder(folder.cropId)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "14px 16px",
+                    background: isOpen ? "#f0f7ff" : "#f8fafc",
+                    border: "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    borderBottom: isOpen ? "1px solid #dbeafe" : "none",
+                  }}
+                >
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e40af" }}>
+                      📁 Crop {folder.cropNumber}
+                    </span>
+                    <span style={{ marginLeft: 10, fontSize: "0.8rem", color: "#64748b" }}>
+                      {fmtDate(folder.placementDate)} – {fmtDate(folder.finishDate)}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: "0.8rem", color: "#64748b", flexShrink: 0, marginLeft: 8 }}>
+                    {folder.records.length} record{folder.records.length !== 1 ? "s" : ""} {isOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {/* Records inside folder */}
+                {isOpen && (
+                  <div style={{ padding: "8px 12px 12px" }}>
+                    {folder.records.map((record) => (
+                      <div
+                        key={record.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "10px 8px",
+                          borderBottom: "1px solid #f1f5f9",
+                          gap: 8,
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{record.medicineName}</div>
+                          <div style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 2 }}>
+                            {fmtDate(record.startDate)}
+                            {record.finishDate ? ` – ${fmtDate(record.finishDate)}` : ""}
+                            {record.housesTreated ? ` · ${record.housesTreated}` : ""}
+                          </div>
+                        </div>
+                        <a
+                          href={`/medication/print?id=${record.id}`}
+                          target="_blank"
+                          className="mobile-button mobile-button--secondary"
+                          style={{ flexShrink: 0, fontSize: "0.8rem", padding: "4px 10px" }}
+                        >
+                          Print
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
-        </div>
+            );
+          })
+        )}
       </div>
     </div>
   );
