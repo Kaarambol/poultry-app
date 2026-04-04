@@ -19,6 +19,13 @@ type ActiveCrop = {
   status: string;
 };
 
+type WeeklySnap = {
+  day: number;
+  ammoniaPpm: number | null;
+  co2MaxPpm: number | null;
+  litterScore: number | null;
+};
+
 type DashboardHouse = {
   houseId: string;
   houseName: string;
@@ -32,6 +39,7 @@ type DashboardHouse = {
   waterL: number;
   lastLitterScore: number | null;
   lastAmmoniaPpm: number | null;
+  weeklySnapshots: WeeklySnap[];
 };
 
 type DashboardData = {
@@ -341,6 +349,50 @@ export default function DashboardPage() {
                         </div>
                       )}
                     </div>
+
+                    {/* Weekly environment table */}
+                    {house.weeklySnapshots && house.weeklySnapshots.some(
+                      (s) => s.ammoniaPpm !== null || s.co2MaxPpm !== null || s.litterScore !== null
+                    ) && (
+                      <div style={{ marginTop: 12, overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
+                          <thead>
+                            <tr style={{ background: "#f1f5f9" }}>
+                              <th style={{ padding: "5px 6px", textAlign: "left", color: "#64748b", fontWeight: 600 }}>Day</th>
+                              {house.weeklySnapshots.map((s) => (
+                                <th key={s.day} style={{ padding: "5px 6px", textAlign: "center", color: "#1e293b", fontWeight: 700 }}>{s.day}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+                              <td style={{ padding: "4px 6px", color: "#64748b" }}>NH₃ ppm</td>
+                              {house.weeklySnapshots.map((s) => (
+                                <td key={s.day} style={{ padding: "4px 6px", textAlign: "center", color: "#1e293b" }}>
+                                  {s.ammoniaPpm !== null ? s.ammoniaPpm : "—"}
+                                </td>
+                              ))}
+                            </tr>
+                            <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+                              <td style={{ padding: "4px 6px", color: "#64748b" }}>CO₂ ppm</td>
+                              {house.weeklySnapshots.map((s) => (
+                                <td key={s.day} style={{ padding: "4px 6px", textAlign: "center", color: "#1e293b" }}>
+                                  {s.co2MaxPpm !== null ? s.co2MaxPpm : "—"}
+                                </td>
+                              ))}
+                            </tr>
+                            <tr>
+                              <td style={{ padding: "4px 6px", color: "#64748b" }}>Litter</td>
+                              {house.weeklySnapshots.map((s) => (
+                                <td key={s.day} style={{ padding: "4px 6px", textAlign: "center", color: "#1e293b" }}>
+                                  {s.litterScore !== null ? s.litterScore : "—"}
+                                </td>
+                              ))}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
 
                     <div className="mobile-actions" style={{ marginTop: 12 }}>
                       <Link

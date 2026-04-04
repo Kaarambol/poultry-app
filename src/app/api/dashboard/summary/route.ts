@@ -88,6 +88,9 @@ export async function GET(req: NextRequest) {
       ],
     });
 
+    const WEEKLY_DAYS = [7, 14, 21, 28, 35, 42];
+    type WeeklySnap = { day: number; ammoniaPpm: number | null; co2MaxPpm: number | null; litterScore: number | null };
+
     const houseMap: Record<
       string,
       {
@@ -103,6 +106,7 @@ export async function GET(req: NextRequest) {
         waterL: number;
         lastLitterScore: number | null;
         lastAmmoniaPpm: number | null;
+        weeklySnapshots: WeeklySnap[];
       }
     > = {};
 
@@ -121,6 +125,7 @@ export async function GET(req: NextRequest) {
           waterL: 0,
           lastLitterScore: null,
           lastAmmoniaPpm: null,
+          weeklySnapshots: WEEKLY_DAYS.map((d) => ({ day: d, ammoniaPpm: null, co2MaxPpm: null, litterScore: null })),
         };
       }
 
@@ -142,6 +147,7 @@ export async function GET(req: NextRequest) {
           waterL: 0,
           lastLitterScore: null,
           lastAmmoniaPpm: null,
+          weeklySnapshots: WEEKLY_DAYS.map((d) => ({ day: d, ammoniaPpm: null, co2MaxPpm: null, litterScore: null })),
         };
       }
 
@@ -152,6 +158,17 @@ export async function GET(req: NextRequest) {
       item.waterL += record.waterL;
       if (record.litterScore !== null) item.lastLitterScore = record.litterScore;
       if (record.ammoniaPpm !== null) item.lastAmmoniaPpm = record.ammoniaPpm;
+
+      // Weekly snapshots: check if this record falls on day 7,14,21,28,35,42
+      const ageDays = Math.floor(
+        (new Date(record.date).getTime() - new Date(crop.placementDate).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const snap = item.weeklySnapshots.find((s) => s.day === ageDays);
+      if (snap) {
+        if (record.ammoniaPpm !== null) snap.ammoniaPpm = record.ammoniaPpm;
+        if (record.co2MaxPpm !== null) snap.co2MaxPpm = record.co2MaxPpm;
+        if (record.litterScore !== null) snap.litterScore = record.litterScore;
+      }
     }
 
     for (const key of Object.keys(houseMap)) {
