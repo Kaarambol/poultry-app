@@ -386,7 +386,7 @@ export default function NightCheckPage() {
             </div>
 
             <h3 style={{ marginTop: 18, marginBottom: 10 }}>Climate checked</h3>
-            <div className="mobile-grid mobile-grid--2">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
                 { label: "Humidity", value: humidityOk, setter: setHumidityOk },
                 { label: "CO2", value: co2Ok, setter: setCo2Ok },
@@ -415,7 +415,7 @@ export default function NightCheckPage() {
             />
 
             <h3 style={{ marginTop: 18, marginBottom: 10 }}>Systems</h3>
-            <div className="mobile-grid mobile-grid--2">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
                 { label: "Water system OK", value: waterSystemOk, setter: setWaterSystemOk },
                 { label: "Feed system OK", value: feedSystemOk, setter: setFeedSystemOk },
@@ -448,7 +448,7 @@ export default function NightCheckPage() {
             </div>
 
             <h3 style={{ marginTop: 18, marginBottom: 10 }}>Bird condition</h3>
-            <div className="mobile-grid mobile-grid--2">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
                 { label: "Birds OK", value: birdsOk, setter: setBirdsOk },
                 { label: "Crop fill OK", value: cropFillOk, setter: setCropFillOk },
@@ -467,7 +467,7 @@ export default function NightCheckPage() {
             </div>
 
             <h3 style={{ marginTop: 18, marginBottom: 10 }}>Calibration</h3>
-            <div className="mobile-grid mobile-grid--2">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
                 { label: "Water meter", value: calibrationWaterMeter, setter: setCalibrationWaterMeter },
                 { label: "Temp probe", value: calibrationTempProbe, setter: setCalibrationTempProbe },
