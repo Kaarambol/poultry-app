@@ -231,7 +231,9 @@ export default function HomePage() {
             houseMap[hid].batches.push(batch);
           }
 
-          return Object.values(houseMap).map(({ houseId, house: h, totalPlaced, thinDate, thin2Date, clearDate, batches }) => {
+          return Object.values(houseMap)
+            .sort((a, b) => (a.house.name || "").localeCompare(b.house.name || "", undefined, { numeric: true, sensitivity: "base" }))
+            .map(({ houseId, house: h, totalPlaced, thinDate, thin2Date, clearDate, batches }) => {
             const area = Number(h.floorAreaM2 || h.usableAreaM2 || 0);
             const nips = Number(h.defaultNippleCount || 0);
             const pans = Number(h.defaultFeederPanCount || 0);
