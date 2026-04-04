@@ -84,6 +84,17 @@ export default function HomePage() {
   // Total farm area from all houses
   const totalFarmAreaM2 = allHouses.reduce((s, h) => s + Number(h.floorAreaM2 || 0), 0);
 
+  // Group houses by floor area: { 1900: 2, 2000: 2 }
+  const shedGroups = allHouses.reduce((acc, h) => {
+    const area = Number(h.floorAreaM2 || 0);
+    if (area > 0) acc[area] = (acc[area] || 0) + 1;
+    return acc;
+  }, {} as Record<number, number>);
+  // Sorted list of [area, count] pairs
+  const shedGroupList = Object.entries(shedGroups)
+    .map(([area, count]) => ({ area: Number(area), count: count as number }))
+    .sort((a, b) => a.area - b.area);
+
   return (
     <div className="mobile-page">
       <div className="page-shell">
@@ -111,6 +122,16 @@ export default function HomePage() {
             <h2 style={{ marginTop: 0, marginBottom: 12 }}>Farm Information</h2>
             <table style={{ width: "100%", fontSize: "0.85rem", borderCollapse: "collapse" }}>
               <tbody>
+                {shedGroupList.length > 0 && shedGroupList.map(({ area, count }, i) => (
+                  <tr key={area} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                    <td style={{ padding: "5px 0", color: "#666" }}>
+                      {i === 0 ? "Sheds" : ""}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 600 }}>
+                      {count} × {area.toLocaleString()} m²
+                    </td>
+                  </tr>
+                ))}
                 {totalFarmAreaM2 > 0 && (
                   <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
                     <td style={{ padding: "5px 0", color: "#666" }}>Total Farm Area</td>
