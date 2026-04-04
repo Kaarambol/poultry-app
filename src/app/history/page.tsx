@@ -247,7 +247,7 @@ export default function HistoryPage() {
             </p>
             <div style={{ marginTop: 12 }}>
               <Link href="/history/compare" className="mobile-button mobile-button--secondary">
-                Porównaj cropy →
+                Crop Comparison →
               </Link>
             </div>
           </div>

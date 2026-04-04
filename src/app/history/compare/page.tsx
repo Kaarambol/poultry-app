@@ -119,11 +119,11 @@ export default function CropComparePage() {
 
     const farmId = getCurrentFarmId();
     if (!farmId) {
-      setError("Wybierz farmę w górnym menu.");
+      setError("Select a farm in the top menu first.");
       return;
     }
     if (!num1.trim() || !num2.trim()) {
-      setError("Podaj dwa numery cropów.");
+      setError("Enter two crop numbers.");
       return;
     }
 
@@ -134,12 +134,12 @@ export default function CropComparePage() {
       );
       const data = await r.json();
       if (!r.ok) {
-        setError(data.error || "Błąd pobierania danych.");
+        setError(data.error || "Error loading data.");
         return;
       }
       setResult(data);
     } catch {
-      setError("Błąd połączenia.");
+      setError("Connection error.");
     } finally {
       setLoading(false);
     }
@@ -155,9 +155,9 @@ export default function CropComparePage() {
         <div className="page-intro">
           <div className="page-intro__meta-card">
             <div className="page-intro__eyebrow">History</div>
-            <h1 className="page-intro__title">Porównanie Cropów</h1>
+            <h1 className="page-intro__title">Crop Comparison</h1>
             <p className="page-intro__subtitle">
-              Wpisz numery dwóch cropów aby porównać wyniki.
+              Enter two crop numbers to compare their results side by side.
             </p>
           </div>
         </div>
@@ -169,7 +169,7 @@ export default function CropComparePage() {
                 <label>Crop A</label>
                 <input
                   type="text"
-                  placeholder="np. 3009"
+                  placeholder="e.g. 3009"
                   value={num1}
                   onChange={(e) => setNum1(e.target.value)}
                 />
@@ -178,14 +178,14 @@ export default function CropComparePage() {
                 <label>Crop B</label>
                 <input
                   type="text"
-                  placeholder="np. 3008"
+                  placeholder="e.g. 3008"
                   value={num2}
                   onChange={(e) => setNum2(e.target.value)}
                 />
               </div>
             </div>
             <button className="mobile-full-button" type="submit" disabled={loading}>
-              {loading ? "Ładowanie..." : "Porównaj"}
+              {loading ? "Loading..." : "Compare"}
             </button>
           </form>
           {error && (
@@ -202,7 +202,7 @@ export default function CropComparePage() {
                 <thead>
                   <tr style={{ borderBottom: "2px solid #2563eb" }}>
                     <th style={{ padding: "8px 6px", textAlign: "left", fontSize: "0.78rem", color: "#64748b" }}>
-                      Wskaźnik
+                      Metric
                     </th>
                     <th
                       style={{
@@ -233,53 +233,53 @@ export default function CropComparePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Ogólne */}
-                  <SectionHeader label="Ogólne" />
-                  <Row label="Status"         v1={c1.status}         v2={c2.status} />
-                  <Row label="Rasa"           v1={c1.breed ?? "—"}   v2={c2.breed ?? "—"} />
-                  <Row label="Data wsadzenia" v1={fmtDate(c1.placementDate)} v2={fmtDate(c2.placementDate)} />
-                  <Row label="Data zakończenia" v1={fmtDate(c1.finishDate)} v2={fmtDate(c2.finishDate)} />
-                  <Row label="Długość cropu"  v1={fmt(c1.cropLengthDays)} v2={fmt(c2.cropLengthDays)} unit="dni" highlight />
+                  {/* General */}
+                  <SectionHeader label="General" />
+                  <Row label="Status"          v1={c1.status}         v2={c2.status} />
+                  <Row label="Breed"           v1={c1.breed ?? "—"}   v2={c2.breed ?? "—"} />
+                  <Row label="Placement date"  v1={fmtDate(c1.placementDate)} v2={fmtDate(c2.placementDate)} />
+                  <Row label="Finish date"     v1={fmtDate(c1.finishDate)}    v2={fmtDate(c2.finishDate)} />
+                  <Row label="Crop length"     v1={fmt(c1.cropLengthDays)}    v2={fmt(c2.cropLengthDays)} unit="days" highlight />
 
-                  {/* Ptaki */}
-                  <SectionHeader label="Ptaki" />
-                  <Row label="Wsadzone ptaki"   v1={fmt(c1.birdsPlaced)}    v2={fmt(c2.birdsPlaced)} highlight />
-                  <Row label="Padnięcia"         v1={fmt(c1.totalMort)}      v2={fmt(c2.totalMort)} />
-                  <Row label="Wybrakowane"       v1={fmt(c1.totalCulls)}     v2={fmt(c2.totalCulls)} />
-                  <Row label="Straty razem"      v1={fmt(c1.totalLosses)}    v2={fmt(c2.totalLosses)} />
-                  <Row label="Śmiertelność %"    v1={fmt(c1.mortalityPct, 2)} v2={fmt(c2.mortalityPct, 2)} unit="%" highlight />
-                  <Row label="Sprzedane (final)" v1={fmt(c1.finalBirdsSold)} v2={fmt(c2.finalBirdsSold)} />
+                  {/* Birds */}
+                  <SectionHeader label="Birds" />
+                  <Row label="Birds placed"    v1={fmt(c1.birdsPlaced)}    v2={fmt(c2.birdsPlaced)} highlight />
+                  <Row label="Mortality"       v1={fmt(c1.totalMort)}      v2={fmt(c2.totalMort)} />
+                  <Row label="Culls"           v1={fmt(c1.totalCulls)}     v2={fmt(c2.totalCulls)} />
+                  <Row label="Total losses"    v1={fmt(c1.totalLosses)}    v2={fmt(c2.totalLosses)} />
+                  <Row label="Mortality %"     v1={fmt(c1.mortalityPct, 2)} v2={fmt(c2.mortalityPct, 2)} unit="%" highlight />
+                  <Row label="Birds sold (final)" v1={fmt(c1.finalBirdsSold)} v2={fmt(c2.finalBirdsSold)} />
 
-                  {/* Pasze */}
-                  <SectionHeader label="Pasza" />
-                  <Row label="Pasza razem"   v1={fmt(c1.totalFeedKg, 0)} v2={fmt(c2.totalFeedKg, 0)} unit="kg" highlight />
-                  <Row label="Śr. waga końcowa" v1={fmt(c1.finalAvgWeightKg, 3)} v2={fmt(c2.finalAvgWeightKg, 3)} unit="kg" />
-                  <Row label="FCR"           v1={fmt(c1.fcr, 3)}         v2={fmt(c2.fcr, 3)} highlight />
+                  {/* Feed */}
+                  <SectionHeader label="Feed" />
+                  <Row label="Total feed"      v1={fmt(c1.totalFeedKg, 0)} v2={fmt(c2.totalFeedKg, 0)} unit="kg" highlight />
+                  <Row label="Avg final weight" v1={fmt(c1.finalAvgWeightKg, 3)} v2={fmt(c2.finalAvgWeightKg, 3)} unit="kg" />
+                  <Row label="FCR"             v1={fmt(c1.fcr, 3)}         v2={fmt(c2.fcr, 3)} highlight />
 
-                  {/* Wyniki */}
-                  <SectionHeader label="Wyniki" />
-                  <Row label="EPEF"          v1={fmt(c1.epef, 1)}         v2={fmt(c2.epef, 1)} highlight />
-                  <Row label={`Marża (${currency})`} v1={fmt(c1.finalMarginGbp, 2)} v2={fmt(c2.finalMarginGbp, 2)} highlight />
+                  {/* Performance */}
+                  <SectionHeader label="Performance" />
+                  <Row label="EPEF"            v1={fmt(c1.epef, 1)}         v2={fmt(c2.epef, 1)} highlight />
+                  <Row label={`Margin (${currency})`} v1={fmt(c1.finalMarginGbp, 2)} v2={fmt(c2.finalMarginGbp, 2)} highlight />
 
-                  {/* Przerzedzanie i clearance */}
-                  <SectionHeader label="Przerzedzanie / Odbiór" />
+                  {/* Thinning & Clearance */}
+                  <SectionHeader label="Thinning / Clearance" />
                   {(c1.ageThinDays !== null || c2.ageThinDays !== null) && (
-                    <Row label="Wiek przy thin 1"  v1={fmt(c1.ageThinDays)}  v2={fmt(c2.ageThinDays)}  unit="dni" />
+                    <Row label="Age at thin 1"   v1={fmt(c1.ageThinDays)}  v2={fmt(c2.ageThinDays)}  unit="days" />
                   )}
                   {(c1.birdsSoldThin > 0 || c2.birdsSoldThin > 0) && (
-                    <Row label="Sprzedane thin 1"  v1={fmt(c1.birdsSoldThin)}  v2={fmt(c2.birdsSoldThin)} />
+                    <Row label="Birds sold thin 1" v1={fmt(c1.birdsSoldThin)} v2={fmt(c2.birdsSoldThin)} />
                   )}
                   {(c1.ageThin2Days !== null || c2.ageThin2Days !== null) && (
-                    <Row label="Wiek przy thin 2"  v1={fmt(c1.ageThin2Days)} v2={fmt(c2.ageThin2Days)} unit="dni" />
+                    <Row label="Age at thin 2"   v1={fmt(c1.ageThin2Days)} v2={fmt(c2.ageThin2Days)} unit="days" />
                   )}
                   {(c1.birdsSoldThin2 > 0 || c2.birdsSoldThin2 > 0) && (
-                    <Row label="Sprzedane thin 2"  v1={fmt(c1.birdsSoldThin2)} v2={fmt(c2.birdsSoldThin2)} />
+                    <Row label="Birds sold thin 2" v1={fmt(c1.birdsSoldThin2)} v2={fmt(c2.birdsSoldThin2)} />
                   )}
                   {(c1.ageClearDays !== null || c2.ageClearDays !== null) && (
-                    <Row label="Wiek przy clear"   v1={fmt(c1.ageClearDays)} v2={fmt(c2.ageClearDays)} unit="dni" highlight />
+                    <Row label="Age at clearance" v1={fmt(c1.ageClearDays)} v2={fmt(c2.ageClearDays)} unit="days" highlight />
                   )}
                   {(c1.birdsSoldClear > 0 || c2.birdsSoldClear > 0) && (
-                    <Row label="Sprzedane clear"   v1={fmt(c1.birdsSoldClear)} v2={fmt(c2.birdsSoldClear)} />
+                    <Row label="Birds sold clear" v1={fmt(c1.birdsSoldClear)} v2={fmt(c2.birdsSoldClear)} />
                   )}
                 </tbody>
               </table>
