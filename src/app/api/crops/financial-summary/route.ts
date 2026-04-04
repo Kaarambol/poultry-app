@@ -64,13 +64,31 @@ export async function GET(req: Request) {
       return sum + feedCost + wheatCost;
     }, 0);
 
+    // Weighted average weight across all houses on the most recent day with weight data
+    // weight = sum(avgWeightG × birdsTotal) / sum(birdsTotal)
     const weightRecords = crop.daily.filter((r) => r.avgWeightG !== null);
-    const lastWeightRecord =
-      weightRecords.length > 0 ? weightRecords[weightRecords.length - 1] : null;
+    let liveAvgWeightKg: number | null = null;
 
-    const liveAvgWeightKg = lastWeightRecord?.avgWeightG
-      ? lastWeightRecord.avgWeightG / 1000
-      : null;
+    if (weightRecords.length > 0) {
+      const latestWeightTime = Math.max(...weightRecords.map((r) => new Date(r.date).getTime()));
+      const latestDayRecords = weightRecords.filter(
+        (r) => new Date(r.date).getTime() === latestWeightTime
+      );
+
+      const totalBirds = latestDayRecords.reduce((sum, r) => sum + r.birdsTotal, 0);
+      if (totalBirds > 0) {
+        const weightedSum = latestDayRecords.reduce(
+          (sum, r) => sum + r.avgWeightG! * r.birdsTotal,
+          0
+        );
+        liveAvgWeightKg = weightedSum / totalBirds / 1000;
+      } else {
+        // fallback: simple average if birdsTotal not filled
+        const simpleAvg =
+          latestDayRecords.reduce((sum, r) => sum + r.avgWeightG!, 0) / latestDayRecords.length;
+        liveAvgWeightKg = simpleAvg / 1000;
+      }
+    }
 
     const liveEstimatedRevenueGbp =
       liveAvgWeightKg !== null && crop.salePricePerKgAllIn !== null
