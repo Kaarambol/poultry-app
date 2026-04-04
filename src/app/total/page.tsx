@@ -64,6 +64,8 @@ export default function TotalPage() {
   const [finalRevenueGbp, setFinalRevenueGbp] = useState("");
   const [finalNotes, setFinalNotes] = useState("");
 
+  const [prevCropFinishDate, setPrevCropFinishDate] = useState<string | null>(null);
+
   const [msg, setMsg] = useState("Loading...");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
 
@@ -88,12 +90,21 @@ export default function TotalPage() {
 
     // EPEF (European Production Efficiency Factor)
     const survivalPct = (birdsAlive / birdsPlaced) * 100;
-    const epef = (age > 0 && fcr > 0) 
-      ? (survivalPct * avgWeightKg * 100) / (age * fcr) 
+    const epef = (age > 0 && fcr > 0)
+      ? (survivalPct * avgWeightKg * 100) / (age * fcr)
       : 0;
 
-    // Margin Calculation
-    const lengthCrop = (age / 7) + 10; // First crop logic: age/7 + 10 days
+    // Length of crop in weeks = (today − previous crop finish date) / 7
+    // For first crop (no previous finish date): use (age + 10) / 7
+    let lengthCrop: number;
+    if (prevCropFinishDate) {
+      const prevEnd = new Date(prevCropFinishDate);
+      const daysSincePrev = Math.max(1, Math.floor((today.getTime() - prevEnd.getTime()) / (1000 * 60 * 60 * 24)));
+      lengthCrop = daysSincePrev / 7;
+    } else {
+      lengthCrop = (age + 10) / 7;
+    }
+
     const floorArea = farmData?.floorArea || 1; // Default to 1 to avoid division by zero
     
     const chickCost = birdsPlaced * (summary.crop.chickenPricePerKg || 0);
@@ -103,7 +114,7 @@ export default function TotalPage() {
     const activeMargin = (totalSales - feedCost - chickCost) / lengthCrop / floorArea;
 
     return { age, fcr, epef, lengthCrop, activeMargin, chickCost, totalSales };
-  }, [summary, farmData]);
+  }, [summary, farmData, prevCropFinishDate]);
 
   // --- Functions ---
 
@@ -131,6 +142,15 @@ export default function TotalPage() {
       setCurrentCropId(data.id);
       await loadSummary(data.id);
       setMsg("");
+
+      // Load previous crop's finish date for lengthCrop calculation
+      const hr = await fetch(`/api/crops/history?farmId=${farmId}`);
+      const history = await hr.json();
+      if (Array.isArray(history) && history.length > 0 && history[0].finishDate) {
+        setPrevCropFinishDate(history[0].finishDate);
+      } else {
+        setPrevCropFinishDate(null);
+      }
     } else {
       setMsg("No active crop found.");
       setSummary(null);
@@ -240,7 +260,7 @@ export default function TotalPage() {
                 </div>
                 <div className="mobile-record-row">
                   <strong>Length of Crop (Calc)</strong>
-                  <span>{metrics.lengthCrop.toFixed(1)} days</span>
+                  <span>{metrics.lengthCrop.toFixed(2)} weeks</span>
                 </div>
                 <div className="mobile-record-row" style={{borderTop: '2px solid #eee', paddingTop: '8px', marginTop: '8px'}}>
                   <strong style={{fontSize: '1.1rem'}}>Active Margin/m²/Day</strong>

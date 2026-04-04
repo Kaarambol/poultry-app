@@ -51,11 +51,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Use the latest clearDate across all placements as the crop finish date
+    const placements = await prisma.cropHousePlacement.findMany({
+      where: { cropId },
+      select: { clearDate: true },
+    });
+
+    const clearDates = placements
+      .map((p) => p.clearDate)
+      .filter((d): d is Date => d !== null);
+
+    const finishDate =
+      clearDates.length > 0
+        ? new Date(Math.max(...clearDates.map((d) => d.getTime())))
+        : new Date();
+
     const crop = await prisma.crop.update({
       where: { id: cropId },
       data: {
         status: "FINISHED",
-        finishDate: new Date(),
+        finishDate,
       },
     });
 
