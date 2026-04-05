@@ -156,7 +156,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     let cumTotal = 0;
 
     const tableRows = rows.map((row) => {
-      cumTotal += (row.mort || 0) + (row.culls || 0) + (row.cullsSmall || 0) + (row.cullsLeg || 0);
+      cumTotal += (row.mort || 0) + (row.culls || 0);
 
       const rowDateStr = new Date(row.date).toISOString().slice(0, 10);
       const diffDays = Math.floor(
