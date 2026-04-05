@@ -76,7 +76,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
         placementDate: true,
         placements: {
           where: { houseId, isActive: true },
-          select: { thinDate: true, thin2Date: true, clearDate: true, thinBirds: true, thin2Birds: true },
+          select: { thinDate: true, thin2Date: true, clearDate: true, thinBirds: true, thin2Birds: true, birdsPlaced: true },
         },
         targetProfile: {
           select: {
@@ -142,15 +142,24 @@ export async function GET(req: NextRequest, context: RouteContext) {
       };
     }
 
-    // Compute thinning adjustments from placement
+    // Thinning data from placement
     const placement = crop.placements[0] ?? null;
     const thinDateTs  = placement?.thinDate  ? new Date(placement.thinDate).getTime()  : null;
     const thin2DateTs = placement?.thin2Date ? new Date(placement.thin2Date).getTime() : null;
     const clearDateTs = placement?.clearDate ? new Date(placement.clearDate).getTime() : null;
     const thinBirdsCount  = placement?.thinBirds  ?? 0;
     const thin2BirdsCount = placement?.thin2Birds ?? 0;
+    const birdsPlaced     = placement?.birdsPlaced ?? 0;
+
+    // Compute birds per row from scratch (cumulative mort+culls, minus thinning)
+    // rows are sorted asc by date
+    let cumMort = 0;
+    let cumCulls = 0;
 
     const tableRows = rows.map((row) => {
+      cumMort  += row.mort   || 0;
+      cumCulls += (row.culls || 0) + (row.cullsSmall || 0) + (row.cullsLeg || 0);
+
       const diffDays = Math.floor(
         (new Date(row.date).getTime() - new Date(crop.placementDate).getTime()) /
           (1000 * 60 * 60 * 24)
@@ -158,15 +167,16 @@ export async function GET(req: NextRequest, context: RouteContext) {
       const ageDays = diffDays < 0 ? 0 : diffDays;
       const targets = targetDayMap[ageDays] ?? { weightTargetG: null, feedTargetG: null, waterTargetMl: null, temperatureTargetC: null };
 
-      // Adjust bird count: subtract thinned birds on and after thin date
+      // Bird count: placed − cumulative losses − thinning adjustments
       const rowTs = new Date(row.date).getTime();
-      let birds = row.birdsTotal || 0;
+      let birds = birdsPlaced - cumMort - cumCulls;
       if (clearDateTs !== null && rowTs >= clearDateTs) {
         birds = 0;
       } else {
-        if (thinDateTs  !== null && rowTs >= thinDateTs)  birds = Math.max(0, birds - thinBirdsCount);
-        if (thin2DateTs !== null && rowTs >= thin2DateTs) birds = Math.max(0, birds - thin2BirdsCount);
+        if (thinDateTs  !== null && rowTs >= thinDateTs)  birds -= thinBirdsCount;
+        if (thin2DateTs !== null && rowTs >= thin2DateTs) birds -= thin2BirdsCount;
       }
+      birds = Math.max(0, birds);
 
       // weight % = avgWeightG / weightTargetG * 100  (use stored weightPercent if available)
       const weightPct = row.weightPercent !== null ? row.weightPercent
