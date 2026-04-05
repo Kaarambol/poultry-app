@@ -42,6 +42,7 @@ const setupLinks = [
   { href: "/crops/targets", label: "Crop Targets" },
   { href: "/access", label: "Access" },
   { href: "/log", label: "Log" },
+  { href: "/admin", label: "Admin" },
 ];
 
 const recordsLinks = [
