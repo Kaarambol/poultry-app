@@ -70,6 +70,11 @@ export default function TotalPage() {
   const [finalNotes, setFinalNotes] = useState("");
 
   const [prevCropFinishDate, setPrevCropFinishDate] = useState<string | null>(null);
+  const [showWeightQuestion, setShowWeightQuestion] = useState(false);
+  const [showWeightInputs, setShowWeightInputs] = useState(false);
+  const [cropHouses, setCropHouses] = useState<{ houseId: string; houseName: string }[]>([]);
+  const [finalWeightInputs, setFinalWeightInputs] = useState<Record<string, string>>({});
+  const [pendingFinalize, setPendingFinalize] = useState(false);
 
   const [msg, setMsg] = useState("Loading...");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
@@ -179,6 +184,28 @@ export default function TotalPage() {
 
   async function saveFinalReal(e: React.FormEvent) {
     e.preventDefault();
+    const r = await fetch(`/api/crops/${cropId}`);
+    if (r.ok) {
+      const data = await r.json();
+      const placements: any[] = data.crop?.placements || [];
+      const seen = new Set<string>();
+      const houses: { houseId: string; houseName: string }[] = [];
+      for (const p of placements) {
+        if (!seen.has(p.houseId)) {
+          seen.add(p.houseId);
+          houses.push({ houseId: p.houseId, houseName: p.house?.name || p.houseId });
+        }
+      }
+      houses.sort((a, b) => a.houseName.localeCompare(b.houseName, undefined, { numeric: true }));
+      setCropHouses(houses);
+      const initInputs: Record<string, string> = {};
+      for (const h of houses) initInputs[h.houseId] = "";
+      setFinalWeightInputs(initInputs);
+    }
+    setShowWeightQuestion(true);
+  }
+
+  async function doFinalize() {
     const r = await fetch("/api/crops/finalize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -189,6 +216,23 @@ export default function TotalPage() {
       setMsg("Final crop values saved.");
       await loadSummary(cropId);
     }
+    setShowWeightQuestion(false);
+    setShowWeightInputs(false);
+    setPendingFinalize(false);
+  }
+
+  async function saveWeightsAndFinalize() {
+    const weights = cropHouses
+      .map(h => ({ houseId: h.houseId, avgWeightG: parseFloat(finalWeightInputs[h.houseId] || "0") }))
+      .filter(w => w.avgWeightG > 0);
+    if (weights.length > 0) {
+      await fetch("/api/crops/final-weights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cropId, weights }),
+      });
+    }
+    await doFinalize();
   }
 
   useEffect(() => {
@@ -336,6 +380,47 @@ export default function TotalPage() {
 
                 <label>Final Notes</label>
                 <textarea value={finalNotes} onChange={(e) => setFinalNotes(e.target.value)} disabled={!canOperate} />
+
+                {showWeightQuestion && !showWeightInputs && (
+                  <div style={{ background: "#f0f8f0", border: "1px solid #a0c8a0", borderRadius: 8, padding: 20, marginTop: 16 }}>
+                    <p style={{ margin: "0 0 16px", fontWeight: 600 }}>Do you want to record final weights per house?</p>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button type="button" className="mobile-button" onClick={() => setShowWeightInputs(true)}>
+                        Yes, enter weights
+                      </button>
+                      <button type="button" className="mobile-button mobile-button--secondary" onClick={doFinalize}>
+                        No, just save
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {showWeightInputs && (
+                  <div style={{ background: "#f0f8f0", border: "1px solid #a0c8a0", borderRadius: 8, padding: 20, marginTop: 16 }}>
+                    <p style={{ margin: "0 0 16px", fontWeight: 600 }}>Final weight per house (g):</p>
+                    {cropHouses.map(h => (
+                      <div key={h.houseId} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                        <label style={{ minWidth: 100, fontWeight: 500 }}>{h.houseName}</label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="g"
+                          value={finalWeightInputs[h.houseId] || ""}
+                          onChange={e => setFinalWeightInputs(prev => ({ ...prev, [h.houseId]: e.target.value }))}
+                          style={{ width: 100, padding: "6px 8px", border: "1px solid #ccc", borderRadius: 6 }}
+                        />
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                      <button type="button" className="mobile-button" onClick={saveWeightsAndFinalize}>
+                        Save weights & finalize
+                      </button>
+                      <button type="button" className="mobile-button mobile-button--secondary" onClick={doFinalize}>
+                        Skip, just save
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {canOperate && (
                   <div className="mobile-sticky-actions">

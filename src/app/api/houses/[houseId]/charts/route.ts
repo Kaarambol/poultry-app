@@ -334,7 +334,22 @@ export async function GET(req: NextRequest, context: RouteContext) {
         dailyMortalityPct: actual?.dailyMortalityPct ?? null,
         feedPerBird,
         waterPerBird,
-        weightPercent: actual?.weightPercent ?? null,
+        weightPercent: (() => {
+          const nextActual = actualByDay.get(dayNumber + 1);
+          const shiftedWeightPercent = (() => {
+            if (dayNumber === 1) {
+              const t1 = targetMap.get(1);
+              return t1?.weightTargetG && t1.weightTargetG > 0
+                ? (44 / t1.weightTargetG) * 100
+                : null;
+            }
+            if (nextActual?.avgWeightG != null && target?.weightTargetG && target.weightTargetG > 0) {
+              return (nextActual.avgWeightG / target.weightTargetG) * 100;
+            }
+            return null;
+          })();
+          return shiftedWeightPercent;
+        })(),
         temperatureMinC: actual?.temperatureMinC ?? null,
         temperatureMaxC: actual?.temperatureMaxC ?? null,
         humidityMinPct: actual?.humidityMinPct ?? null,
