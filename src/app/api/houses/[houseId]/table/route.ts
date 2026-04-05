@@ -152,15 +152,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const thin2BirdsCount = placement?.thin2Birds ?? 0;
     const birdsPlaced     = placement?.birdsPlaced ?? 0;
 
-    // Compute birds per row from scratch (cumulative mort+culls, minus thinning)
-    // rows are sorted asc by date
-    let cumMort = 0;
-    let cumCulls = 0;
-
     const tableRows = rows.map((row) => {
-      cumMort  += row.mort   || 0;
-      cumCulls += (row.culls || 0) + (row.cullsSmall || 0) + (row.cullsLeg || 0);
-
       const rowDateStr = new Date(row.date).toISOString().slice(0, 10);
       const diffDays = Math.floor(
         (new Date(row.date).getTime() - new Date(crop.placementDate).getTime()) /
@@ -169,8 +161,9 @@ export async function GET(req: NextRequest, context: RouteContext) {
       const ageDays = diffDays < 0 ? 0 : diffDays;
       const targets = targetDayMap[ageDays] ?? { weightTargetG: null, feedTargetG: null, waterTargetMl: null, temperatureTargetC: null };
 
-      // Bird count: placed − cumulative losses − thinning adjustments (compare as YYYY-MM-DD)
-      let birds = birdsPlaced - cumMort - cumCulls;
+      // Base bird count = birdsPlaced (stored in birdsTotal at record creation)
+      // After thin date: subtract thinBirds; after clear: 0
+      let birds = birdsPlaced;
       if (clearDateStr !== null && rowDateStr >= clearDateStr) {
         birds = 0;
       } else {
