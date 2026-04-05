@@ -269,7 +269,7 @@ export default function HouseChartsPage({
           <>
             <div className="mobile-card">
               <h2>Weight %</h2>
-              <div style={{ height: 320 }}>
+              <div style={{ height: 640 }}>
                 <Line
                   options={baseOptions()}
                   data={{
@@ -288,7 +288,7 @@ export default function HouseChartsPage({
 
             <div className="mobile-card">
               <h2>Feed (g/bird)</h2>
-              <div style={{ height: 320 }}>
+              <div style={{ height: 640 }}>
                 <Line
                   options={baseOptions()}
                   data={{
@@ -312,7 +312,7 @@ export default function HouseChartsPage({
 
             <div className="mobile-card">
               <h2>Water (ml/bird)</h2>
-              <div style={{ height: 320 }}>
+              <div style={{ height: 640 }}>
                 <Line
                   options={baseOptions()}
                   data={{
@@ -336,7 +336,7 @@ export default function HouseChartsPage({
 
             <div className="mobile-card">
               <h2>Temperature</h2>
-              <div style={{ height: 320 }}>
+              <div style={{ height: 640 }}>
                 <Line
                   options={baseOptions()}
                   data={{
@@ -365,7 +365,7 @@ export default function HouseChartsPage({
 
             <div className="mobile-card">
               <h2>Humidity</h2>
-              <div style={{ height: 320 }}>
+              <div style={{ height: 640 }}>
                 <Line
                   options={baseOptions()}
                   data={{
@@ -394,7 +394,7 @@ export default function HouseChartsPage({
 
             <div className="mobile-card">
               <h2>CO₂</h2>
-              <div style={{ height: 320 }}>
+              <div style={{ height: 640 }}>
                 <Line
                   options={baseOptions()}
                   data={{
@@ -418,7 +418,7 @@ export default function HouseChartsPage({
 
             <div className="mobile-card">
               <h2>Daily Mortality %</h2>
-              <div style={{ height: 320 }}>
+              <div style={{ height: 640 }}>
                 <Line
                   options={baseOptions()}
                   data={{
