@@ -396,28 +396,31 @@ p {
 
 .mobile-table-wrap table {
   min-width: 760px;
+  border-collapse: collapse;
+  width: 100%;
 }
 
 .mobile-table-wrap th,
 .mobile-table-wrap td {
-  padding: 10px 12px;
+  padding: 3px 6px;
+  border: 1px solid #cbd5e1;
+  white-space: nowrap;
 }
 
 .mobile-table-wrap thead th {
   text-align: left;
   color: var(--text);
   font-size: 14px;
-  background: #f8fbff;
-  border-bottom: 1px solid var(--border);
+  background: #f1f5f9;
+  font-weight: 600;
 }
 
 .mobile-table-wrap tbody td {
-  border-bottom: 1px solid #edf2f7;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
-.mobile-table-wrap tbody tr:last-child td {
-  border-bottom: none;
+.mobile-table-wrap tbody tr:hover td {
+  background: #f8fafc;
 }
 
 .mobile-actions {
