@@ -587,17 +587,6 @@ export default function AuditFarmDocumentsPage() {
                     </div>
                   </div>
 
-                  {canOperate && (
-                    <div className="mobile-actions" style={{ marginTop: 12 }}>
-                      <button
-                        type="button"
-                        className="mobile-button mobile-button--secondary"
-                        onClick={() => startEditById(alert.id)}
-                      >
-                        Edit / Renew
-                      </button>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
