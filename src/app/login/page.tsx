@@ -43,13 +43,13 @@ export default function LoginPage() {
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
 
       {/* ── Left ad column ── */}
-      <aside style={adColumnStyle}>
+      <aside className="auth-ad-col" style={adColumnStyle}>
         <AdSlot label="Ad 1" width={160} height={600} />
         <AdSlot label="Ad 2" width={160} height={300} />
       </aside>
 
       {/* ── Hero panel ── */}
-      <div style={{
+      <div className="auth-hero" style={{
         flex: 1,
         background: `linear-gradient(rgba(10,30,10,0.55), rgba(10,30,10,0.7)), url(${HERO_IMAGE_URL}) center/cover no-repeat`,
         display: "flex",
@@ -80,7 +80,7 @@ export default function LoginPage() {
       </div>
 
       {/* ── Form panel ── */}
-      <div style={{
+      <div className="auth-form-panel" style={{
         width: "clamp(340px, 38%, 480px)",
         background: "#fff",
         display: "flex",
@@ -150,7 +150,7 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right ad column ── */}
-      <aside style={adColumnStyle}>
+      <aside className="auth-ad-col" style={adColumnStyle}>
         <AdSlot label="Ad 3" width={160} height={600} />
         <AdSlot label="Ad 4" width={160} height={300} />
       </aside>
