@@ -152,13 +152,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const thin2BirdsCount = placement?.thin2Birds ?? 0;
     const birdsPlaced     = placement?.birdsPlaced ?? 0;
 
-    // Running cumulative mort + culls (rows sorted asc)
-    let cumMort = 0;
-    let cumCulls = 0;
+    // Running cumulative total losses (mort + all culls types)
+    let cumTotal = 0;
 
     const tableRows = rows.map((row) => {
-      cumMort  += row.mort  || 0;
-      cumCulls += row.culls || 0;
+      cumTotal += (row.mort || 0) + (row.culls || 0) + (row.cullsSmall || 0) + (row.cullsLeg || 0);
 
       const rowDateStr = new Date(row.date).toISOString().slice(0, 10);
       const diffDays = Math.floor(
@@ -168,8 +166,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
       const ageDays = diffDays < 0 ? 0 : diffDays;
       const targets = targetDayMap[ageDays] ?? { weightTargetG: null, feedTargetG: null, waterTargetMl: null, temperatureTargetC: null };
 
-      // Live birds = placed − cumulative mort/culls − thin after thin date
-      let birds = birdsPlaced - cumMort - cumCulls;
+      // Live birds = placed − cumulative total losses − thin after thin date
+      let birds = birdsPlaced - cumTotal;
       if (clearDateStr !== null && rowDateStr >= clearDateStr) {
         birds = 0;
       } else {
@@ -182,12 +180,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
       const weightPct = row.weightPercent !== null ? row.weightPercent
         : (row.avgWeightG !== null && targets.weightTargetG) ? Math.round(row.avgWeightG / targets.weightTargetG * 100) : null;
 
-      const totalMort = (row.mort || 0) + (row.culls || 0) + (row.cullsSmall || 0) + (row.cullsLeg || 0);
-
       return {
         ...row,
         ageDays,
-        totalMort,
+        totalMort: cumTotal,
         weightPct,
         weightTargetG: targets.weightTargetG,
         waterTargetMl: targets.waterTargetMl,
