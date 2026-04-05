@@ -144,9 +144,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     // Thinning data from placement
     const placement = crop.placements[0] ?? null;
-    const thinDateTs  = placement?.thinDate  ? new Date(placement.thinDate).getTime()  : null;
-    const thin2DateTs = placement?.thin2Date ? new Date(placement.thin2Date).getTime() : null;
-    const clearDateTs = placement?.clearDate ? new Date(placement.clearDate).getTime() : null;
+    const toStr = (d: Date | null | undefined) => d ? new Date(d).toISOString().slice(0, 10) : null;
+    const thinDateStr  = toStr(placement?.thinDate);
+    const thin2DateStr = toStr(placement?.thin2Date);
+    const clearDateStr = toStr(placement?.clearDate);
     const thinBirdsCount  = placement?.thinBirds  ?? 0;
     const thin2BirdsCount = placement?.thin2Birds ?? 0;
     const birdsPlaced     = placement?.birdsPlaced ?? 0;
@@ -160,6 +161,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       cumMort  += row.mort   || 0;
       cumCulls += (row.culls || 0) + (row.cullsSmall || 0) + (row.cullsLeg || 0);
 
+      const rowDateStr = new Date(row.date).toISOString().slice(0, 10);
       const diffDays = Math.floor(
         (new Date(row.date).getTime() - new Date(crop.placementDate).getTime()) /
           (1000 * 60 * 60 * 24)
@@ -167,14 +169,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
       const ageDays = diffDays < 0 ? 0 : diffDays;
       const targets = targetDayMap[ageDays] ?? { weightTargetG: null, feedTargetG: null, waterTargetMl: null, temperatureTargetC: null };
 
-      // Bird count: placed − cumulative losses − thinning adjustments
-      const rowTs = new Date(row.date).getTime();
+      // Bird count: placed − cumulative losses − thinning adjustments (compare as YYYY-MM-DD)
       let birds = birdsPlaced - cumMort - cumCulls;
-      if (clearDateTs !== null && rowTs >= clearDateTs) {
+      if (clearDateStr !== null && rowDateStr >= clearDateStr) {
         birds = 0;
       } else {
-        if (thinDateTs  !== null && rowTs >= thinDateTs)  birds -= thinBirdsCount;
-        if (thin2DateTs !== null && rowTs >= thin2DateTs) birds -= thin2BirdsCount;
+        if (thinDateStr  !== null && rowDateStr >= thinDateStr)  birds -= thinBirdsCount;
+        if (thin2DateStr !== null && rowDateStr >= thin2DateStr) birds -= thin2BirdsCount;
       }
       birds = Math.max(0, birds);
 
