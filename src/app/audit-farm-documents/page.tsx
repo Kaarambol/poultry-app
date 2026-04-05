@@ -836,9 +836,7 @@ export default function AuditFarmDocumentsPage() {
                   <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Type</th>
                   <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Expiry date</th>
                   <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Next review</th>
-                  {canOperate && (
-                    <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Actions</th>
-                  )}
+                  <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -872,26 +870,39 @@ export default function AuditFarmDocumentsPage() {
                       <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
                         {formatDate(doc.nextReviewDate)}
                       </td>
-                      {canOperate && (
-                        <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                          <button
-                            type="button"
+                      <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
+                        {doc.fileUrl && (
+                          <a
+                            href={`/api/farm-documents/file?url=${encodeURIComponent(doc.fileUrl)}`}
+                            target="_blank"
+                            rel="noreferrer"
                             className="mobile-button mobile-button--secondary"
-                            style={{ marginRight: 6, padding: "4px 10px", fontSize: "0.8rem" }}
-                            onClick={() => startEdit(doc)}
+                            style={{ marginRight: 6, padding: "4px 10px", fontSize: "0.8rem", textDecoration: "none" }}
                           >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="mobile-button mobile-button--danger"
-                            style={{ padding: "4px 10px", fontSize: "0.8rem" }}
-                            onClick={() => deleteDocument(doc.id)}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      )}
+                            Preview
+                          </a>
+                        )}
+                        {canOperate && (
+                          <>
+                            <button
+                              type="button"
+                              className="mobile-button mobile-button--secondary"
+                              style={{ marginRight: 6, padding: "4px 10px", fontSize: "0.8rem" }}
+                              onClick={() => startEdit(doc)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="mobile-button mobile-button--danger"
+                              style={{ padding: "4px 10px", fontSize: "0.8rem" }}
+                              onClick={() => deleteDocument(doc.id)}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -994,24 +1005,37 @@ export default function AuditFarmDocumentsPage() {
                         </div>
                       </div>
 
-                      {canOperate && (
-                        <div className="mobile-actions" style={{ marginTop: 12 }}>
-                          <button
-                            type="button"
+                      <div className="mobile-actions" style={{ marginTop: 12 }}>
+                        {doc.fileUrl && (
+                          <a
+                            href={`/api/farm-documents/file?url=${encodeURIComponent(doc.fileUrl)}`}
+                            target="_blank"
+                            rel="noreferrer"
                             className="mobile-button mobile-button--secondary"
-                            onClick={() => startEdit(doc)}
+                            style={{ textDecoration: "none" }}
                           >
-                            Edit / Renew
-                          </button>
-                          <button
-                            type="button"
-                            className="mobile-button mobile-button--danger"
-                            onClick={() => deleteDocument(doc.id)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                            Preview
+                          </a>
+                        )}
+                        {canOperate && (
+                          <>
+                            <button
+                              type="button"
+                              className="mobile-button mobile-button--secondary"
+                              onClick={() => startEdit(doc)}
+                            >
+                              Edit / Renew
+                            </button>
+                            <button
+                              type="button"
+                              className="mobile-button mobile-button--danger"
+                              onClick={() => deleteDocument(doc.id)}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
