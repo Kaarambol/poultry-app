@@ -78,6 +78,19 @@ export async function GET(req: NextRequest, context: RouteContext) {
           where: { houseId, isActive: true },
           select: { thinDate: true, thin2Date: true, clearDate: true },
         },
+        targetProfile: {
+          select: {
+            days: {
+              select: {
+                dayNumber: true,
+                weightTargetG: true,
+                feedTargetG: true,
+                waterTargetMl: true,
+                temperatureTargetC: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -106,6 +119,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
         feedKg: true,
         waterL: true,
         avgWeightG: true,
+        weightPercent: true,
+        birdsTotal: true,
         temperatureMinC: true,
         temperatureMaxC: true,
         humidityMinPct: true,
@@ -116,15 +131,40 @@ export async function GET(req: NextRequest, context: RouteContext) {
       },
     });
 
+    // Build day→targets map from target profile
+    const targetDayMap: Record<number, { weightTargetG: number | null; feedTargetG: number | null; waterTargetMl: number | null; temperatureTargetC: number | null }> = {};
+    for (const d of crop.targetProfile?.days ?? []) {
+      targetDayMap[d.dayNumber] = {
+        weightTargetG: d.weightTargetG,
+        feedTargetG: d.feedTargetG,
+        waterTargetMl: d.waterTargetMl,
+        temperatureTargetC: d.temperatureTargetC,
+      };
+    }
+
     const tableRows = rows.map((row) => {
       const diffDays = Math.floor(
         (new Date(row.date).getTime() - new Date(crop.placementDate).getTime()) /
           (1000 * 60 * 60 * 24)
       );
+      const ageDays = diffDays < 0 ? 0 : diffDays;
+      const targets = targetDayMap[ageDays] ?? { weightTargetG: null, feedTargetG: null, waterTargetMl: null, temperatureTargetC: null };
+      const birds = row.birdsTotal || 0;
+
+      // weight % = avgWeightG / weightTargetG * 100  (use stored weightPercent if available)
+      const weightPct = row.weightPercent !== null ? row.weightPercent
+        : (row.avgWeightG !== null && targets.weightTargetG) ? Math.round(row.avgWeightG / targets.weightTargetG * 100) : null;
 
       return {
         ...row,
-        ageDays: diffDays < 0 ? 0 : diffDays,
+        ageDays,
+        weightPct,
+        weightTargetG: targets.weightTargetG,
+        waterTargetMl: targets.waterTargetMl,
+        feedTargetG: targets.feedTargetG,
+        temperatureTargetC: targets.temperatureTargetC,
+        waterPer1000: birds > 0 ? Math.round(row.waterL / birds * 1000 * 10) / 10 : null,
+        feedPer1000:  birds > 0 ? Math.round(row.feedKg  / birds * 1000 * 100) / 100 : null,
       };
     });
 

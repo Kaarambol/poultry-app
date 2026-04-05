@@ -14,8 +14,15 @@ type TableRow = {
   feedKg: number;
   waterL: number;
   avgWeightG: number | null;
+  weightPct: number | null;
+  weightTargetG: number | null;
+  waterTargetMl: number | null;
+  waterPer1000: number | null;
+  feedTargetG: number | null;
+  feedPer1000: number | null;
   temperatureMinC: number | null;
   temperatureMaxC: number | null;
+  temperatureTargetC: number | null;
   humidityMinPct: number | null;
   humidityMaxPct: number | null;
   co2MinPpm: number | null;
@@ -167,62 +174,76 @@ export default function HouseTablePage({
           </div>
         ) : (
           <div className="mobile-table-wrap">
-            <table>
+            <table style={{ fontSize: "0.68rem" }}>
               <thead>
                 <tr>
                   <th>Date</th>
                   <th>Age</th>
                   <th>Mort</th>
                   <th>Culls</th>
-                  <th>Culls Small</th>
+                  <th>Culls Sm</th>
                   <th>Culls Leg</th>
-                  <th>Temp Min</th>
-                  <th>Temp Max</th>
-                  <th>Humidity Min</th>
-                  <th>Humidity Max</th>
-                  <th>CO2 Min</th>
-                  <th>CO2 Max</th>
-                  <th>Feed Kg</th>
-                  <th>Water L</th>
-                  <th>Avg Weight G</th>
+                  <th>Avg Wt g</th>
+                  <th>Wt %</th>
+                  <th>Wt Tgt g</th>
+                  <th>H₂O Tgt ml</th>
+                  <th>H₂O /1000</th>
+                  <th>Feed Tgt g</th>
+                  <th>Feed /1000</th>
+                  <th>H₂O L</th>
+                  <th>Feed kg</th>
+                  <th>Tmp Max</th>
+                  <th>Tmp Min</th>
+                  <th>Tmp Tgt</th>
+                  <th>Hum Max</th>
+                  <th>Hum Min</th>
+                  <th>CO₂ Max</th>
+                  <th>CO₂ Min</th>
                   <th>Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
                   const dateStr = new Date(row.date).toISOString().slice(0, 10);
-                  const isThin = thinDates.includes(dateStr);
+                  const isThin  = thinDates.includes(dateStr);
                   const isThin2 = thin2Dates.includes(dateStr);
                   const isClear = clearDates.includes(dateStr);
                   const rowStyle: React.CSSProperties = isClear
-                    ? { background: '#ffe0e0', fontWeight: 'bold' }
-                    : (isThin || isThin2)
-                    ? { background: '#fff0f0' }
+                    ? { background: "#ffe0e0", fontWeight: "bold" }
+                    : isThin || isThin2
+                    ? { background: "#fff0f0" }
                     : {};
                   return (
-                  <tr key={row.id} style={rowStyle}>
-                    <td>
-                      {new Date(row.date).toLocaleDateString()}
-                      {isThin && <span style={{ marginLeft: 4, color: '#c00', fontSize: '0.7rem', fontWeight: 'bold' }}>THIN</span>}
-                      {isThin2 && <span style={{ marginLeft: 4, color: '#c00', fontSize: '0.7rem', fontWeight: 'bold' }}>THIN2</span>}
-                      {isClear && <span style={{ marginLeft: 4, color: '#c00', fontSize: '0.7rem', fontWeight: 'bold' }}>CLEAR</span>}
-                    </td>
-                    <td>{row.ageDays}</td>
-                    <td>{row.mort}</td>
-                    <td>{row.culls}</td>
-                    <td>{row.cullsSmall}</td>
-                    <td>{row.cullsLeg}</td>
-                    <td>{formatCell(row.temperatureMinC)}</td>
-                    <td>{formatCell(row.temperatureMaxC)}</td>
-                    <td>{formatCell(row.humidityMinPct)}</td>
-                    <td>{formatCell(row.humidityMaxPct)}</td>
-                    <td>{formatCell(row.co2MinPpm)}</td>
-                    <td>{formatCell(row.co2MaxPpm)}</td>
-                    <td>{formatCell(row.feedKg)}</td>
-                    <td>{formatCell(row.waterL)}</td>
-                    <td>{formatCell(row.avgWeightG)}</td>
-                    <td>{row.notes || "-"}</td>
-                  </tr>
+                    <tr key={row.id} style={rowStyle}>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        {new Date(row.date).toLocaleDateString("en-GB")}
+                        {isThin  && <span style={{ marginLeft: 3, color: "#c00", fontWeight: "bold" }}>T</span>}
+                        {isThin2 && <span style={{ marginLeft: 3, color: "#c00", fontWeight: "bold" }}>T2</span>}
+                        {isClear && <span style={{ marginLeft: 3, color: "#c00", fontWeight: "bold" }}>C</span>}
+                      </td>
+                      <td>{row.ageDays}</td>
+                      <td>{row.mort}</td>
+                      <td>{row.culls}</td>
+                      <td>{row.cullsSmall}</td>
+                      <td>{row.cullsLeg}</td>
+                      <td>{formatCell(row.avgWeightG)}</td>
+                      <td>{row.weightPct !== null ? `${row.weightPct}%` : "-"}</td>
+                      <td>{formatCell(row.weightTargetG)}</td>
+                      <td>{formatCell(row.waterTargetMl)}</td>
+                      <td>{formatCell(row.waterPer1000)}</td>
+                      <td>{formatCell(row.feedTargetG)}</td>
+                      <td>{formatCell(row.feedPer1000)}</td>
+                      <td>{formatCell(row.waterL)}</td>
+                      <td>{formatCell(row.feedKg)}</td>
+                      <td>{formatCell(row.temperatureMaxC)}</td>
+                      <td>{formatCell(row.temperatureMinC)}</td>
+                      <td>{formatCell(row.temperatureTargetC)}</td>
+                      <td>{formatCell(row.humidityMaxPct)}</td>
+                      <td>{formatCell(row.humidityMinPct)}</td>
+                      <td>{formatCell(row.co2MaxPpm)}</td>
+                      <td>{formatCell(row.co2MinPpm)}</td>
+                      <td>{row.notes || "-"}</td>
+                    </tr>
                   );
                 })}
               </tbody>
