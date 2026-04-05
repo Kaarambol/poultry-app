@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clearCurrentCropId,
   getCurrentFarmId,
@@ -60,7 +60,8 @@ export default function AppNav() {
   const [farms, setFarms] = useState<Farm[]>([]);
   const [currentFarmId, setCurrentFarmIdState] = useState("");
   const [currentCrop, setCurrentCrop] = useState<Crop | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(true);
+  const isFirstMount = useRef(true);
 
   const [docAlerts, setDocAlerts] = useState<AlertItem[]>([]);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -120,6 +121,10 @@ export default function AppNav() {
   }, [currentFarmId, pathname]);
 
   useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
     setMenuOpen(false);
   }, [pathname]);
 
