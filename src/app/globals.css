@@ -395,14 +395,14 @@ p {
 }
 
 .mobile-table-wrap table {
-  min-width: 760px;
+  min-width: unset;
   border-collapse: collapse;
   width: 100%;
 }
 
 .mobile-table-wrap th,
 .mobile-table-wrap td {
-  padding: 3px 6px;
+  padding: 2px 4px;
   border: 1px solid #cbd5e1;
   white-space: nowrap;
 }

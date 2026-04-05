@@ -174,7 +174,7 @@ export default function HouseTablePage({
           </div>
         ) : (
           <div className="mobile-table-wrap">
-            <table style={{ fontSize: "0.68rem" }}>
+            <table style={{ fontSize: "0.55rem" }}>
               <thead>
                 <tr>
                   <th>Date</th>
