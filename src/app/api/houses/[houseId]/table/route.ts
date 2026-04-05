@@ -76,7 +76,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
         placementDate: true,
         placements: {
           where: { houseId, isActive: true },
-          select: { thinDate: true, thin2Date: true, clearDate: true },
+          select: { thinDate: true, thin2Date: true, clearDate: true, thinBirds: true, thin2Birds: true },
         },
         targetProfile: {
           select: {
@@ -142,6 +142,14 @@ export async function GET(req: NextRequest, context: RouteContext) {
       };
     }
 
+    // Compute thinning adjustments from placement
+    const placement = crop.placements[0] ?? null;
+    const thinDateTs  = placement?.thinDate  ? new Date(placement.thinDate).getTime()  : null;
+    const thin2DateTs = placement?.thin2Date ? new Date(placement.thin2Date).getTime() : null;
+    const clearDateTs = placement?.clearDate ? new Date(placement.clearDate).getTime() : null;
+    const thinBirdsCount  = placement?.thinBirds  ?? 0;
+    const thin2BirdsCount = placement?.thin2Birds ?? 0;
+
     const tableRows = rows.map((row) => {
       const diffDays = Math.floor(
         (new Date(row.date).getTime() - new Date(crop.placementDate).getTime()) /
@@ -149,7 +157,16 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
       const ageDays = diffDays < 0 ? 0 : diffDays;
       const targets = targetDayMap[ageDays] ?? { weightTargetG: null, feedTargetG: null, waterTargetMl: null, temperatureTargetC: null };
-      const birds = row.birdsTotal || 0;
+
+      // Adjust bird count: subtract thinned birds on and after thin date
+      const rowTs = new Date(row.date).getTime();
+      let birds = row.birdsTotal || 0;
+      if (clearDateTs !== null && rowTs >= clearDateTs) {
+        birds = 0;
+      } else {
+        if (thinDateTs  !== null && rowTs >= thinDateTs)  birds = Math.max(0, birds - thinBirdsCount);
+        if (thin2DateTs !== null && rowTs >= thin2DateTs) birds = Math.max(0, birds - thin2BirdsCount);
+      }
 
       // weight % = avgWeightG / weightTargetG * 100  (use stored weightPercent if available)
       const weightPct = row.weightPercent !== null ? row.weightPercent
