@@ -142,15 +142,15 @@ export async function GET(req: NextRequest, context: RouteContext) {
       };
     }
 
-    // Thinning data from placement
-    const placement = crop.placements[0] ?? null;
+    // Aggregate across all placements for this house
     const toStr = (d: Date | null | undefined) => d ? new Date(d).toISOString().slice(0, 10) : null;
-    const thinDateStr  = toStr(placement?.thinDate);
-    const thin2DateStr = toStr(placement?.thin2Date);
-    const clearDateStr = toStr(placement?.clearDate);
-    const thinBirdsCount  = placement?.thinBirds  ?? 0;
-    const thin2BirdsCount = placement?.thin2Birds ?? 0;
-    const birdsPlaced     = placement?.birdsPlaced ?? 0;
+    const birdsPlaced     = crop.placements.reduce((s, p) => s + p.birdsPlaced, 0);
+    const thinBirdsCount  = crop.placements.reduce((s, p) => s + (p.thinBirds  ?? 0), 0);
+    const thin2BirdsCount = crop.placements.reduce((s, p) => s + (p.thin2Birds ?? 0), 0);
+    // Use the earliest non-null date across placements for each event
+    const thinDateStr  = crop.placements.map(p => toStr(p.thinDate)).filter(Boolean).sort()[0]  ?? null;
+    const thin2DateStr = crop.placements.map(p => toStr(p.thin2Date)).filter(Boolean).sort()[0] ?? null;
+    const clearDateStr = crop.placements.map(p => toStr(p.clearDate)).filter(Boolean).sort()[0] ?? null;
 
     // Running cumulative total losses (mort + all culls types)
     let cumTotal = 0;
@@ -171,8 +171,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
       if (clearDateStr !== null && rowDateStr >= clearDateStr) {
         birds = 0;
       } else {
-        if (thinDateStr  !== null && rowDateStr >= thinDateStr)  birds -= thinBirdsCount;
-        if (thin2DateStr !== null && rowDateStr >= thin2DateStr) birds -= thin2BirdsCount;
+        if (thinDateStr  !== null && rowDateStr > thinDateStr)  birds -= thinBirdsCount;
+        if (thin2DateStr !== null && rowDateStr > thin2DateStr) birds -= thin2BirdsCount;
       }
       birds = Math.max(0, birds);
 
