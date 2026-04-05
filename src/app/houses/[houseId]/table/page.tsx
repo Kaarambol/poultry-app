@@ -11,6 +11,7 @@ type TableRow = {
   culls: number;
   cullsSmall: number;
   cullsLeg: number;
+  totalMort: number;
   feedKg: number;
   waterL: number;
   avgWeightG: number | null;
@@ -181,6 +182,7 @@ export default function HouseTablePage({
                   <th>Age</th>
                   <th>Mort</th>
                   <th>Culls</th>
+                  <th>Total</th>
                   <th>Culls Sm</th>
                   <th>Culls Leg</th>
                   <th>Avg Wt g</th>
@@ -224,6 +226,7 @@ export default function HouseTablePage({
                       <td>{row.ageDays}</td>
                       <td>{row.mort}</td>
                       <td>{row.culls}</td>
+                      <td>{row.totalMort}</td>
                       <td>{row.cullsSmall}</td>
                       <td>{row.cullsLeg}</td>
                       <td>{formatCell(row.avgWeightG)}</td>

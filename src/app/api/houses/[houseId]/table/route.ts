@@ -182,9 +182,12 @@ export async function GET(req: NextRequest, context: RouteContext) {
       const weightPct = row.weightPercent !== null ? row.weightPercent
         : (row.avgWeightG !== null && targets.weightTargetG) ? Math.round(row.avgWeightG / targets.weightTargetG * 100) : null;
 
+      const totalMort = (row.mort || 0) + (row.culls || 0) + (row.cullsSmall || 0) + (row.cullsLeg || 0);
+
       return {
         ...row,
         ageDays,
+        totalMort,
         weightPct,
         weightTargetG: targets.weightTargetG,
         waterTargetMl: targets.waterTargetMl,
