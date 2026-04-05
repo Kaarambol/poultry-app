@@ -196,7 +196,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     const finalRows = tableRows.map((row, i) => {
   const nextRawWeight = i < rows.length - 1 ? rows[i + 1].avgWeightG : null;
-  const displayWeight = i === 0 ? 44 : nextRawWeight;
+  const displayWeight = nextRawWeight;
   const tgt = targetDayMap[row.ageDays];
   const displayPct = displayWeight !== null && tgt?.weightTargetG
     ? Math.round(displayWeight / tgt.weightTargetG * 100)
