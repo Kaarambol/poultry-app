@@ -22,8 +22,14 @@ export async function POST(req: NextRequest) {
         const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetLang}`;
         const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
         const data = await r.json();
+        const status = Number(data?.responseStatus);
         const translated = data?.responseData?.translatedText;
-        translations.push(typeof translated === "string" ? translated : text);
+        // Only use translation if API returned success (200) and result is a non-empty string
+        if (status === 200 && typeof translated === "string" && translated.trim() !== "") {
+          translations.push(translated);
+        } else {
+          translations.push(text);
+        }
       } catch {
         translations.push(text);
       }
