@@ -264,8 +264,6 @@ export default function NightCheckPage() {
     }
     if (existingForDate && !confirmOverwrite) {
       setConfirmOverwrite(true);
-      setMsgType("info");
-      setMsg(`Night check for ${date} already exists. Confirm to overwrite.`);
       return;
     }
     await doSave();
@@ -325,28 +323,9 @@ export default function NightCheckPage() {
           </div>
         )}
 
-        {msg && (
+        {msg && !confirmOverwrite && (
           <div className={alertClass} style={{ marginBottom: 16 }}>
             {msg}
-            {confirmOverwrite && (
-              <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
-                <button
-                  type="button"
-                  className="mobile-button"
-                  onClick={doSave}
-                  disabled={saving}
-                >
-                  Yes, overwrite
-                </button>
-                <button
-                  type="button"
-                  className="mobile-button mobile-button--secondary"
-                  onClick={() => { setConfirmOverwrite(false); setMsg(""); }}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
           </div>
         )}
 
@@ -499,13 +478,41 @@ export default function NightCheckPage() {
 
             {canOperate && (
               <div style={{ marginTop: 16 }}>
-                <button
-                  className="mobile-full-button"
-                  type="submit"
-                  disabled={saving || !farmId}
-                >
-                  {saving ? "Saving..." : "Save Night Check"}
-                </button>
+                {confirmOverwrite ? (
+                  <div style={{ border: "2px solid #f59e0b", borderRadius: 10, padding: "14px 16px", background: "#fffbeb" }}>
+                    <p style={{ margin: "0 0 12px", fontWeight: 600, color: "#92400e" }}>
+                      Night check for <strong>{date}</strong> already exists.
+                    </p>
+                    <p style={{ margin: "0 0 14px", color: "#78350f" }}>
+                      Do you want to replace it with new data?
+                    </p>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        type="button"
+                        className="mobile-button"
+                        onClick={doSave}
+                        disabled={saving}
+                      >
+                        {saving ? "Saving..." : "Yes, replace"}
+                      </button>
+                      <button
+                        type="button"
+                        className="mobile-button mobile-button--secondary"
+                        onClick={() => setConfirmOverwrite(false)}
+                      >
+                        No, cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className="mobile-full-button"
+                    type="submit"
+                    disabled={saving || !farmId}
+                  >
+                    {saving ? "Saving..." : "Save Night Check"}
+                  </button>
+                )}
               </div>
             )}
           </form>
