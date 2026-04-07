@@ -72,6 +72,7 @@ export default function TotalPage() {
 
   const [saleWeightKg, setSaleWeightKg] = useState("");
   const [acceptWeightKg, setAcceptWeightKg] = useState("");
+  const [cropSaved, setCropSaved] = useState(false);
 
   const [prevCropFinishDate, setPrevCropFinishDate] = useState<string | null>(null);
   const [showWeightQuestion, setShowWeightQuestion] = useState(false);
@@ -101,11 +102,17 @@ export default function TotalPage() {
       ? (survivalPct * avgWeightKg * 100) / (age * fcr)
       : 0;
 
-    // Length of crop in days = crop duration + downtime between crops
-    // Crop duration = age (already uses cropEndDate from API if cleared, otherwise today)
-    // Downtime: 10 days for first crop (no previous history), 7 days for subsequent
-    const downtime = prevCropFinishDate ? 7 : 10;
-    const lengthCrop = age + downtime; // in days
+    // Length of crop in weeks:
+    // - First crop (no prev finish date): (age + 10 days) / 7
+    // - Subsequent crops: (today − prev crop's last clear date) / 7
+    let lengthCropDays: number;
+    if (prevCropFinishDate) {
+      const prevEnd = new Date(prevCropFinishDate).getTime();
+      lengthCropDays = Math.max(1, Math.floor((Date.now() - prevEnd) / (1000 * 60 * 60 * 24)));
+    } else {
+      lengthCropDays = age + 10;
+    }
+    const lengthCrop = lengthCropDays / 7; // in weeks
 
     const floorArea = summary.production.totalFloorAreaM2 || 1;
     
@@ -113,9 +120,9 @@ export default function TotalPage() {
     const feedCost   = summary.feed.totalFeedCostGbp;
     const totalSales = currentLiveBirds * avgWeightKg * (summary.crop.salePricePerKgAllIn || 0);
     
-    const activeMargin = (totalSales - feedCost - chickCost) / lengthCrop / floorArea;
+    const activeMargin = (totalSales - feedCost - chickCost) / lengthCropDays / floorArea;
 
-    return { age, fcr, epef, lengthCrop, downtime, activeMargin, chickCost, totalSales };
+    return { age, fcr, epef, lengthCrop, lengthCropDays, activeMargin, chickCost, totalSales };
   }, [summary, prevCropFinishDate]);
 
   // --- Functions ---
@@ -136,25 +143,38 @@ export default function TotalPage() {
   }
 
   async function loadActiveCrop(farmId: string) {
-    const r = await fetch(`/api/crops/active?farmId=${farmId}`);
-    const data = await r.json();
-    if (r.ok && data) {
-      setCropId(data.id);
-      setCropLabel(data.cropNumber);
-      setCurrentCropId(data.id);
-      await loadSummary(data.id);
-      setMsg("");
+    const [rActive, rHistory] = await Promise.all([
+      fetch(`/api/crops/active?farmId=${farmId}`),
+      fetch(`/api/crops/history?farmId=${farmId}`),
+    ]);
 
-      // Load previous crop's finish date for lengthCrop calculation
-      const hr = await fetch(`/api/crops/history?farmId=${farmId}`);
-      const history = await hr.json();
-      if (Array.isArray(history) && history.length > 0 && history[0].finishDate) {
-        setPrevCropFinishDate(history[0].finishDate);
-      } else {
-        setPrevCropFinishDate(null);
-      }
+    const active = rActive.ok ? await rActive.json() : null;
+    const history = rHistory.ok ? await rHistory.json() : [];
+    const historyList = Array.isArray(history) ? history : [];
+
+    if (active) {
+      // Active crop found
+      setCropId(active.id);
+      setCropLabel(active.cropNumber);
+      setCropSaved(false);
+      setCurrentCropId(active.id);
+      await loadSummary(active.id);
+      setMsg("");
+      // Previous crop = most recent finished crop
+      setPrevCropFinishDate(historyList[0]?.finishDate ?? null);
+    } else if (historyList.length > 0) {
+      // No active crop — show last saved crop
+      const last = historyList[0];
+      setCropId(last.id);
+      setCropLabel(last.cropNumber);
+      setCropSaved(true);
+      setCurrentCropId(last.id);
+      await loadSummary(last.id);
+      setMsg("");
+      // Previous crop = second in history
+      setPrevCropFinishDate(historyList[1]?.finishDate ?? null);
     } else {
-      setMsg("No active crop found.");
+      setMsg("No crop found.");
       setSummary(null);
     }
   }
@@ -256,7 +276,15 @@ export default function TotalPage() {
           <div className="page-intro__meta">
             <div className="page-intro__meta-card">
               <div className="page-intro__eyebrow">Context</div>
-              <div>Crop: {cropLabel} | Role: {myRole}</div>
+              <div>
+                Crop: {cropLabel}
+                {cropSaved && (
+                  <span style={{ marginLeft: 8, background: "#d1fae5", color: "#065f46", borderRadius: 6, padding: "2px 8px", fontSize: "0.8rem", fontWeight: 700 }}>
+                    CROP SAVED
+                  </span>
+                )}
+                {" "} | Role: {myRole}
+              </div>
             </div>
           </div>
         </div>
@@ -275,12 +303,7 @@ export default function TotalPage() {
                 </div>
                 <div className="mobile-kpi">
                   <div className="mobile-kpi__label">Length Crop</div>
-                  <div className="mobile-kpi__value">
-                    {metrics.lengthCrop} days
-                    <span style={{ fontSize: "0.7rem", color: "var(--text-soft)", marginLeft: 4 }}>
-                      (age + {metrics.downtime}d)
-                    </span>
-                  </div>
+                  <div className="mobile-kpi__value">{metrics.lengthCrop.toFixed(2)} weeks</div>
                 </div>
                 <div className="mobile-kpi">
                   <div className="mobile-kpi__label">FCR</div>
@@ -341,7 +364,7 @@ export default function TotalPage() {
                 </div>
                 <div className="mobile-record-row">
                   <strong>Length of Crop</strong>
-                  <span>{metrics.lengthCrop} days</span>
+                  <span>{metrics.lengthCrop.toFixed(2)} weeks</span>
                 </div>
                 <div className="mobile-record-row" style={{borderTop: '2px solid #eee', paddingTop: '8px', marginTop: '8px'}}>
                   <strong style={{fontSize: '1.1rem'}}>Active Margin/m²/Day</strong>
@@ -387,7 +410,15 @@ export default function TotalPage() {
             </div>
 
             {/* Form Section with Restore Button */}
-            <div className="mobile-card">
+            {cropSaved && (
+              <div className="mobile-card" style={{ background: "#d1fae5", border: "2px solid #6ee7b7" }}>
+                <h2 style={{ color: "#065f46", margin: 0 }}>Crop Saved</h2>
+                <p style={{ color: "#047857", margin: "8px 0 0" }}>
+                  This crop has been finalized and saved to history. Start a new crop to continue.
+                </p>
+              </div>
+            )}
+            {!cropSaved && <div className="mobile-card">
               <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                 <h2>Save Final Real Values</h2>
                 {canOperate && (
@@ -471,7 +502,7 @@ export default function TotalPage() {
                   Last saved: {new Date(summary.crop.updatedAt).toLocaleString()}
                 </p>
               )}
-            </div>
+            </div>}
           </>
         )}
       </div>
