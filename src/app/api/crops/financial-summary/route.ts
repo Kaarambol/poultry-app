@@ -139,15 +139,16 @@ export async function GET(req: Request) {
     const liveFCR: number | null =
       totalFCRWeightKg > 0 ? totalFeedUsedKg / totalFCRWeightKg : null;
 
-    // Age in days — use last clear date if all houses cleared, else today
+    // Age in days — always counts to TODAY (crop is ACTIVE until explicitly finished)
+    const ageDays = Math.max(
+      1,
+      Math.floor((Date.now() - new Date(crop.placementDate).getTime()) / (1000 * 60 * 60 * 24))
+    );
+
+    // Last clearance date — shown as info only, does NOT stop the age counter
     const clearDates = crop.placements
       .map(p => p.clearDate ? new Date(p.clearDate).getTime() : null)
       .filter((d): d is number => d !== null);
-    const cropEndMs = clearDates.length > 0 ? Math.max(...clearDates) : Date.now();
-    const ageDays = Math.max(
-      1,
-      Math.floor((cropEndMs - new Date(crop.placementDate).getTime()) / (1000 * 60 * 60 * 24))
-    );
     const cropEndDate = clearDates.length > 0
       ? new Date(Math.max(...clearDates)).toISOString().slice(0, 10)
       : null;
