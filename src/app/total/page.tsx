@@ -17,14 +17,17 @@ type FinancialSummary = {
     cropNumber: string;
     status: string;
     currency: string;
-    placementDate: string; // Needed for age/length crop
-    chickenPricePerKg: number | null; // Purchase price of chick
+    placementDate: string;
+    chickenPricePerKg: number | null;
     salePricePerKgAllIn: number | null;
     finalBirdsSold: number | null;
     finalAvgWeightKg: number | null;
     finalRevenueGbp: number | null;
     finalNotes: string | null;
-    updatedAt?: string; // Date of last save
+    saleWeightKg: number | null;
+    acceptWeightKg: number | null;
+    cropEndDate: string | null;
+    updatedAt?: string;
   };
   production: {
     birdsPlaced: number;
@@ -69,6 +72,11 @@ export default function TotalPage() {
   const [finalRevenueGbp, setFinalRevenueGbp] = useState("");
   const [finalNotes, setFinalNotes] = useState("");
 
+  const [saleWeightKg, setSaleWeightKg] = useState("");
+  const [acceptWeightKg, setAcceptWeightKg] = useState("");
+  const [saleDataMsg, setSaleDataMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [savingSaleData, setSavingSaleData] = useState(false);
+
   const [prevCropFinishDate, setPrevCropFinishDate] = useState<string | null>(null);
   const [showWeightQuestion, setShowWeightQuestion] = useState(false);
   const [showWeightInputs, setShowWeightInputs] = useState(false);
@@ -97,17 +105,11 @@ export default function TotalPage() {
       ? (survivalPct * avgWeightKg * 100) / (age * fcr)
       : 0;
 
-    // Length of crop in weeks = (today − previous crop finish date) / 7
-    // For first crop (no previous finish date): use (age + 10) / 7
-    let lengthCrop: number;
-    if (prevCropFinishDate) {
-      const prevEnd = new Date(prevCropFinishDate);
-      const now = Date.now();
-      const daysSincePrev = Math.max(1, Math.floor((now - prevEnd.getTime()) / (1000 * 60 * 60 * 24)));
-      lengthCrop = daysSincePrev / 7;
-    } else {
-      lengthCrop = (age + 10) / 7;
-    }
+    // Length of crop in days = crop duration + downtime between crops
+    // Crop duration = age (already uses cropEndDate from API if cleared, otherwise today)
+    // Downtime: 10 days for first crop (no previous history), 7 days for subsequent
+    const downtime = prevCropFinishDate ? 7 : 10;
+    const lengthCrop = age + downtime; // in days
 
     const floorArea = summary.production.totalFloorAreaM2 || 1;
     
@@ -117,7 +119,7 @@ export default function TotalPage() {
     
     const activeMargin = (totalSales - feedCost - chickCost) / lengthCrop / floorArea;
 
-    return { age, fcr, epef, lengthCrop, activeMargin, chickCost, totalSales };
+    return { age, fcr, epef, lengthCrop, downtime, activeMargin, chickCost, totalSales };
   }, [summary, prevCropFinishDate]);
 
   // --- Functions ---
@@ -161,14 +163,33 @@ export default function TotalPage() {
     }
   }
 
+  async function saveSaleData(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingSaleData(true);
+    setSaleDataMsg(null);
+    const r = await fetch("/api/crops/sale-data", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cropId,
+        saleWeightKg: saleWeightKg !== "" ? saleWeightKg : null,
+        acceptWeightKg: acceptWeightKg !== "" ? acceptWeightKg : null,
+      }),
+    });
+    setSavingSaleData(false);
+    setSaleDataMsg(r.ok ? { ok: true, text: "Saved." } : { ok: false, text: "Error saving." });
+    if (r.ok) loadSummary(cropId);
+  }
+
   async function loadSummary(selectedCropId: string) {
     const r = await fetch(`/api/crops/financial-summary?cropId=${selectedCropId}`);
     const data = await r.json();
     if (r.ok) {
       setSummary(data);
-      // Auto-fill fields if empty
       if (!finalBirdsSold) setFinalBirdsSold(data.crop.finalBirdsSold?.toString() || "");
       if (!finalAvgWeightKg) setFinalAvgWeightKg(data.crop.finalAvgWeightKg?.toString() || "");
+      if (!saleWeightKg) setSaleWeightKg(data.crop.saleWeightKg?.toString() || "");
+      if (!acceptWeightKg) setAcceptWeightKg(data.crop.acceptWeightKg?.toString() || "");
     }
   }
 
@@ -268,7 +289,7 @@ export default function TotalPage() {
 
         {summary && metrics && (
           <>
-            {/* New EPEF & Efficiency Card */}
+            {/* Efficiency Metrics */}
             <div className="mobile-card">
               <h2>Efficiency Metrics (EPEF)</h2>
               <div className="mobile-kpi-grid">
@@ -277,19 +298,74 @@ export default function TotalPage() {
                   <div className="mobile-kpi__value">{metrics.age} days</div>
                 </div>
                 <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">FCR (Conversion)</div>
-                  <div className="mobile-kpi__value">{metrics.fcr.toFixed(3)}</div>
+                  <div className="mobile-kpi__label">Length Crop</div>
+                  <div className="mobile-kpi__value">
+                    {metrics.lengthCrop} days
+                    <span style={{ fontSize: "0.7rem", color: "var(--text-soft)", marginLeft: 4 }}>
+                      (age + {metrics.downtime}d)
+                    </span>
+                  </div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">FCR</div>
+                  <div className="mobile-kpi__value">{metrics.fcr > 0 ? metrics.fcr.toFixed(3) : "—"}</div>
                 </div>
                 <div className="mobile-kpi">
                   <div className="mobile-kpi__label">EPEF Index</div>
                   <div className="mobile-kpi__value" style={{color: 'var(--primary)', fontWeight: 'bold'}}>
-                    {metrics.epef.toFixed(0)}
+                    {metrics.epef > 0 ? metrics.epef.toFixed(0) : "—"}
                   </div>
                 </div>
               </div>
+              {summary.crop.cropEndDate && (
+                <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--text-soft)" }}>
+                  Crop end (last clearance): {new Date(summary.crop.cropEndDate).toLocaleDateString("en-GB")}
+                </p>
+              )}
             </div>
 
-            {/* New Daily Margin Analysis Card */}
+            {/* Sale & Accept Weight */}
+            <div className="mobile-card">
+              <h2>Sale & Accept Weight</h2>
+              <form onSubmit={saveSaleData}>
+                <div className="mobile-grid mobile-grid--2">
+                  <div>
+                    <label>Sale Weight (kg)</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={saleWeightKg}
+                      onChange={e => setSaleWeightKg(e.target.value)}
+                      placeholder="e.g. 2.450"
+                      disabled={!canOperate}
+                    />
+                  </div>
+                  <div>
+                    <label>Accept Weight (kg)</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={acceptWeightKg}
+                      onChange={e => setAcceptWeightKg(e.target.value)}
+                      placeholder="e.g. 2.200"
+                      disabled={!canOperate}
+                    />
+                  </div>
+                </div>
+                {saleDataMsg && (
+                  <div className={`mobile-alert mobile-alert--${saleDataMsg.ok ? "success" : "error"}`} style={{ marginBottom: 8 }}>
+                    {saleDataMsg.text}
+                  </div>
+                )}
+                {canOperate && (
+                  <button className="mobile-button mobile-button--primary" type="submit" disabled={savingSaleData}>
+                    {savingSaleData ? "Saving..." : "Save"}
+                  </button>
+                )}
+              </form>
+            </div>
+
+            {/* Margin Analysis */}
             <div className="mobile-card">
               <h2>Active Daily Margin Analysis</h2>
               <div className="mobile-record-card__grid">
@@ -302,8 +378,8 @@ export default function TotalPage() {
                   <span>{metrics.totalSales.toFixed(2)} GBP</span>
                 </div>
                 <div className="mobile-record-row">
-                  <strong>Length of Crop (Calc)</strong>
-                  <span>{metrics.lengthCrop.toFixed(2)} weeks</span>
+                  <strong>Length of Crop</strong>
+                  <span>{metrics.lengthCrop} days</span>
                 </div>
                 <div className="mobile-record-row" style={{borderTop: '2px solid #eee', paddingTop: '8px', marginTop: '8px'}}>
                   <strong style={{fontSize: '1.1rem'}}>Active Margin/m²/Day</strong>

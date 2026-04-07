@@ -111,6 +111,10 @@ export async function GET(req: Request) {
       currentBirds: h.isCleared
         ? 0
         : Math.max(0, h.birdsPlaced - h.mort - h.culls - h.thinBirds - h.thin2Birds),
+      // For FCR: all surviving birds (live + already sold via thin)
+      birdsForFCR: h.isCleared
+        ? h.clearBirds   // cleared birds still count for FCR denominator
+        : Math.max(0, h.birdsPlaced - h.mort - h.culls),
     }));
 
     // Weighted avg weight: only houses with live birds AND a weight reading
@@ -126,17 +130,27 @@ export async function GET(req: Request) {
     // Current live birds on farm
     const currentLiveBirds = houseList.reduce((s, h) => s + h.currentBirds, 0);
 
-    // FCR = total feed used / total current live weight
-    const totalCurrentLiveWeightKg =
-      housesForWeight.reduce((s, h) => s + h.currentBirds * (h.lastAvgWeightG! / 1000), 0);
+    // FCR = total feed used / (all surviving birds incl. thin sold × avg weight)
+    // After thin: denominator includes thin birds + live birds (all weighed together)
+    const housesForFCR = houseList.filter((h) => h.birdsForFCR > 0 && h.lastAvgWeightG !== null);
+    const totalFCRWeightKg = housesForFCR.reduce(
+      (s, h) => s + h.birdsForFCR * (h.lastAvgWeightG! / 1000), 0
+    );
     const liveFCR: number | null =
-      totalCurrentLiveWeightKg > 0 ? totalFeedUsedKg / totalCurrentLiveWeightKg : null;
+      totalFCRWeightKg > 0 ? totalFeedUsedKg / totalFCRWeightKg : null;
 
-    // Age in days (same for all houses — placement date is crop-level)
+    // Age in days — use last clear date if all houses cleared, else today
+    const clearDates = crop.placements
+      .map(p => p.clearDate ? new Date(p.clearDate).getTime() : null)
+      .filter((d): d is number => d !== null);
+    const cropEndMs = clearDates.length > 0 ? Math.max(...clearDates) : Date.now();
     const ageDays = Math.max(
       1,
-      Math.floor((Date.now() - new Date(crop.placementDate).getTime()) / (1000 * 60 * 60 * 24))
+      Math.floor((cropEndMs - new Date(crop.placementDate).getTime()) / (1000 * 60 * 60 * 24))
     );
+    const cropEndDate = clearDates.length > 0
+      ? new Date(Math.max(...clearDates)).toISOString().slice(0, 10)
+      : null;
 
     const liveEstimatedRevenueGbp =
       liveAvgWeightKg !== null && crop.salePricePerKgAllIn !== null
@@ -173,6 +187,9 @@ export async function GET(req: Request) {
         finalAvgWeightKg: crop.finalAvgWeightKg,
         finalRevenueGbp: crop.finalRevenueGbp,
         finalNotes: crop.finalNotes,
+        saleWeightKg: crop.saleWeightKg,
+        acceptWeightKg: crop.acceptWeightKg,
+        cropEndDate,
       },
       production: {
         birdsPlaced,
