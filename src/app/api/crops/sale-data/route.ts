@@ -14,6 +14,13 @@ export async function PATCH(req: NextRequest) {
 
     if (!cropId) return NextResponse.json({ error: "cropId required." }, { status: 400 });
 
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "Crop" ADD COLUMN IF NOT EXISTS "saleWeightKg" DOUBLE PRECISION`
+    ).catch(() => {});
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "Crop" ADD COLUMN IF NOT EXISTS "acceptWeightKg" DOUBLE PRECISION`
+    ).catch(() => {});
+
     const crop = await prisma.crop.findUnique({ where: { id: cropId }, select: { farmId: true } });
     if (!crop) return NextResponse.json({ error: "Crop not found." }, { status: 404 });
 
