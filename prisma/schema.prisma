@@ -126,9 +126,6 @@ model Crop {
   finalRevenueGbp  Float?
   finalNotes       String?
 
-  saleWeightKg   Float?
-  acceptWeightKg Float?
-
   notes String?
 
   openingFeedStockKg  Float? @default(0)

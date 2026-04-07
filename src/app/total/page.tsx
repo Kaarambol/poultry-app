@@ -24,8 +24,6 @@ type FinancialSummary = {
     finalAvgWeightKg: number | null;
     finalRevenueGbp: number | null;
     finalNotes: string | null;
-    saleWeightKg: number | null;
-    acceptWeightKg: number | null;
     cropEndDate: string | null;
     updatedAt?: string;
   };
@@ -74,8 +72,6 @@ export default function TotalPage() {
 
   const [saleWeightKg, setSaleWeightKg] = useState("");
   const [acceptWeightKg, setAcceptWeightKg] = useState("");
-  const [saleDataMsg, setSaleDataMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [savingSaleData, setSavingSaleData] = useState(false);
 
   const [prevCropFinishDate, setPrevCropFinishDate] = useState<string | null>(null);
   const [showWeightQuestion, setShowWeightQuestion] = useState(false);
@@ -163,24 +159,6 @@ export default function TotalPage() {
     }
   }
 
-  async function saveSaleData(e: React.FormEvent) {
-    e.preventDefault();
-    setSavingSaleData(true);
-    setSaleDataMsg(null);
-    const r = await fetch("/api/crops/sale-data", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cropId,
-        saleWeightKg: saleWeightKg !== "" ? saleWeightKg : null,
-        acceptWeightKg: acceptWeightKg !== "" ? acceptWeightKg : null,
-      }),
-    });
-    setSavingSaleData(false);
-    setSaleDataMsg(r.ok ? { ok: true, text: "Saved." } : { ok: false, text: "Error saving." });
-    if (r.ok) loadSummary(cropId);
-  }
-
   async function loadSummary(selectedCropId: string) {
     const r = await fetch(`/api/crops/financial-summary?cropId=${selectedCropId}`);
     const data = await r.json();
@@ -188,8 +166,6 @@ export default function TotalPage() {
       setSummary(data);
       if (!finalBirdsSold) setFinalBirdsSold(data.crop.finalBirdsSold?.toString() || "");
       if (!finalAvgWeightKg) setFinalAvgWeightKg(data.crop.finalAvgWeightKg?.toString() || "");
-      if (!saleWeightKg) setSaleWeightKg(data.crop.saleWeightKg?.toString() || "");
-      if (!acceptWeightKg) setAcceptWeightKg(data.crop.acceptWeightKg?.toString() || "");
     }
   }
 
@@ -327,42 +303,28 @@ export default function TotalPage() {
             {/* Sale & Accept Weight */}
             <div className="mobile-card">
               <h2>Sale & Accept Weight</h2>
-              <form onSubmit={saveSaleData}>
-                <div className="mobile-grid mobile-grid--2">
-                  <div>
-                    <label>Sale Weight (kg)</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={saleWeightKg}
-                      onChange={e => setSaleWeightKg(e.target.value)}
-                      placeholder="e.g. 2.450"
-                      disabled={!canOperate}
-                    />
-                  </div>
-                  <div>
-                    <label>Accept Weight (kg)</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={acceptWeightKg}
-                      onChange={e => setAcceptWeightKg(e.target.value)}
-                      placeholder="e.g. 2.200"
-                      disabled={!canOperate}
-                    />
-                  </div>
+              <div className="mobile-grid mobile-grid--2">
+                <div>
+                  <label>Sale Weight (kg)</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={saleWeightKg}
+                    onChange={e => setSaleWeightKg(e.target.value)}
+                    placeholder="e.g. 2.450"
+                  />
                 </div>
-                {saleDataMsg && (
-                  <div className={`mobile-alert mobile-alert--${saleDataMsg.ok ? "success" : "error"}`} style={{ marginBottom: 8 }}>
-                    {saleDataMsg.text}
-                  </div>
-                )}
-                {canOperate && (
-                  <button className="mobile-button mobile-button--primary" type="submit" disabled={savingSaleData}>
-                    {savingSaleData ? "Saving..." : "Save"}
-                  </button>
-                )}
-              </form>
+                <div>
+                  <label>Accept Weight (kg)</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={acceptWeightKg}
+                    onChange={e => setAcceptWeightKg(e.target.value)}
+                    placeholder="e.g. 2.200"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Margin Analysis */}

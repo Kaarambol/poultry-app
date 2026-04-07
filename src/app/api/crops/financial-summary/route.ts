@@ -13,14 +13,6 @@ export async function GET(req: Request) {
       );
     }
 
-    // Safe migration: add new columns if they don't exist yet in production DB
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "Crop" ADD COLUMN IF NOT EXISTS "saleWeightKg" DOUBLE PRECISION`
-    ).catch(() => {});
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "Crop" ADD COLUMN IF NOT EXISTS "acceptWeightKg" DOUBLE PRECISION`
-    ).catch(() => {});
-
     const crop = await prisma.crop.findUnique({
       where: { id: cropId },
       include: {
@@ -196,8 +188,6 @@ export async function GET(req: Request) {
         finalAvgWeightKg: crop.finalAvgWeightKg,
         finalRevenueGbp: crop.finalRevenueGbp,
         finalNotes: crop.finalNotes,
-        saleWeightKg: crop.saleWeightKg,
-        acceptWeightKg: crop.acceptWeightKg,
         cropEndDate,
       },
       production: {
