@@ -55,6 +55,16 @@ type FinancialSummary = {
     finalRevenueGbp: number | null;
     finalMarginGbp: number | null;
   };
+  n1: {
+    ageDays: number;
+    totalFeedConsumedKg: number;
+    consumedFeedCostGbp: number;
+    theoreticalRevenue: number | null;
+    chickCost: number;
+    grossMarginGbp: number | null;
+    fcr: number | null;
+    epef: number | null;
+  };
 };
 
 export default function TotalPage() {
@@ -87,23 +97,9 @@ export default function TotalPage() {
   const metrics = useMemo(() => {
     if (!summary) return null;
 
-    const birdsPlaced   = summary.production.birdsPlaced;
-    const currentLiveBirds = summary.production.currentLiveBirds;
-    const avgWeightKg   = summary.production.lastAvgWeightKg ?? 0;
-    const fcr           = summary.production.liveFCR ?? 0;
-    const age           = summary.production.ageDays;
+    const age = summary.production.ageDays;
 
-    // EPEF (European Production Efficiency Factor)
-    // uses current live birds (after thinning) and pre-computed FCR
-    const survivalPct = birdsPlaced > 0 ? (currentLiveBirds / birdsPlaced) * 100 : 0;
-    const epef = (age > 0 && fcr > 0 && avgWeightKg > 0)
-      ? (survivalPct * avgWeightKg * 100) / (age * fcr)
-      : 0;
-
-    // Length of crop in weeks:
-    // - First crop (no prev finish date): (age + 10 days) / 7
-    // - Subsequent crops: (capped now − prev crop's last clear date) / 7
-    // Both use the same capped endpoint as current age (stops at last clear date)
+    // Length of crop in weeks (capped at cropEndDate, same as ageDays)
     const cropEndMs = summary.crop.cropEndDate
       ? Math.min(Date.now(), new Date(summary.crop.cropEndDate).getTime() + 24 * 60 * 60 * 1000)
       : Date.now();
@@ -114,17 +110,19 @@ export default function TotalPage() {
     } else {
       lengthCropDays = age + 10;
     }
-    const lengthCrop = lengthCropDays / 7; // in weeks
+    const lengthCrop = lengthCropDays / 7;
+
+    // N-1 metrics — all calculated on yesterday's data
+    const n1 = summary.n1;
+    const fcr  = n1.fcr;
+    const epef = n1.epef;
 
     const floorArea = summary.production.totalFloorAreaM2 || 1;
-    
-    const chickCost  = birdsPlaced * (summary.crop.chickenPricePerKg || 0);
-    const feedCost   = summary.feed.totalFeedCostGbp;
-    const totalSales = currentLiveBirds * avgWeightKg * (summary.crop.salePricePerKgAllIn || 0);
-    
-    const activeMargin = (totalSales - feedCost - chickCost) / lengthCropDays / floorArea;
+    const margin = n1.grossMarginGbp !== null && lengthCropDays > 0 && floorArea > 0
+      ? n1.grossMarginGbp / lengthCropDays / floorArea
+      : null;
 
-    return { age, fcr, epef, lengthCrop, lengthCropDays, activeMargin, chickCost, totalSales };
+    return { age, fcr, epef, lengthCrop, lengthCropDays, margin };
   }, [summary, prevCropFinishDate]);
 
   // --- Functions ---
@@ -300,7 +298,7 @@ export default function TotalPage() {
           <>
             {/* Efficiency Metrics */}
             <div className="mobile-card">
-              <h2>Efficiency Metrics (EPEF)</h2>
+              <h2>Efficiency Metrics</h2>
               <div className="mobile-kpi-grid">
                 <div className="mobile-kpi">
                   <div className="mobile-kpi__label">Current Age</div>
@@ -312,20 +310,29 @@ export default function TotalPage() {
                 </div>
                 <div className="mobile-kpi">
                   <div className="mobile-kpi__label">FCR</div>
-                  <div className="mobile-kpi__value">{metrics.fcr > 0 ? metrics.fcr.toFixed(3) : "—"}</div>
+                  <div className="mobile-kpi__value">
+                    {metrics.fcr != null && metrics.fcr > 0 ? metrics.fcr.toFixed(3) : "—"}
+                  </div>
                 </div>
                 <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">EPEF Index</div>
-                  <div className="mobile-kpi__value" style={{color: 'var(--primary)', fontWeight: 'bold'}}>
-                    {metrics.epef > 0 ? metrics.epef.toFixed(0) : "—"}
+                  <div className="mobile-kpi__label">EPEF</div>
+                  <div className="mobile-kpi__value" style={{ color: "var(--primary)", fontWeight: "bold" }}>
+                    {metrics.epef != null && metrics.epef > 0 ? metrics.epef.toFixed(0) : "—"}
+                  </div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Margin / m² / day</div>
+                  <div className="mobile-kpi__value" style={{ color: metrics.margin != null && metrics.margin >= 0 ? "var(--primary)" : "#e53e3e", fontWeight: "bold" }}>
+                    {metrics.margin != null ? metrics.margin.toFixed(4) : "—"}
                   </div>
                 </div>
               </div>
-              {summary.crop.cropEndDate && (
-                <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--text-soft)" }}>
-                  Crop end (last clearance): {new Date(summary.crop.cropEndDate).toLocaleDateString("en-GB")}
-                </p>
-              )}
+              <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--text-soft)" }}>
+                FCR, EPEF and Margin calculated on day N-1 data
+                {summary.crop.cropEndDate && (
+                  <> · Crop end: {new Date(summary.crop.cropEndDate).toLocaleDateString("en-GB")}</>
+                )}
+              </p>
             </div>
 
             {/* Sale & Accept Weight */}
@@ -351,31 +358,6 @@ export default function TotalPage() {
                     onChange={e => setAcceptWeightKg(e.target.value)}
                     placeholder="e.g. 2.200"
                   />
-                </div>
-              </div>
-            </div>
-
-            {/* Margin Analysis */}
-            <div className="mobile-card">
-              <h2>Active Daily Margin Analysis</h2>
-              <div className="mobile-record-card__grid">
-                <div className="mobile-record-row">
-                  <strong>Total Chick Cost</strong>
-                  <span>{metrics.chickCost.toFixed(2)} GBP</span>
-                </div>
-                <div className="mobile-record-row">
-                  <strong>Current Live Sales Value</strong>
-                  <span>{metrics.totalSales.toFixed(2)} GBP</span>
-                </div>
-                <div className="mobile-record-row">
-                  <strong>Length of Crop</strong>
-                  <span>{metrics.lengthCrop.toFixed(2)} weeks</span>
-                </div>
-                <div className="mobile-record-row" style={{borderTop: '2px solid #eee', paddingTop: '8px', marginTop: '8px'}}>
-                  <strong style={{fontSize: '1.1rem'}}>Active Margin/m²/Day</strong>
-                  <span style={{fontSize: '1.1rem', color: 'var(--primary)'}}>
-                    {metrics.activeMargin.toFixed(4)} GBP
-                  </span>
                 </div>
               </div>
             </div>
