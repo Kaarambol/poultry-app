@@ -71,7 +71,13 @@ export async function GET(req: Request) {
 
     const totalFeedKg = crop.feedRecords.reduce((sum, r) => sum + r.feedKg, 0);
     const totalWheatKg = crop.feedRecords.reduce((sum, r) => sum + r.wheatKg, 0);
-    const totalDeliveredKg = totalFeedKg + totalWheatKg;
+    const openingStockKg = (crop.openingFeedStockKg ?? 0) + (crop.openingWheatStockKg ?? 0);
+    const closingStockKg = (crop.closingFeedStockKg ?? 0) + (crop.closingWheatStockKg ?? 0);
+    const deliveredFromTicketsKg = totalFeedKg + totalWheatKg;
+    // Delivered = opening stock + all ticket deliveries
+    const totalDeliveredKg = openingStockKg + deliveredFromTicketsKg;
+    // Consumed = opening + delivered from tickets - closing stock
+    const totalConsumedKg = Math.max(0, totalDeliveredKg - closingStockKg);
 
     const totalFeedCostGbp = crop.feedRecords.reduce((sum, r) => {
       const feedCost = r.feedPricePerTonneGbp
@@ -501,7 +507,11 @@ export async function GET(req: Request) {
       feed: {
         totalFeedKg,
         totalWheatKg,
+        openingStockKg,
+        closingStockKg,
+        deliveredFromTicketsKg,
         totalDeliveredKg,
+        totalConsumedKg,
         totalFeedCostGbp,
         totalFeedUsedKg,
       },

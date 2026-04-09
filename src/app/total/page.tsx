@@ -45,7 +45,11 @@ type FinancialSummary = {
   feed: {
     totalFeedKg: number;
     totalWheatKg: number;
+    openingStockKg: number;
+    closingStockKg: number;
+    deliveredFromTicketsKg: number;
     totalDeliveredKg: number;
+    totalConsumedKg: number;
     totalFeedCostGbp: number;
     totalFeedUsedKg: number;
   };
@@ -388,16 +392,28 @@ export default function TotalPage() {
                   <div className="mobile-kpi__value">{summary.production.mortalityPct.toFixed(2)}%</div>
                 </div>
                 <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Feed cost GBP</div>
-                  <div className="mobile-kpi__value">{summary.feed.totalFeedCostGbp.toFixed(2)}</div>
+                  <div className="mobile-kpi__label">Opening stock kg</div>
+                  <div className="mobile-kpi__value">{summary.feed.openingStockKg.toFixed(0)}</div>
                 </div>
                 <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Delivered kg</div>
+                  <div className="mobile-kpi__label">Delivered kg (tickets)</div>
+                  <div className="mobile-kpi__value">{summary.feed.deliveredFromTicketsKg.toFixed(0)}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Total delivered kg</div>
                   <div className="mobile-kpi__value">{summary.feed.totalDeliveredKg.toFixed(0)}</div>
                 </div>
                 <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Consumed kg (N-1)</div>
-                  <div className="mobile-kpi__value">{summary.n1.totalFeedConsumedKg.toFixed(0)}</div>
+                  <div className="mobile-kpi__label">Closing stock kg</div>
+                  <div className="mobile-kpi__value">{summary.feed.closingStockKg.toFixed(0)}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Consumed kg</div>
+                  <div className="mobile-kpi__value" style={{ fontWeight: 700 }}>{summary.feed.totalConsumedKg.toFixed(0)}</div>
+                </div>
+                <div className="mobile-kpi">
+                  <div className="mobile-kpi__label">Feed cost GBP</div>
+                  <div className="mobile-kpi__value">{summary.feed.totalFeedCostGbp.toFixed(2)}</div>
                 </div>
               </div>
             </div>
