@@ -222,10 +222,10 @@ export async function GET(req: Request) {
     const acceptWeightKg = crop.acceptWeightKg ?? null;
     const finalBirdsSoldN = crop.finalBirdsSold ?? null;
 
-    // Final FCR: totalConsumedKg / (finalBirdsSold × saleWeightKg)
+    // Final FCR: totalFeedUsedKg (daily records) / (finalBirdsSold × saleWeightKg)
     const finalFCR: number | null =
-      finalBirdsSoldN && saleWeightKg && totalConsumedKg > 0
-        ? totalConsumedKg / (finalBirdsSoldN * saleWeightKg)
+      finalBirdsSoldN && saleWeightKg && totalFeedUsedKg > 0
+        ? totalFeedUsedKg / (finalBirdsSoldN * saleWeightKg)
         : null;
 
     // Final EPEF: (survivalPct × saleWeightKg × 100) / (avgAge × finalFCR)
@@ -247,6 +247,12 @@ export async function GET(req: Request) {
     const finalGrossMarginGbp: number | null =
       finalRevenue !== null
         ? finalRevenue - totalFeedCostGbp - finalChickCost
+        : null;
+
+    // Margin in pence per m² per day — requires floor areas set on houses
+    const finalMarginPencePerM2Day: number | null =
+      finalGrossMarginGbp !== null && totalFloorAreaM2 > 0 && ageDays > 0
+        ? (finalGrossMarginGbp * 100) / totalFloorAreaM2 / ageDays
         : null;
 
     return NextResponse.json({
@@ -296,6 +302,7 @@ export async function GET(req: Request) {
         fcr: finalFCR,
         epef: finalEPEF,
         grossMarginGbp: finalGrossMarginGbp,
+        marginPencePerM2Day: finalMarginPencePerM2Day,
         revenue: finalRevenue,
         chickCost: finalChickCost,
       },

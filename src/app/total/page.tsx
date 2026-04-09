@@ -58,6 +58,7 @@ type FinancialSummary = {
     fcr: number | null;
     epef: number | null;
     grossMarginGbp: number | null;
+    marginPencePerM2Day: number | null;
     revenue: number | null;
     chickCost: number;
   };
@@ -111,16 +112,15 @@ export default function TotalPage() {
     }
     const lengthCrop = lengthCropDays / 7;
 
-    const floorArea = summary.production.totalFloorAreaM2 || 1;
+    const floorArea = summary.production.totalFloorAreaM2 || 0;
 
     // Final metrics (from factory report)
     const fin = summary.final;
-    const finalMargin = fin.grossMarginGbp !== null && lengthCropDays > 0 && floorArea > 0
-      ? fin.grossMarginGbp / lengthCropDays / floorArea
-      : null;
 
     return { age, lengthCrop, lengthCropDays, floorArea,
-      finalFcr: fin.fcr, finalEpef: fin.epef, finalMargin,
+      finalFcr: fin.fcr, finalEpef: fin.epef,
+      finalMargin: fin.marginPencePerM2Day,
+      finalGrossMargin: fin.grossMarginGbp,
       finalAvgAge: fin.avgAge,
     };
   }, [summary, prevCropFinishDate]);
@@ -343,15 +343,21 @@ export default function TotalPage() {
                   </div>
                 </div>
                 <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Margin/m²/day</div>
+                  <div className="mobile-kpi__label">Margin p/m²/day</div>
                   <div className="mobile-kpi__value" style={{
                     color: metrics.finalMargin != null && metrics.finalMargin >= 0
                       ? "var(--primary)" : "#e53e3e",
                     fontWeight: "bold"
                   }}>
-                    {metrics.finalMargin != null ? metrics.finalMargin.toFixed(4) : "—"}
+                    {metrics.finalMargin != null ? metrics.finalMargin.toFixed(2) : "—"}
                   </div>
                 </div>
+                {metrics.finalGrossMargin != null && (
+                  <div className="mobile-kpi">
+                    <div className="mobile-kpi__label">Gross Margin £</div>
+                    <div className="mobile-kpi__value">{metrics.finalGrossMargin.toFixed(2)}</div>
+                  </div>
+                )}
                 {metrics.finalAvgAge != null && (
                   <div className="mobile-kpi">
                     <div className="mobile-kpi__label">Avg Age (weighted)</div>
@@ -360,7 +366,10 @@ export default function TotalPage() {
                 )}
               </div>
               <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--text-soft)" }}>
-                Values calculated from factory report data · "—" means data not yet entered
+                Values from factory report · "—" = data not entered
+                {summary.production.totalFloorAreaM2 === 0 && (
+                  <span style={{ color: "#b45309" }}> · Set house floor areas in Farm Setup to calculate Margin</span>
+                )}
                 {summary.crop.cropEndDate && (
                   <> · Crop end: {new Date(summary.crop.cropEndDate).toLocaleDateString("en-GB")}</>
                 )}
