@@ -72,6 +72,9 @@ export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
+  const [houseWeightInputs, setHouseWeightInputs] = useState<Record<string, string>>({});
+  const [weightSaving, setWeightSaving] = useState(false);
+  const [weightMsg, setWeightMsg] = useState("");
 
   async function loadFarmName(farmId: string) {
     const r = await fetch("/api/farms/list");
@@ -120,6 +123,23 @@ export default function DashboardPage() {
     }
 
     setDashboard(dashboardData);
+  }
+
+  async function saveHouseWeights() {
+    if (!activeCrop) return;
+    const weights = Object.entries(houseWeightInputs)
+      .map(([houseId, val]) => ({ houseId, avgWeightG: parseFloat(val) }))
+      .filter(w => w.avgWeightG > 0 && Number.isFinite(w.avgWeightG));
+    if (weights.length === 0) return;
+    setWeightSaving(true);
+    setWeightMsg("");
+    const r = await fetch("/api/crops/final-weights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cropId: activeCrop.id, weights }),
+    });
+    setWeightSaving(false);
+    setWeightMsg(r.ok ? "Weights saved." : "Error saving weights.");
   }
 
   useEffect(() => {
@@ -305,6 +325,20 @@ export default function DashboardPage() {
 
                     <div className="mobile-record-card__grid">
                       <div className="mobile-record-row">
+                        <strong>Live weight (g)</strong>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder="g"
+                            value={houseWeightInputs[house.houseId] ?? ""}
+                            onChange={e => setHouseWeightInputs(prev => ({ ...prev, [house.houseId]: e.target.value }))}
+                            style={{ width: 90, padding: "4px 8px", border: "1px solid #ccc", borderRadius: 6, fontSize: "0.9rem" }}
+                          />
+                        </span>
+                      </div>
+                      <div className="mobile-record-row">
                         <strong>Birds placed</strong>
                         <span>{formatNumber(house.birdsPlaced)}</span>
                       </div>
@@ -411,6 +445,29 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Save all live weights */}
+            {dashboard.houses.length > 0 && (
+              <div className="mobile-card" style={{ marginTop: 8 }}>
+                <h2>Save Live Weights</h2>
+                <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Enter live weight (g) per house above, then save all at once.
+                </p>
+                {weightMsg && (
+                  <div className={`mobile-alert mobile-alert--${weightMsg.includes("Error") ? "error" : "success"}`} style={{ marginBottom: 8 }}>
+                    {weightMsg}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="mobile-full-button"
+                  onClick={saveHouseWeights}
+                  disabled={weightSaving}
+                >
+                  {weightSaving ? "Saving..." : "Save all live weights"}
+                </button>
               </div>
             )}
           </>
