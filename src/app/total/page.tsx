@@ -53,14 +53,6 @@ type FinancialSummary = {
     totalFeedCostGbp: number;
     totalFeedUsedKg: number;
   };
-  liveEstimate: {
-    estimatedRevenueGbp: number | null;
-    estimatedMarginGbp: number | null;
-  };
-  finalReal: {
-    finalRevenueGbp: number | null;
-    finalMarginGbp: number | null;
-  };
   final: {
     avgAge: number | null;
     fcr: number | null;
@@ -68,16 +60,6 @@ type FinancialSummary = {
     grossMarginGbp: number | null;
     revenue: number | null;
     chickCost: number;
-  };
-  n1: {
-    ageDays: number;
-    totalFeedConsumedKg: number;
-    consumedFeedCostGbp: number;
-    theoreticalRevenue: number | null;
-    chickCost: number;
-    grossMarginGbp: number | null;
-    fcr: number | null;
-    epef: number | null;
   };
 };
 
@@ -128,12 +110,6 @@ export default function TotalPage() {
 
     const floorArea = summary.production.totalFloorAreaM2 || 1;
 
-    // N-1 metrics (live estimates)
-    const n1 = summary.n1;
-    const n1Margin = n1.grossMarginGbp !== null && lengthCropDays > 0 && floorArea > 0
-      ? n1.grossMarginGbp / lengthCropDays / floorArea
-      : null;
-
     // Final metrics (from factory report)
     const fin = summary.final;
     const finalMargin = fin.grossMarginGbp !== null && lengthCropDays > 0 && floorArea > 0
@@ -141,7 +117,6 @@ export default function TotalPage() {
       : null;
 
     return { age, lengthCrop, lengthCropDays, floorArea,
-      n1Fcr: n1.fcr, n1Epef: n1.epef, n1Margin,
       finalFcr: fin.fcr, finalEpef: fin.epef, finalMargin,
       finalAvgAge: fin.avgAge,
     };
@@ -247,6 +222,20 @@ export default function TotalPage() {
 
   async function saveFinalReal(e: React.FormEvent) {
     e.preventDefault();
+    // First save house weights if any entered
+    const weights = cropHouses
+      .map(h => ({ houseId: h.houseId, avgWeightG: parseFloat(houseWeightInputs[h.houseId] || "0") }))
+      .filter(w => w.avgWeightG > 0);
+    if (weights.length > 0) {
+      setWeightSaving(true);
+      await fetch("/api/crops/final-weights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cropId, weights }),
+      });
+      setWeightSaving(false);
+    }
+    // Then save factory report data
     const r = await fetch("/api/crops/finalize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -333,31 +322,25 @@ export default function TotalPage() {
                   <div className="mobile-kpi__value">{metrics.lengthCrop.toFixed(2)} weeks</div>
                 </div>
                 <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">FCR {metrics.finalFcr ? "(Final)" : "(Live N-1)"}</div>
+                  <div className="mobile-kpi__label">FCR</div>
                   <div className="mobile-kpi__value">
-                    {(metrics.finalFcr ?? metrics.n1Fcr) != null
-                      ? (metrics.finalFcr ?? metrics.n1Fcr)!.toFixed(3)
-                      : "—"}
+                    {metrics.finalFcr != null ? metrics.finalFcr.toFixed(3) : "—"}
                   </div>
                 </div>
                 <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">EPEF {metrics.finalEpef ? "(Final)" : "(Live N-1)"}</div>
+                  <div className="mobile-kpi__label">EPEF</div>
                   <div className="mobile-kpi__value" style={{ color: "var(--primary)", fontWeight: "bold" }}>
-                    {(metrics.finalEpef ?? metrics.n1Epef) != null
-                      ? (metrics.finalEpef ?? metrics.n1Epef)!.toFixed(0)
-                      : "—"}
+                    {metrics.finalEpef != null ? metrics.finalEpef.toFixed(0) : "—"}
                   </div>
                 </div>
                 <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Margin/m²/day {metrics.finalMargin != null ? "(Final)" : "(Live N-1)"}</div>
+                  <div className="mobile-kpi__label">Margin/m²/day</div>
                   <div className="mobile-kpi__value" style={{
-                    color: (metrics.finalMargin ?? metrics.n1Margin) != null && (metrics.finalMargin ?? metrics.n1Margin)! >= 0
+                    color: metrics.finalMargin != null && metrics.finalMargin >= 0
                       ? "var(--primary)" : "#e53e3e",
                     fontWeight: "bold"
                   }}>
-                    {(metrics.finalMargin ?? metrics.n1Margin) != null
-                      ? (metrics.finalMargin ?? metrics.n1Margin)!.toFixed(4)
-                      : "—"}
+                    {metrics.finalMargin != null ? metrics.finalMargin.toFixed(4) : "—"}
                   </div>
                 </div>
                 {metrics.finalAvgAge != null && (
@@ -368,7 +351,7 @@ export default function TotalPage() {
                 )}
               </div>
               <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "var(--text-soft)" }}>
-                Final values use factory report data · Live values use day N-1 data
+                Values calculated from factory report data · "—" means data not yet entered
                 {summary.crop.cropEndDate && (
                   <> · Crop end: {new Date(summary.crop.cropEndDate).toLocaleDateString("en-GB")}</>
                 )}
@@ -423,9 +406,31 @@ export default function TotalPage() {
               <h2>Factory Report</h2>
               <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "var(--text-soft)" }}>
                 Enter data from the factory report to calculate final FCR, EPEF and Margin.
-                Live weight per house is entered in the Dashboard table.
               </p>
               <form onSubmit={saveFinalReal}>
+                {/* Live weight per house */}
+                {cropHouses.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontWeight: 600, display: "block", marginBottom: 8 }}>
+                      Live Weight per House (g)
+                    </label>
+                    <div className="mobile-grid mobile-grid--2">
+                      {cropHouses.map(h => (
+                        <div key={h.houseId}>
+                          <label>{h.houseName}</label>
+                          <input
+                            type="number"
+                            step="1"
+                            placeholder="e.g. 2500"
+                            value={houseWeightInputs[h.houseId] ?? ""}
+                            onChange={e => setHouseWeightInputs(prev => ({ ...prev, [h.houseId]: e.target.value }))}
+                            disabled={!canOperate}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="mobile-grid mobile-grid--2">
                   <div>
                     <label>Sale Weight (kg) — for EPEF & FCR</label>
@@ -448,7 +453,9 @@ export default function TotalPage() {
                 <textarea value={finalNotes} onChange={e => setFinalNotes(e.target.value)} disabled={!canOperate} />
                 {canOperate && (
                   <div className="mobile-sticky-actions">
-                    <button className="mobile-full-button" type="submit">Save & Update FCR / EPEF / Margin</button>
+                    <button className="mobile-full-button" type="submit" disabled={weightSaving}>
+                      {weightSaving ? "Saving..." : "Save & Update FCR / EPEF / Margin"}
+                    </button>
                   </div>
                 )}
               </form>
