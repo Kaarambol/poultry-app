@@ -102,11 +102,15 @@ export default function TotalPage() {
 
     // Length of crop in weeks:
     // - First crop (no prev finish date): (age + 10 days) / 7
-    // - Subsequent crops: (today − prev crop's last clear date) / 7
+    // - Subsequent crops: (capped now − prev crop's last clear date) / 7
+    // Both use the same capped endpoint as current age (stops at last clear date)
+    const cropEndMs = summary.crop.cropEndDate
+      ? Math.min(Date.now(), new Date(summary.crop.cropEndDate).getTime() + 24 * 60 * 60 * 1000)
+      : Date.now();
     let lengthCropDays: number;
     if (prevCropFinishDate) {
       const prevEnd = new Date(prevCropFinishDate).getTime();
-      lengthCropDays = Math.max(1, Math.floor((Date.now() - prevEnd) / (1000 * 60 * 60 * 24)));
+      lengthCropDays = Math.max(1, Math.floor((cropEndMs - prevEnd) / (1000 * 60 * 60 * 24)));
     } else {
       lengthCropDays = age + 10;
     }
