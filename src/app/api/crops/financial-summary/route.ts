@@ -32,6 +32,7 @@ export async function GET(req: Request) {
           select: {
             feedPrice1: true, feedPrice2: true, feedPrice3: true,
             feedPrice4: true, feedPrice5: true, wheatPrice: true,
+            chickenPrice: true,
           },
         },
         placements: {
@@ -387,6 +388,69 @@ export async function GET(req: Request) {
         ? n1TheoreticalRevenue - consumedFeedCostN1 - n1ChickCost
         : null;
 
+    // =========================================================
+    // AVERAGE AGE — weighted average of all birds at sale date
+    // Formula: Σ(birds × ageAtSaleEvent) / Σ(birds)
+    // Same as XLS Total sheet K5:O13 weighted calc
+    // =========================================================
+    const placementMs = new Date(crop.placementDate).getTime();
+    let avgAgeWeightedSum = 0;
+    let avgAgeTotalBirds = 0;
+
+    for (const p of crop.placements) {
+      if (p.thinBirds && p.thinBirds > 0 && p.thinDate) {
+        const thinAge = Math.round((new Date(p.thinDate).getTime() - placementMs) / MSDAY);
+        avgAgeWeightedSum += p.thinBirds * thinAge;
+        avgAgeTotalBirds  += p.thinBirds;
+      }
+      if (p.thin2Birds && p.thin2Birds > 0 && p.thin2Date) {
+        const thin2Age = Math.round((new Date(p.thin2Date).getTime() - placementMs) / MSDAY);
+        avgAgeWeightedSum += p.thin2Birds * thin2Age;
+        avgAgeTotalBirds  += p.thin2Birds;
+      }
+      if (p.clearBirds && p.clearBirds > 0 && p.clearDate) {
+        const clearAge = Math.round((new Date(p.clearDate).getTime() - placementMs) / MSDAY);
+        avgAgeWeightedSum += p.clearBirds * clearAge;
+        avgAgeTotalBirds  += p.clearBirds;
+      }
+    }
+    const avgAge: number | null = avgAgeTotalBirds > 0 ? avgAgeWeightedSum / avgAgeTotalBirds : null;
+
+    // =========================================================
+    // FINAL metrics — calculated from factory report data
+    // Available once saleWeightKg / acceptWeightKg are entered
+    // =========================================================
+    const saleWeightKg   = crop.saleWeightKg   ?? null;
+    const acceptWeightKg = crop.acceptWeightKg ?? null;
+    const finalBirdsSoldN = crop.finalBirdsSold ?? null;
+
+    // Final FCR: totalFeedUsed / (finalBirdsSold × saleWeightKg)
+    const finalFCR: number | null =
+      finalBirdsSoldN && saleWeightKg && totalFeedUsedKg > 0
+        ? totalFeedUsedKg / (finalBirdsSoldN * saleWeightKg)
+        : null;
+
+    // Final EPEF: (survivalPct × saleWeightKg × 100) / (avgAge × finalFCR)
+    const finalSurvivalPct =
+      finalBirdsSoldN && birdsPlaced > 0
+        ? (finalBirdsSoldN / birdsPlaced) * 100
+        : null;
+    const finalEPEF: number | null =
+      finalSurvivalPct && saleWeightKg && avgAge && finalFCR && finalFCR > 0
+        ? (finalSurvivalPct * saleWeightKg * 100) / (avgAge * finalFCR)
+        : null;
+
+    // Final gross margin: uses acceptWeightKg for revenue
+    const finalRevenue: number | null =
+      finalBirdsSoldN && acceptWeightKg && crop.salePricePerKgAllIn
+        ? finalBirdsSoldN * acceptWeightKg * crop.salePricePerKgAllIn
+        : null;
+    const finalChickCost = birdsPlaced * (crop.chickenPricePerKg ?? 0);
+    const finalGrossMarginGbp: number | null =
+      finalRevenue !== null
+        ? finalRevenue - totalFeedCostGbp - finalChickCost
+        : null;
+
     return NextResponse.json({
       crop: {
         id: crop.id,
@@ -400,6 +464,8 @@ export async function GET(req: Request) {
         finalAvgWeightKg: crop.finalAvgWeightKg,
         finalRevenueGbp: crop.finalRevenueGbp,
         finalNotes: crop.finalNotes,
+        saleWeightKg: crop.saleWeightKg,
+        acceptWeightKg: crop.acceptWeightKg,
         cropEndDate,
         updatedAt: crop.finishDate,
       },
@@ -440,6 +506,14 @@ export async function GET(req: Request) {
         grossMarginGbp: n1GrossMarginGbp,
         fcr: n1FCR,
         epef: n1EPEF,
+      },
+      final: {
+        avgAge,
+        fcr: finalFCR,
+        epef: finalEPEF,
+        grossMarginGbp: finalGrossMarginGbp,
+        revenue: finalRevenue,
+        chickCost: finalChickCost,
       },
     });
   } catch (error) {

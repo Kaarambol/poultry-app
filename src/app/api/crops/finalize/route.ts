@@ -22,6 +22,8 @@ export async function POST(req: Request) {
     const finalAvgWeightKg = parseOptionalFloat(body.finalAvgWeightKg);
     const finalRevenueGbp = parseOptionalFloat(body.finalRevenueGbp);
     const finalNotes = String(body.finalNotes || "").trim();
+    const saleWeightKg = parseOptionalFloat(body.saleWeightKg);
+    const acceptWeightKg = parseOptionalFloat(body.acceptWeightKg);
 
     if (!cropId) {
       return NextResponse.json(
@@ -37,6 +39,8 @@ export async function POST(req: Request) {
         finalAvgWeightKg,
         finalRevenueGbp,
         finalNotes: finalNotes || null,
+        saleWeightKg,
+        acceptWeightKg,
       },
     });
 
