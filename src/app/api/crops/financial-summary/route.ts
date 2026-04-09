@@ -189,9 +189,9 @@ export async function GET(req: Request) {
     // N-1 SECTION — all metrics calculated on yesterday's data
     // =========================================================
 
-    // N-1 cutoff: yesterday, also capped at cropEndDate
+    // N-1 cutoff: yesterday, capped at clearDate - 1 day (data stops the day before clear)
     const n1EndMs = cropEndDate
-      ? Math.min(Date.now() - MSDAY, new Date(cropEndDate).getTime() + MSDAY)
+      ? Math.min(Date.now() - MSDAY, new Date(cropEndDate).getTime() - MSDAY)
       : Date.now() - MSDAY;
     const n1AgeDays = Math.max(
       1,
