@@ -241,9 +241,10 @@ export async function GET(req: Request) {
     }
 
     // Helper: last known weight for a house at or before a given timestamp
+    const allDailyRecords = crop.daily;
     function getWeightAtDate(houseId: string, targetMs: number): number | null {
       let w: number | null = null;
-      for (const r of crop.daily) {
+      for (const r of allDailyRecords) {
         if (r.houseId === houseId && new Date(r.date).getTime() <= targetMs && r.avgWeightG !== null) {
           w = r.avgWeightG;
         }
