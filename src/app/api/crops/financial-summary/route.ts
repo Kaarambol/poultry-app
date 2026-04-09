@@ -392,11 +392,14 @@ export async function GET(req: Request) {
     // AVERAGE AGE — weighted average of all birds at sale date
     // Formula: Σ(birds × ageAtSaleEvent) / Σ(birds)
     // Same as XLS Total sheet K5:O13 weighted calc
+    // For clear: if clearBirds not recorded, compute remaining live birds
+    //   = birdsPlaced - mort - culls - thinBirds - thin2Birds (from houseCalcMap)
     // =========================================================
     const placementMs = new Date(crop.placementDate).getTime();
     let avgAgeWeightedSum = 0;
     let avgAgeTotalBirds = 0;
 
+    // Thin / thin2 events — iterate placements
     for (const p of crop.placements) {
       if (p.thinBirds && p.thinBirds > 0 && p.thinDate) {
         const thinAge = Math.round((new Date(p.thinDate).getTime() - placementMs) / MSDAY);
@@ -408,12 +411,25 @@ export async function GET(req: Request) {
         avgAgeWeightedSum += p.thin2Birds * thin2Age;
         avgAgeTotalBirds  += p.thin2Birds;
       }
-      if (p.clearBirds && p.clearBirds > 0 && p.clearDate) {
-        const clearAge = Math.round((new Date(p.clearDate).getTime() - placementMs) / MSDAY);
-        avgAgeWeightedSum += p.clearBirds * clearAge;
-        avgAgeTotalBirds  += p.clearBirds;
+    }
+
+    // Clear events — per house (use houseCalcMap which has totals per house)
+    for (const [houseId, hCalc] of Object.entries(houseCalcMap)) {
+      if (!hCalc.isCleared) continue;
+      // Find the clear date for this house
+      const clearP = crop.placements.find(p => p.houseId === houseId && p.clearDate);
+      if (!clearP?.clearDate) continue;
+      const clearAge = Math.round((new Date(clearP.clearDate).getTime() - placementMs) / MSDAY);
+      // If clearBirds recorded use it, otherwise compute remaining live birds
+      const effectiveClearBirds = hCalc.clearBirds > 0
+        ? hCalc.clearBirds
+        : Math.max(0, hCalc.birdsPlaced - hCalc.mort - hCalc.culls - hCalc.thinBirds - hCalc.thin2Birds);
+      if (effectiveClearBirds > 0) {
+        avgAgeWeightedSum += effectiveClearBirds * clearAge;
+        avgAgeTotalBirds  += effectiveClearBirds;
       }
     }
+
     const avgAge: number | null = avgAgeTotalBirds > 0 ? avgAgeWeightedSum / avgAgeTotalBirds : null;
 
     // =========================================================
