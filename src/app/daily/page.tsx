@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getCurrentFarmId, setCurrentCropId } from "@/lib/app-context";
+import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
 
 type Farm = {
@@ -74,6 +74,7 @@ export default function DailyPage() {
   const [currentFarmId, setCurrentFarmIdState] = useState("");
   const [farmName, setFarmName] = useState("");
   const [myRole, setMyRole] = useState<FarmRole>("");
+  const [historyMode, setHistoryMode] = useState(false);
 
   const [cropId, setCropId] = useState("");
   const [cropLabel, setCropLabel] = useState("");
@@ -206,6 +207,7 @@ export default function DailyPage() {
   }
 
   useEffect(() => {
+    setHistoryMode(isViewingHistory());
     setDate(new Date().toISOString().slice(0, 10));
 
     const farmId = getCurrentFarmId();
@@ -611,7 +613,7 @@ export default function DailyPage() {
     });
   }, [records, houseId]);
 
-  const canOperate = canOperateUi(myRole);
+  const canOperate = canOperateUi(myRole) && !historyMode;
   const readOnly = isReadOnlyUi(myRole);
 
   const alertClass =

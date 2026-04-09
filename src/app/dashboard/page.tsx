@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getCurrentFarmId, setCurrentCropId } from "@/lib/app-context";
+import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 
 type Farm = {
   id: string;
@@ -75,6 +75,7 @@ export default function DashboardPage() {
   const [houseWeightInputs, setHouseWeightInputs] = useState<Record<string, string>>({});
   const [weightSaving, setWeightSaving] = useState(false);
   const [weightMsg, setWeightMsg] = useState("");
+  const [historyMode, setHistoryMode] = useState(false);
 
   async function loadFarmName(farmId: string) {
     const r = await fetch("/api/farms/list");
@@ -143,6 +144,8 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
+    setHistoryMode(isViewingHistory());
+
     async function loadPage() {
       try {
         const farmId = getCurrentFarmId();
@@ -335,6 +338,7 @@ export default function DashboardPage() {
                             value={houseWeightInputs[house.houseId] ?? ""}
                             onChange={e => setHouseWeightInputs(prev => ({ ...prev, [house.houseId]: e.target.value }))}
                             style={{ width: 90, padding: "4px 8px", border: "1px solid #ccc", borderRadius: 6, fontSize: "0.9rem" }}
+                            disabled={historyMode}
                           />
                         </span>
                       </div>
@@ -449,7 +453,7 @@ export default function DashboardPage() {
             )}
 
             {/* Save all live weights */}
-            {dashboard.houses.length > 0 && (
+            {dashboard.houses.length > 0 && !historyMode && (
               <div className="mobile-card" style={{ marginTop: 8 }}>
                 <h2>Save Live Weights</h2>
                 <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "var(--text-soft)" }}>

@@ -25,3 +25,25 @@ export function clearCurrentCropId() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(CURRENT_CROP_KEY);
 }
+
+export const HISTORY_CROP_KEY = "historyCropId";
+
+export function getHistoryCropId() {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem(HISTORY_CROP_KEY) || "";
+}
+
+export function setHistoryCropId(cropId: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(HISTORY_CROP_KEY, cropId);
+}
+
+export function clearHistoryCropId() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(HISTORY_CROP_KEY);
+}
+
+export function isViewingHistory() {
+  if (typeof window === "undefined") return false;
+  return !!localStorage.getItem(HISTORY_CROP_KEY);
+}

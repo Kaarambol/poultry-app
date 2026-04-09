@@ -5,7 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clearCurrentCropId,
+  clearHistoryCropId,
   getCurrentFarmId,
+  getHistoryCropId,
+  isViewingHistory,
   setCurrentCropId,
   setCurrentFarmId,
 } from "@/lib/app-context";
@@ -66,6 +69,8 @@ export default function AppNav() {
 
   const [docAlerts, setDocAlerts] = useState<AlertItem[]>([]);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [historyMode, setHistoryMode] = useState(false);
+  const [historyCropLabel, setHistoryCropLabel] = useState("");
 
   useEffect(() => {
     async function loadFarms() {
@@ -128,6 +133,47 @@ export default function AppNav() {
     }
     setMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    async function checkHistoryMode() {
+      const viewing = isViewingHistory();
+      setHistoryMode(viewing);
+      if (viewing) {
+        const histCropId = getHistoryCropId();
+        try {
+          const r = await fetch(`/api/crops/${histCropId}`);
+          if (r.ok) {
+            const data = await r.json();
+            setHistoryCropLabel(`Crop ${data.cropNumber}`);
+          }
+        } catch {
+          setHistoryCropLabel("History Crop");
+        }
+      } else {
+        setHistoryCropLabel("");
+      }
+    }
+    checkHistoryMode();
+  }, [pathname]);
+
+  async function handleExitHistory() {
+    clearHistoryCropId();
+    setHistoryMode(false);
+    setHistoryCropLabel("");
+    // Reload active crop for current farm
+    if (currentFarmId) {
+      const r = await fetch(`/api/crops/active?farmId=${currentFarmId}`);
+      const data = await r.json();
+      if (r.ok && data) {
+        setCurrentCrop(data);
+        setCurrentCropId(data.id);
+      } else {
+        setCurrentCrop(null);
+        clearCurrentCropId();
+      }
+    }
+    router.push("/dashboard");
+  }
 
   function handleFarmChange(farmId: string) {
     setCurrentFarmId(farmId);
@@ -199,10 +245,19 @@ export default function AppNav() {
       <div className="app-nav__inner">
         <div className="app-nav__bar">
           <div className="app-brand">
-            <div className="app-brand__badge">PA</div>
+            <div className="app-brand__badge" style={historyMode ? { background: "#f59e0b" } : undefined}>PA</div>
             <div className="app-brand__text">
-              <div className="app-brand__title">Poultry Manage</div>
-              <div className="app-brand__sub">{currentFarmLabel} · {currentCropLabel}</div>
+              <div className="app-brand__title">
+                Poultry Manage
+                {historyMode && (
+                  <span style={{ marginLeft: 8, background: "#f59e0b", color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: "0.65rem", fontWeight: 700, verticalAlign: "middle" }}>
+                    HISTORY MODE
+                  </span>
+                )}
+              </div>
+              <div className="app-brand__sub">
+                {currentFarmLabel} · {historyMode ? `${historyCropLabel} · HISTORY` : currentCropLabel}
+              </div>
             </div>
           </div>
           <button type="button" className="app-nav__toggle" onClick={() => setMenuOpen((v) => !v)}>
@@ -228,6 +283,16 @@ export default function AppNav() {
             <div className="app-nav__panel">
               <div className="app-nav__field-label">Session</div>
               <div className="app-nav__links">
+                {historyMode && (
+                  <button
+                    type="button"
+                    className="app-nav__link"
+                    style={{ background: "#f59e0b", color: "#fff", fontWeight: 700 }}
+                    onClick={handleExitHistory}
+                  >
+                    Exit History Mode
+                  </button>
+                )}
                 <button type="button" className="app-nav__link" onClick={handleLogout} disabled={loggingOut}>
                   {loggingOut ? "Logging out..." : "Logout"}
                 </button>

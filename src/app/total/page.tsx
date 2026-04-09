@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { getCurrentFarmId, setCurrentCropId } from "@/lib/app-context";
+import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
 
 type Farm = {
@@ -84,6 +84,9 @@ export default function TotalPage() {
   const [cropHouses, setCropHouses] = useState<{ houseId: string; houseName: string }[]>([]);
   const [houseWeightInputs, setHouseWeightInputs] = useState<Record<string, string>>({});
   const [weightSaving, setWeightSaving] = useState(false);
+  const [historyMode, setHistoryMode] = useState(false);
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const [finishMsg, setFinishMsg] = useState("");
 
   const [msg, setMsg] = useState("Loading...");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
@@ -269,6 +272,7 @@ export default function TotalPage() {
   }
 
   useEffect(() => {
+    setHistoryMode(isViewingHistory());
     const farmId = getCurrentFarmId();
     if (farmId) {
       setCurrentFarmIdState(farmId);
@@ -278,7 +282,7 @@ export default function TotalPage() {
     }
   }, []);
 
-  const canOperate = canOperateUi(myRole);
+  const canOperate = canOperateUi(myRole) && !historyMode;
 
   return (
     <div className="mobile-page">
@@ -297,6 +301,11 @@ export default function TotalPage() {
                 {cropSaved && (
                   <span style={{ marginLeft: 8, background: "#d1fae5", color: "#065f46", borderRadius: 6, padding: "2px 8px", fontSize: "0.8rem", fontWeight: 700 }}>
                     CROP SAVED
+                  </span>
+                )}
+                {historyMode && (
+                  <span style={{ marginLeft: 8, background: "#f59e0b", color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: "0.8rem", fontWeight: 700 }}>
+                    HISTORY
                   </span>
                 )}
                 {" "} | Role: {myRole}
@@ -467,6 +476,74 @@ export default function TotalPage() {
                 <p style={{ color: "#047857", margin: "8px 0 0" }}>
                   This crop has been finalized and saved to history.
                 </p>
+              </div>
+            )}
+
+            {!cropSaved && !historyMode && canOperate && (
+              <div className="mobile-card" style={{ border: "2px solid #f59e0b" }}>
+                <h2 style={{ color: "#92400e", margin: "0 0 8px" }}>Finish Crop</h2>
+                {finishMsg && (
+                  <div className="mobile-alert mobile-alert--success" style={{ marginBottom: 12 }}>
+                    {finishMsg}
+                  </div>
+                )}
+                {showFinishConfirm ? (
+                  <div>
+                    <p style={{ margin: "0 0 12px", fontWeight: 600 }}>
+                      Are you sure you want to finish and save this crop to history?
+                    </p>
+                    <p style={{ margin: "0 0 8px", fontSize: "0.85rem" }}>
+                      Please verify all data has been entered correctly:
+                    </p>
+                    <ul style={{ margin: "0 0 12px", paddingLeft: 20, fontSize: "0.85rem" }}>
+                      <li>Factory report data saved</li>
+                      <li>All daily records complete</li>
+                      <li>Feed records up to date</li>
+                    </ul>
+                    <p style={{ margin: "0 0 16px", fontSize: "0.85rem", color: "#b91c1c", fontWeight: 600 }}>
+                      This action cannot be undone.
+                    </p>
+                    <div className="mobile-actions">
+                      <button
+                        type="button"
+                        className="mobile-button"
+                        style={{ background: "#b91c1c", color: "#fff" }}
+                        onClick={async () => {
+                          const r = await fetch("/api/crops/finish", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ cropId }),
+                          });
+                          if (r.ok) {
+                            setShowFinishConfirm(false);
+                            setFinishMsg("Crop finished and saved to history.");
+                            await loadSummary(cropId);
+                          } else {
+                            setFinishMsg("Error finishing crop.");
+                          }
+                        }}
+                      >
+                        Yes, Finish Crop
+                      </button>
+                      <button
+                        type="button"
+                        className="mobile-button mobile-button--secondary"
+                        onClick={() => setShowFinishConfirm(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="mobile-full-button"
+                    style={{ background: "#f59e0b", color: "#fff" }}
+                    onClick={() => setShowFinishConfirm(true)}
+                  >
+                    Finish &amp; Save Crop
+                  </button>
+                )}
               </div>
             )}
           </>

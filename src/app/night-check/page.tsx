@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getCurrentFarmId, setCurrentCropId } from "@/lib/app-context";
+import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
 
 type NightCheckRecord = {
@@ -51,6 +51,7 @@ export default function NightCheckPage() {
   const [cropLabel, setCropLabel] = useState("");
   const [records, setRecords] = useState<NightCheckRecord[]>([]);
   const [myRole, setMyRole] = useState<FarmRole>("");
+  const [historyMode, setHistoryMode] = useState(false);
 
   const [date, setDate] = useState("");
   const [checkTime, setCheckTime] = useState("");
@@ -98,6 +99,7 @@ export default function NightCheckPage() {
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
 
   useEffect(() => {
+    setHistoryMode(isViewingHistory());
     const id = getCurrentFarmId();
     if (!id) {
       setMsgType("info");
@@ -269,7 +271,7 @@ export default function NightCheckPage() {
     await doSave();
   }
 
-  const canOperate = canOperateUi(myRole);
+  const canOperate = canOperateUi(myRole) && !historyMode;
   const readOnly = isReadOnlyUi(myRole);
 
   const alertClass =

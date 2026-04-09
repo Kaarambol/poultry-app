@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getCurrentFarmId } from "@/lib/app-context";
+import { useRouter } from "next/navigation";
+import { getCurrentFarmId, setCurrentCropId, setHistoryCropId } from "@/lib/app-context";
 
 type Farm = {
   id: string;
@@ -70,6 +71,7 @@ type ExportItem = {
 };
 
 export default function HistoryPage() {
+  const router = useRouter();
   const [currentFarmId, setCurrentFarmId] = useState("");
   const [farmName, setFarmName] = useState("");
   const [crops, setCrops] = useState<Crop[]>([]);
@@ -280,6 +282,21 @@ export default function HistoryPage() {
               </option>
             ))}
           </select>
+          {cropId && (
+            <div style={{ marginTop: 12 }}>
+              <button
+                type="button"
+                className="mobile-button"
+                onClick={() => {
+                  setHistoryCropId(cropId);
+                  setCurrentCropId(cropId);
+                  router.push("/dashboard");
+                }}
+              >
+                Browse Crop {crops.find((c) => c.id === cropId)?.cropNumber ?? ""} in App →
+              </button>
+            </div>
+          )}
         </div>
 
         {msg && (

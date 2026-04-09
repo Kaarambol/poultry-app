@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getCurrentFarmId, setCurrentCropId } from "@/lib/app-context";
+import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 import { FarmRole, canOperateUi } from "@/lib/ui-permissions";
 
 type Farm = { id: string; name: string; code: string };
@@ -49,6 +49,7 @@ export default function MedicationPage() {
   const [currentFarmId, setCurrentFarmIdState] = useState("");
   const [farmName, setFarmName] = useState("");
   const [myRole, setMyRole] = useState<FarmRole>("");
+  const [historyMode, setHistoryMode] = useState(false);
 
   const [houses, setHouses] = useState<House[]>([]);
   const [vetModeOpen, setVetModeOpen] = useState(false);
@@ -123,6 +124,7 @@ export default function MedicationPage() {
   }
 
   useEffect(() => {
+    setHistoryMode(isViewingHistory());
     const farmId = getCurrentFarmId();
     if (!farmId) return;
     setCurrentFarmIdState(farmId);
@@ -211,7 +213,7 @@ export default function MedicationPage() {
     loadAllRecords(currentFarmId);
   }
 
-  const canOperate = canOperateUi(myRole);
+  const canOperate = canOperateUi(myRole) && !historyMode;
 
   return (
     <div className="mobile-page">
