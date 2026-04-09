@@ -182,12 +182,21 @@ export default function AppNav() {
     clearCurrentCropId();
   }
 
+  function handleResetState() {
+    // Clear all localStorage app state and reload
+    localStorage.removeItem("currentFarmId");
+    localStorage.removeItem("currentCropId");
+    localStorage.removeItem("historyCropId");
+    window.location.href = "/";
+  }
+
   async function handleLogout() {
     try {
       setLoggingOut(true);
       await fetch("/api/auth/logout", { method: "POST" });
       localStorage.removeItem("currentFarmId");
       localStorage.removeItem("currentCropId");
+      localStorage.removeItem("historyCropId");
       clearCurrentCropId();
       setCurrentFarmId("");
       setCurrentFarmIdState("");
@@ -293,6 +302,9 @@ export default function AppNav() {
                     Exit History Mode
                   </button>
                 )}
+                <button type="button" className="app-nav__link" onClick={handleResetState} style={{ color: "#b45309", fontSize: "0.8rem" }}>
+                  Reset App State
+                </button>
                 <button type="button" className="app-nav__link" onClick={handleLogout} disabled={loggingOut}>
                   {loggingOut ? "Logging out..." : "Logout"}
                 </button>
