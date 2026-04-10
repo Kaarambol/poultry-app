@@ -302,10 +302,7 @@ export default function AppNav() {
                     Exit History Mode
                   </button>
                 )}
-                <button type="button" className="app-nav__link" onClick={handleResetState} style={{ color: "#b45309", fontSize: "0.8rem" }}>
-                  Reset App State
-                </button>
-                <button type="button" className="app-nav__link" onClick={handleLogout} disabled={loggingOut}>
+<button type="button" className="app-nav__link" onClick={handleLogout} disabled={loggingOut}>
                   {loggingOut ? "Logging out..." : "Logout"}
                 </button>
               </div>
