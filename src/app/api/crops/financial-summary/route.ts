@@ -252,10 +252,11 @@ export async function GET(req: Request) {
         ? finalRevenue - finalChickCost - totalFeedCostGbp
         : null;
 
-    // Margin in pence per m² per day
+    // Margin in pence per m² per week: (grossMargin × 100) / area / (ageDays / 7)
+    const lengthCropWeeks = ageDays / 7;
     const finalMarginPencePerM2Day: number | null =
-      finalGrossMarginGbp !== null && totalFloorAreaM2 > 0 && ageDays > 0
-        ? (finalGrossMarginGbp * 100) / totalFloorAreaM2 / ageDays
+      finalGrossMarginGbp !== null && totalFloorAreaM2 > 0 && lengthCropWeeks > 0
+        ? (finalGrossMarginGbp * 100) / totalFloorAreaM2 / lengthCropWeeks
         : null;
 
     return NextResponse.json({

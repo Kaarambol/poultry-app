@@ -347,7 +347,7 @@ export default function TotalPage() {
                   </div>
                 </div>
                 <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Margin p/m²/day</div>
+                  <div className="mobile-kpi__label">Margin p/m²/week</div>
                   <div className="mobile-kpi__value" style={{
                     color: metrics.finalMargin != null && metrics.finalMargin >= 0
                       ? "var(--primary)" : "#e53e3e",
