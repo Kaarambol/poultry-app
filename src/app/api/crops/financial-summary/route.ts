@@ -228,14 +228,16 @@ export async function GET(req: Request) {
         ? totalConsumedKg / saleWeightKg
         : null;
 
-    // Final EPEF: (survivalPct × saleWeightKg × 100) / (avgAge × finalFCR)
-    const finalSurvivalPct =
-      (finalBirdsSoldN ?? birdsAlive) > 0 && birdsPlaced > 0
-        ? ((finalBirdsSoldN ?? birdsAlive) / birdsPlaced) * 100
-        : null;
+    // EPEF: a=survivalPct, b=avgBirdWeight, c=avgAge, d=FCR
+    // a*b=z, c*d=x, z/x=y, y*100=EPEF
+    const survivalPct = 100 - mortalityPct; // a
+    const avgBirdWeightKg: number | null =
+      saleWeightKg && finalBirdsSoldN && finalBirdsSoldN > 0
+        ? saleWeightKg / finalBirdsSoldN
+        : null; // b
     const finalEPEF: number | null =
-      finalSurvivalPct && saleWeightKg && avgAge && finalFCR && finalFCR > 0
-        ? (finalSurvivalPct * saleWeightKg * 100) / (avgAge * finalFCR)
+      avgBirdWeightKg !== null && avgAge !== null && avgAge > 0 && finalFCR !== null && finalFCR > 0
+        ? (survivalPct * avgBirdWeightKg / (avgAge * finalFCR)) * 100
         : null;
 
     // Final gross margin: (acceptWeightKg × salePrice) - (birdsPlaced × chickenCost) - feedCost
