@@ -71,7 +71,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
         cropNumber: true,
         placementDate: true,
         placements: {
-          where: { houseId, isActive: true },
+          where: cropIdParam ? { houseId } : { houseId, isActive: true },
           select: { thinDate: true, thin2Date: true, clearDate: true, thinBirds: true, thin2Birds: true, birdsPlaced: true },
         },
         targetProfile: {

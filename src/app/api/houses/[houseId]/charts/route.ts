@@ -93,10 +93,9 @@ export async function GET(req: NextRequest, context: RouteContext) {
       where: { id: cropId },
       include: {
         placements: {
-          where: {
-            houseId,
-            isActive: true,
-          },
+          where: cropIdFromQuery
+            ? { houseId }
+            : { houseId, isActive: true },
           orderBy: {
             placementDate: "asc",
           },
