@@ -24,6 +24,8 @@ export async function POST(req: Request) {
     const finalNotes = String(body.finalNotes || "").trim();
     const saleWeightKg = parseOptionalFloat(body.saleWeightKg);
     const acceptWeightKg = parseOptionalFloat(body.acceptWeightKg);
+    const chickenPricePerKg = parseOptionalFloat(body.chickenPricePerKg);
+    const salePricePerKgAllIn = parseOptionalFloat(body.salePricePerKgAllIn);
 
     if (!cropId) {
       return NextResponse.json(
@@ -41,6 +43,8 @@ export async function POST(req: Request) {
         finalNotes: finalNotes || null,
         saleWeightKg,
         acceptWeightKg,
+        ...(chickenPricePerKg !== null && { chickenPricePerKg }),
+        ...(salePricePerKgAllIn !== null && { salePricePerKgAllIn }),
       },
     });
 

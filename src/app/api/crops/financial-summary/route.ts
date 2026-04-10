@@ -238,18 +238,21 @@ export async function GET(req: Request) {
         ? (finalSurvivalPct * saleWeightKg * 100) / (avgAge * finalFCR)
         : null;
 
-    // Final gross margin: uses acceptWeightKg for revenue
+    // Final gross margin: (acceptWeightKg × salePrice) - (birdsPlaced × chickenCost) - feedCost
     const finalRevenue: number | null =
-      finalBirdsSoldN && acceptWeightKg && crop.salePricePerKgAllIn
-        ? finalBirdsSoldN * acceptWeightKg * crop.salePricePerKgAllIn
+      acceptWeightKg && crop.salePricePerKgAllIn
+        ? acceptWeightKg * crop.salePricePerKgAllIn
         : null;
-    const finalChickCost = birdsPlaced * (crop.chickenPricePerKg ?? 0);
+    const finalChickCost: number | null =
+      crop.chickenPricePerKg
+        ? birdsPlaced * crop.chickenPricePerKg
+        : null;
     const finalGrossMarginGbp: number | null =
-      finalRevenue !== null
-        ? finalRevenue - totalFeedCostGbp - finalChickCost
+      finalRevenue !== null && finalChickCost !== null
+        ? finalRevenue - finalChickCost - totalFeedCostGbp
         : null;
 
-    // Margin in pence per m² per day — requires floor areas set on houses
+    // Margin in pence per m² per day
     const finalMarginPencePerM2Day: number | null =
       finalGrossMarginGbp !== null && totalFloorAreaM2 > 0 && ageDays > 0
         ? (finalGrossMarginGbp * 100) / totalFloorAreaM2 / ageDays

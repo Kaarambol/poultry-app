@@ -60,7 +60,7 @@ type FinancialSummary = {
     grossMarginGbp: number | null;
     marginPencePerM2Day: number | null;
     revenue: number | null;
-    chickCost: number;
+    chickCost: number | null;
   };
 };
 
@@ -79,6 +79,8 @@ export default function TotalPage() {
 
   const [saleWeightKg, setSaleWeightKg] = useState("");
   const [acceptWeightKg, setAcceptWeightKg] = useState("");
+  const [chickenPricePerKg, setChickenPricePerKg] = useState("");
+  const [salePricePerKgAllIn, setSalePricePerKgAllIn] = useState("");
   const [cropSaved, setCropSaved] = useState(false);
 
   const [prevCropFinishDate, setPrevCropFinishDate] = useState<string | null>(null);
@@ -191,6 +193,8 @@ export default function TotalPage() {
       if (!finalAvgWeightKg) setFinalAvgWeightKg(data.crop.finalAvgWeightKg?.toString() || "");
       if (!saleWeightKg) setSaleWeightKg(data.crop.saleWeightKg?.toString() || "");
       if (!acceptWeightKg) setAcceptWeightKg(data.crop.acceptWeightKg?.toString() || "");
+      if (!chickenPricePerKg) setChickenPricePerKg(data.crop.chickenPricePerKg?.toString() || "");
+      if (!salePricePerKgAllIn) setSalePricePerKgAllIn(data.crop.salePricePerKgAllIn?.toString() || "");
     }
     if (rCrop.ok) {
       const cropData = await rCrop.json();
@@ -242,7 +246,7 @@ export default function TotalPage() {
     const r = await fetch("/api/crops/finalize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cropId, finalBirdsSold, finalAvgWeightKg, finalRevenueGbp, finalNotes, saleWeightKg, acceptWeightKg }),
+      body: JSON.stringify({ cropId, finalBirdsSold, finalAvgWeightKg, finalRevenueGbp, finalNotes, saleWeightKg, acceptWeightKg, chickenPricePerKg, salePricePerKgAllIn }),
     });
     if (r.ok) {
       setMsgType("success");
@@ -451,12 +455,20 @@ export default function TotalPage() {
                 )}
                 <div className="mobile-grid mobile-grid--2">
                   <div>
-                    <label>Sale Weight (kg) — for EPEF & FCR</label>
-                    <input type="number" step="0.001" value={saleWeightKg} onChange={e => setSaleWeightKg(e.target.value)} placeholder="e.g. 2.450" disabled={!canOperate} />
+                    <label>Sale Weight (kg) — for FCR</label>
+                    <input type="number" step="0.001" value={saleWeightKg} onChange={e => setSaleWeightKg(e.target.value)} placeholder="e.g. 578000" disabled={!canOperate} />
                   </div>
                   <div>
                     <label>Accept Weight (kg) — for Margin</label>
-                    <input type="number" step="0.001" value={acceptWeightKg} onChange={e => setAcceptWeightKg(e.target.value)} placeholder="e.g. 2.200" disabled={!canOperate} />
+                    <input type="number" step="0.001" value={acceptWeightKg} onChange={e => setAcceptWeightKg(e.target.value)} placeholder="e.g. 560000" disabled={!canOperate} />
+                  </div>
+                  <div>
+                    <label>Chicken Cost (per bird)</label>
+                    <input type="number" step="0.0001" value={chickenPricePerKg} onChange={e => setChickenPricePerKg(e.target.value)} placeholder="e.g. 0.35" disabled={!canOperate} />
+                  </div>
+                  <div>
+                    <label>Sale Price per kg</label>
+                    <input type="number" step="0.0001" value={salePricePerKgAllIn} onChange={e => setSalePricePerKgAllIn(e.target.value)} placeholder="e.g. 1.25" disabled={!canOperate} />
                   </div>
                   <div>
                     <label>Total Birds Sold</label>
