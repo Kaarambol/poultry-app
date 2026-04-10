@@ -222,12 +222,13 @@ export async function GET(req: Request) {
     const acceptWeightKg = crop.acceptWeightKg ?? null;
     const finalBirdsSoldN = crop.finalBirdsSold ?? null;
 
-    // Final FCR: totalFeedUsedKg / (birds × saleWeightKg)
+    // Final FCR: totalConsumedKg / (birds × saleWeightKg)
+    // totalConsumedKg = opening stock + delivery tickets - closing stock (shown in feed summary)
     // Use finalBirdsSold if available, otherwise fall back to birdsAlive
     const effectiveBirdsForFCR = finalBirdsSoldN ?? birdsAlive;
     const finalFCR: number | null =
-      saleWeightKg && totalFeedUsedKg > 0 && effectiveBirdsForFCR > 0
-        ? totalFeedUsedKg / (effectiveBirdsForFCR * saleWeightKg)
+      saleWeightKg && totalConsumedKg > 0 && effectiveBirdsForFCR > 0
+        ? totalConsumedKg / (effectiveBirdsForFCR * saleWeightKg)
         : null;
 
     // Final EPEF: (survivalPct × saleWeightKg × 100) / (avgAge × finalFCR)
