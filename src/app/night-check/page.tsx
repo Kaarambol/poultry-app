@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
+import { getCurrentFarmId, getHistoryCropId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
 
 type NightCheckRecord = {
@@ -99,7 +99,8 @@ export default function NightCheckPage() {
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
 
   useEffect(() => {
-    setHistoryMode(isViewingHistory());
+    const viewing = isViewingHistory();
+    setHistoryMode(viewing);
     const id = getCurrentFarmId();
     if (!id) {
       setMsgType("info");
@@ -110,7 +111,17 @@ export default function NightCheckPage() {
     setFarmId(id);
     loadFarm(id);
     loadMyRole(id);
-    loadActiveCrop(id);
+
+    if (viewing) {
+      const histCropId = getHistoryCropId();
+      if (histCropId) {
+        setCropId(histCropId);
+        setCurrentCropId(histCropId);
+        loadRecords(histCropId);
+      }
+    } else {
+      loadActiveCrop(id);
+    }
   }, []);
 
   async function loadFarm(id: string) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
+import { getCurrentFarmId, getHistoryCropId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 import { FarmRole, canOperateUi } from "@/lib/ui-permissions";
 
 type Farm = { id: string; name: string; code: string };
@@ -124,15 +124,22 @@ export default function MedicationPage() {
   }
 
   useEffect(() => {
-    setHistoryMode(isViewingHistory());
+    const viewing = isViewingHistory();
+    setHistoryMode(viewing);
     const farmId = getCurrentFarmId();
     if (!farmId) return;
     setCurrentFarmIdState(farmId);
     loadFarmName(farmId);
     loadMyRole(farmId);
-    loadActiveCrop(farmId);
     loadHouses(farmId);
     loadAllRecords(farmId);
+
+    if (viewing) {
+      const histCropId = getHistoryCropId();
+      if (histCropId) setCurrentCropId(histCropId);
+    } else {
+      loadActiveCrop(farmId);
+    }
   }, []);
 
   function toggleFolder(cropId: string) {

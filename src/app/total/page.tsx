@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
+import { getCurrentFarmId, getHistoryCropId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
 
 type Farm = {
@@ -276,12 +276,22 @@ export default function TotalPage() {
   }
 
   useEffect(() => {
-    setHistoryMode(isViewingHistory());
+    const viewing = isViewingHistory();
+    setHistoryMode(viewing);
     const farmId = getCurrentFarmId();
-    if (farmId) {
-      setCurrentFarmIdState(farmId);
-      loadFarmData(farmId);
-      loadMyRole(farmId);
+    if (!farmId) return;
+    setCurrentFarmIdState(farmId);
+    loadFarmData(farmId);
+    loadMyRole(farmId);
+
+    if (viewing) {
+      const histCropId = getHistoryCropId();
+      if (histCropId) {
+        setCropId(histCropId);
+        setCurrentCropId(histCropId);
+        loadSummary(histCropId);
+      }
+    } else {
       loadActiveCrop(farmId);
     }
   }, []);

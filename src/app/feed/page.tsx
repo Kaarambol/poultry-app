@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
+import { getCurrentFarmId, getHistoryCropId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
 
 type Farm = {
@@ -197,7 +197,8 @@ export default function FeedPage() {
   }
 
   useEffect(() => {
-    setHistoryMode(isViewingHistory());
+    const viewing = isViewingHistory();
+    setHistoryMode(viewing);
     setDate(new Date().toISOString().slice(0, 10));
     const farmId = getCurrentFarmId();
     if (!farmId) {
@@ -208,7 +209,22 @@ export default function FeedPage() {
     loadFarmData(farmId);
     loadMyRole(farmId);
     loadHouses(farmId);
-    loadActiveCrop(farmId);
+
+    if (viewing) {
+      const histCropId = getHistoryCropId();
+      if (histCropId) {
+        setCropId(histCropId);
+        setCurrentCropId(histCropId);
+        fetch(`/api/crops/${histCropId}`).then(r => r.json()).then(d => {
+          if (d?.cropNumber) setCropLabel(d.cropNumber);
+        });
+        loadRecords(histCropId);
+        loadSummary(histCropId);
+        setMsg("");
+      }
+    } else {
+      loadActiveCrop(farmId);
+    }
   }, []);
 
   useEffect(() => {

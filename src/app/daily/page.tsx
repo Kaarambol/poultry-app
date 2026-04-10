@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
+import { getCurrentFarmId, getHistoryCropId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
 
 type Farm = {
@@ -207,22 +207,36 @@ export default function DailyPage() {
   }
 
   useEffect(() => {
-    setHistoryMode(isViewingHistory());
+    const viewing = isViewingHistory();
+    setHistoryMode(viewing);
     setDate(new Date().toISOString().slice(0, 10));
 
     const farmId = getCurrentFarmId();
-
     if (!farmId) {
       setMsgType("info");
       setMsg("Choose a farm in the top menu first.");
       return;
     }
-
     setCurrentFarmIdState(farmId);
     loadFarmName(farmId);
     loadMyRole(farmId);
     loadHouses(farmId);
-    loadActiveCrop(farmId);
+
+    if (viewing) {
+      const histCropId = getHistoryCropId();
+      if (histCropId) {
+        setCropId(histCropId);
+        setCropLabel(histCropId);
+        setCurrentCropId(histCropId);
+        // load crop label
+        fetch(`/api/crops/${histCropId}`).then(r => r.json()).then(d => {
+          if (d?.cropNumber) setCropLabel(d.cropNumber);
+        });
+        setMsg("");
+      }
+    } else {
+      loadActiveCrop(farmId);
+    }
   }, []);
 
   useEffect(() => {

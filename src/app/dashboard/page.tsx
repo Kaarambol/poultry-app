@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getCurrentFarmId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
+import { getCurrentFarmId, getHistoryCropId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 
 type Farm = {
   id: string;
@@ -144,21 +144,36 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    setHistoryMode(isViewingHistory());
+    const viewing = isViewingHistory();
+    setHistoryMode(viewing);
 
     async function loadPage() {
       try {
         const farmId = getCurrentFarmId();
-
         if (!farmId) {
           setMsg("Choose a farm in the top menu first.");
-          setLoading(false);
           return;
         }
-
         setCurrentFarmIdState(farmId);
         await loadFarmName(farmId);
-        await loadActiveCrop(farmId);
+
+        if (viewing) {
+          const cropId = getHistoryCropId();
+          if (!cropId) { setMsg("No history crop selected."); return; }
+          const [rCrop, rDash] = await Promise.all([
+            fetch(`/api/crops/${cropId}`),
+            fetch(`/api/dashboard/summary?cropId=${cropId}`),
+          ]);
+          if (rCrop.ok) {
+            const c = await rCrop.json();
+            setActiveCrop({ id: c.id, cropNumber: c.cropNumber, placementDate: c.placementDate, breed: c.breed, hatchery: c.hatchery, status: c.status });
+            setCurrentCropId(c.id);
+          }
+          if (rDash.ok) setDashboard(await rDash.json());
+          else setMsg("Error loading dashboard.");
+        } else {
+          await loadActiveCrop(farmId);
+        }
       } finally {
         setLoading(false);
       }
