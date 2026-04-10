@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { getHistoryCropId, isViewingHistory } from "@/lib/app-context";
 
 type TableRow = {
   id: string;
@@ -87,7 +88,11 @@ export default function HouseTablePage({
         setLoading(true);
         setError("");
 
-        const res = await fetch(`/api/houses/${houseId}/table`);
+        const historyCropId = isViewingHistory() ? getHistoryCropId() : "";
+        const url = historyCropId
+          ? `/api/houses/${houseId}/table?cropId=${historyCropId}`
+          : `/api/houses/${houseId}/table`;
+        const res = await fetch(url);
         const json: TableResponse | { error: string } = await res.json();
 
         if (!res.ok) {

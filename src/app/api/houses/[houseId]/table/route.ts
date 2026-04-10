@@ -56,20 +56,16 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
     }
 
+    const cropIdParam = req.nextUrl.searchParams.get("cropId");
     const crop = await prisma.crop.findFirst({
-      where: {
-        farmId: house.farmId,
-        status: "ACTIVE",
-        placements: {
-          some: {
-            houseId,
-            isActive: true,
+      where: cropIdParam
+        ? { id: cropIdParam }
+        : {
+            farmId: house.farmId,
+            status: "ACTIVE",
+            placements: { some: { houseId, isActive: true } },
           },
-        },
-      },
-      orderBy: {
-        placementDate: "desc",
-      },
+      orderBy: { placementDate: "desc" },
       select: {
         id: true,
         cropNumber: true,

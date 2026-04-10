@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Line } from "react-chartjs-2";
+import { getHistoryCropId, isViewingHistory } from "@/lib/app-context";
 import {
   Chart as ChartJS,
   LineElement,
@@ -128,7 +129,11 @@ export default function HouseChartsPage({
         setLoading(true);
         setError("");
 
-        const res = await fetch(`/api/houses/${houseId}/charts`);
+        const historyCropId = isViewingHistory() ? getHistoryCropId() : "";
+        const url = historyCropId
+          ? `/api/houses/${houseId}/charts?cropId=${historyCropId}`
+          : `/api/houses/${houseId}/charts`;
+        const res = await fetch(url);
         const json: ChartsResponse | { error: string } = await res.json();
 
         if (!res.ok) {
