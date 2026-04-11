@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 type SearchItem = {
   placementId: string;
@@ -105,29 +105,6 @@ export default function CheckFlockPage() {
       ? "mobile-alert mobile-alert--success"
       : "mobile-alert";
 
-  const totals = useMemo(() => {
-    if (!data) {
-      return {
-        birdsPlaced: 0,
-        birdsAliveEstimate: 0,
-        feedKg: 0,
-        wheatKg: 0,
-      };
-    }
-
-    const allItems = data.results.flatMap((group) => group.items);
-
-    return {
-      birdsPlaced: allItems.reduce((sum, item) => sum + item.birdsPlaced, 0),
-      birdsAliveEstimate: allItems.reduce(
-        (sum, item) => sum + item.currentBirdsAliveEstimate,
-        0
-      ),
-      feedKg: allItems.reduce((sum, item) => sum + item.totalFeedKg, 0),
-      wheatKg: allItems.reduce((sum, item) => sum + item.totalWheatKg, 0),
-    };
-  }, [data]);
-
   return (
     <div className="mobile-page">
       <div className="page-shell">
@@ -185,28 +162,6 @@ export default function CheckFlockPage() {
                 <div className="mobile-record-row">
                   <strong>Flock groups</strong>
                   <span>{data.totalFlocks}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mobile-card">
-              <h2>Combined Totals</h2>
-              <div className="mobile-kpi-grid">
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Birds placed</div>
-                  <div className="mobile-kpi__value">{totals.birdsPlaced}</div>
-                </div>
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Birds alive est.</div>
-                  <div className="mobile-kpi__value">{totals.birdsAliveEstimate}</div>
-                </div>
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Feed kg</div>
-                  <div className="mobile-kpi__value">{totals.feedKg.toFixed(0)}</div>
-                </div>
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Wheat kg</div>
-                  <div className="mobile-kpi__value">{totals.wheatKg.toFixed(0)}</div>
                 </div>
               </div>
             </div>
