@@ -48,13 +48,15 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
     }
 
-    const role = await getUserRoleOnFarm(uid, house.farmId);
-
-    if (!canView(role)) {
-      return NextResponse.json(
-        { error: "You do not have permission to view this house." },
-        { status: 403 }
-      );
+    // When cropId is provided (Check Flock context), skip farm role check — user is already authenticated
+    if (!cropIdFromQuery) {
+      const role = await getUserRoleOnFarm(uid, house.farmId);
+      if (!canView(role)) {
+        return NextResponse.json(
+          { error: "You do not have permission to view this house." },
+          { status: 403 }
+        );
+      }
     }
 
     let cropId = cropIdFromQuery;

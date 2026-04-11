@@ -47,16 +47,18 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
     }
 
-    const role = await getUserRoleOnFarm(uid, house.farmId);
-
-    if (!canView(role)) {
-      return NextResponse.json(
-        { error: "You do not have permission to view this house." },
-        { status: 403 }
-      );
-    }
-
     const cropIdParam = req.nextUrl.searchParams.get("cropId");
+
+    // When cropId is provided (Check Flock context), skip farm role check — user is already authenticated
+    if (!cropIdParam) {
+      const role = await getUserRoleOnFarm(uid, house.farmId);
+      if (!canView(role)) {
+        return NextResponse.json(
+          { error: "You do not have permission to view this house." },
+          { status: 403 }
+        );
+      }
+    }
     const crop = await prisma.crop.findFirst({
       where: cropIdParam
         ? { id: cropIdParam }
