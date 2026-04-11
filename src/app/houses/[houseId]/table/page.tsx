@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { getHistoryCropId, isViewingHistory } from "@/lib/app-context";
 
 type TableRow = {
@@ -71,6 +72,7 @@ export default function HouseTablePage({
   const [clearDates, setClearDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     async function init() {
@@ -88,9 +90,11 @@ export default function HouseTablePage({
         setLoading(true);
         setError("");
 
-        const historyCropId = isViewingHistory() ? getHistoryCropId() : "";
-        const url = historyCropId
-          ? `/api/houses/${houseId}/table?cropId=${historyCropId}`
+        const cropIdFromUrl = searchParams.get("cropId") || "";
+        const cropIdFromHistory = isViewingHistory() ? getHistoryCropId() : "";
+        const resolvedCropId = cropIdFromUrl || cropIdFromHistory;
+        const url = resolvedCropId
+          ? `/api/houses/${houseId}/table?cropId=${resolvedCropId}`
           : `/api/houses/${houseId}/table`;
         const res = await fetch(url);
         const json: TableResponse | { error: string } = await res.json();

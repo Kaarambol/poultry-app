@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Line } from "react-chartjs-2";
 import { getHistoryCropId, isViewingHistory } from "@/lib/app-context";
 import {
@@ -112,6 +113,7 @@ export default function HouseChartsPage({
   const [clearDays, setClearDays] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     async function init() {
@@ -129,9 +131,11 @@ export default function HouseChartsPage({
         setLoading(true);
         setError("");
 
-        const historyCropId = isViewingHistory() ? getHistoryCropId() : "";
-        const url = historyCropId
-          ? `/api/houses/${houseId}/charts?cropId=${historyCropId}`
+        const cropIdFromUrl = searchParams.get("cropId") || "";
+        const cropIdFromHistory = isViewingHistory() ? getHistoryCropId() : "";
+        const resolvedCropId = cropIdFromUrl || cropIdFromHistory;
+        const url = resolvedCropId
+          ? `/api/houses/${houseId}/charts?cropId=${resolvedCropId}`
           : `/api/houses/${houseId}/charts`;
         const res = await fetch(url);
         const json: ChartsResponse | { error: string } = await res.json();
