@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 type SearchItem = {
@@ -210,117 +211,82 @@ export default function CheckFlockPage() {
               </div>
             </div>
 
-            <h2 className="mobile-section-title">Matching Flocks</h2>
+            <h2 className="mobile-section-title">Matching Houses</h2>
 
             <div className="mobile-record-list">
-              {data.results.map((group) => (
-                <div key={group.flockNumber} className="mobile-record-card">
-                  <h3 className="mobile-record-card__title">
-                    Flock {group.flockNumber}
-                  </h3>
+              {data.results.flatMap((group) =>
+                group.items.map((item) => (
+                  <div key={item.placementId} className="mobile-record-card">
+                    <h3 className="mobile-record-card__title">
+                      {item.houseName}{item.houseCode ? ` (${item.houseCode})` : ""} · {item.farmName} ({item.farmCode})
+                    </h3>
 
-                  <div className="mobile-record-card__grid">
-                    <div className="mobile-record-row">
-                      <strong>Total birds placed</strong>
-                      <span>{group.totalBirdsPlaced}</span>
-                    </div>
-                    <div className="mobile-record-row">
-                      <strong>Farms</strong>
-                      <span>{group.farmsCount}</span>
-                    </div>
-                    <div className="mobile-record-row">
-                      <strong>Crops</strong>
-                      <span>{group.cropsCount}</span>
-                    </div>
-                    <div className="mobile-record-row">
-                      <strong>Houses</strong>
-                      <span>{group.housesCount}</span>
-                    </div>
-                    <div className="mobile-record-row">
-                      <strong>First placement</strong>
-                      <span>
-                        {group.firstPlacementDate
-                          ? new Date(group.firstPlacementDate).toLocaleDateString()
-                          : "-"}
-                      </span>
-                    </div>
-                    <div className="mobile-record-row">
-                      <strong>Latest placement</strong>
-                      <span>
-                        {group.latestPlacementDate
-                          ? new Date(group.latestPlacementDate).toLocaleDateString()
-                          : "-"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mobile-record-list" style={{ marginTop: 12 }}>
-                    {group.items.map((item) => (
-                      <div
-                        key={item.placementId}
-                        className="mobile-record-card"
-                        style={{ background: "#f9fbff" }}
-                      >
-                        <h3 className="mobile-record-card__title">
-                          {item.farmName} ({item.farmCode}) · Crop {item.cropNumber}
-                        </h3>
-
-                        <div className="mobile-record-card__grid">
-                          <div className="mobile-record-row">
-                            <strong>House</strong>
-                            <span>
-                              {item.houseName}
-                              {item.houseCode ? ` (${item.houseCode})` : ""}
-                            </span>
-                          </div>
-                          <div className="mobile-record-row">
-                            <strong>Crop status</strong>
-                            <span>{item.cropStatus}</span>
-                          </div>
-                          <div className="mobile-record-row">
-                            <strong>Placement date</strong>
-                            <span>
-                              {new Date(item.placementDate).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <div className="mobile-record-row">
-                            <strong>Birds placed</strong>
-                            <span>{item.birdsPlaced}</span>
-                          </div>
-                          <div className="mobile-record-row">
-                            <strong>Birds alive est.</strong>
-                            <span>{item.currentBirdsAliveEstimate}</span>
-                          </div>
-                          <div className="mobile-record-row">
-                            <strong>Hatchery</strong>
-                            <span>{item.hatchery || "-"}</span>
-                          </div>
-                          <div className="mobile-record-row">
-                            <strong>Parent age weeks</strong>
-                            <span>{item.parentAgeWeeks ?? "-"}</span>
-                          </div>
-                          <div className="mobile-record-row">
-                            <strong>Feed kg</strong>
-                            <span>{item.totalFeedKg.toFixed(0)}</span>
-                          </div>
-                          <div className="mobile-record-row">
-                            <strong>Wheat kg</strong>
-                            <span>{item.totalWheatKg.toFixed(0)}</span>
-                          </div>
-                          <div className="mobile-record-row">
-                            <strong>Medication records</strong>
-                            <span>{item.medicationRecordsCount}</span>
-                          </div>
-                          <div className="mobile-record-row">
-                            <strong>Notes</strong>
-                            <span>{item.notes || "-"}</span>
-                          </div>
-                        </div>
+                    <div className="mobile-record-card__grid">
+                      <div className="mobile-record-row">
+                        <strong>Flock</strong>
+                        <span>{group.flockNumber}</span>
                       </div>
-                    ))}
+                      <div className="mobile-record-row">
+                        <strong>Crop</strong>
+                        <span>{item.cropNumber} · {item.cropStatus}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Placement date</strong>
+                        <span>{new Date(item.placementDate).toLocaleDateString()}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Birds placed</strong>
+                        <span>{item.birdsPlaced}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Birds alive est.</strong>
+                        <span>{item.currentBirdsAliveEstimate}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Hatchery</strong>
+                        <span>{item.hatchery || "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Parent age weeks</strong>
+                        <span>{item.parentAgeWeeks ?? "-"}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Feed kg</strong>
+                        <span>{item.totalFeedKg.toFixed(0)}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Wheat kg</strong>
+                        <span>{item.totalWheatKg.toFixed(0)}</span>
+                      </div>
+                      <div className="mobile-record-row">
+                        <strong>Medication records</strong>
+                        <span>{item.medicationRecordsCount}</span>
+                      </div>
+                      {item.notes && (
+                        <div className="mobile-record-row">
+                          <strong>Notes</strong>
+                          <span>{item.notes}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mobile-actions" style={{ marginTop: 12 }}>
+                      <Link
+                        href={`/houses/${item.houseId}/table?cropId=${item.cropId}`}
+                        className="mobile-button mobile-button--secondary"
+                      >
+                        Table
+                      </Link>
+                      <Link
+                        href={`/houses/${item.houseId}/charts?cropId=${item.cropId}`}
+                        className="mobile-button mobile-button--secondary"
+                      >
+                        Charts
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </>
         )}
