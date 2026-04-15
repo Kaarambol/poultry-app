@@ -52,8 +52,8 @@ export default function MedicationPage() {
   const [historyMode, setHistoryMode] = useState(false);
 
   const [houses, setHouses] = useState<House[]>([]);
+  const [activeCropId, setActiveCropId] = useState("");
   const [vetModeOpen, setVetModeOpen] = useState(false);
-  const [vetCropId, setVetCropId] = useState("");
   const [vetHouseId, setVetHouseId] = useState("");
   const [vetGenerating, setVetGenerating] = useState(false);
 
@@ -102,7 +102,10 @@ export default function MedicationPage() {
   async function loadActiveCrop(farmId: string) {
     const r = await fetch(`/api/crops/active?farmId=${farmId}`);
     const data = await r.json();
-    if (r.ok && data) setCurrentCropId(data.id);
+    if (r.ok && data) {
+      setCurrentCropId(data.id);
+      setActiveCropId(data.id);
+    }
   }
 
   async function loadHouses(farmId: string) {
@@ -152,14 +155,14 @@ export default function MedicationPage() {
   }
 
   async function generateVetPdf() {
-    if (!vetCropId || !vetHouseId) {
+    if (!activeCropId || !vetHouseId) {
       setMsgType("error");
-      setMsg("Please select a crop and house.");
+      setMsg("Please select a house. No active crop found.");
       return;
     }
     try {
       setVetGenerating(true);
-      const url = `/api/medications/vet-report?cropId=${encodeURIComponent(vetCropId)}&houseId=${encodeURIComponent(vetHouseId)}`;
+      const url = `/api/medications/vet-report?cropId=${encodeURIComponent(activeCropId)}&houseId=${encodeURIComponent(vetHouseId)}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error("Server error");
       const blob = await response.blob();
@@ -246,16 +249,12 @@ export default function MedicationPage() {
           </div>
           {vetModeOpen && (
             <div style={{ marginTop: 16 }}>
-              <label>Crop</label>
-              <select value={vetCropId} onChange={(e) => setVetCropId(e.target.value)}>
-                <option value="">-- select crop --</option>
-                {folders.map((f) => (
-                  <option key={f.cropId} value={f.cropId}>
-                    Crop {f.cropNumber} ({fmtDate(f.placementDate)} – {fmtDate(f.finishDate)})
-                  </option>
-                ))}
-              </select>
-              <label style={{ marginTop: 10 }}>House</label>
+              {!activeCropId && (
+                <p style={{ color: "#dc2626", fontSize: "0.85rem", marginBottom: 8 }}>
+                  No active crop found. Vet report is available for the active crop only.
+                </p>
+              )}
+              <label>House</label>
               <select value={vetHouseId} onChange={(e) => setVetHouseId(e.target.value)}>
                 <option value="">-- select house --</option>
                 {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
@@ -264,7 +263,7 @@ export default function MedicationPage() {
                 className="mobile-full-button"
                 style={{ marginTop: 10 }}
                 onClick={generateVetPdf}
-                disabled={vetGenerating || !vetCropId || !vetHouseId}
+                disabled={vetGenerating || !activeCropId || !vetHouseId}
               >
                 {vetGenerating ? "Generating..." : "Download Vet Report (CSV)"}
               </button>
