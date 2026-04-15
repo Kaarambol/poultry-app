@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canView } from "@/lib/permissions";
 import ExcelJS from "exceljs";
+import path from "path";
+import fs from "fs";
+import os from "os";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +15,6 @@ export async function POST(req: NextRequest) {
     const cropId = String(body.cropId || "").trim();
     if (!cropId) return NextResponse.json({ error: "cropId is required." }, { status: 400 });
 
-    // Fetch crop separately from farm to avoid any include issue
     const crop = await prisma.crop.findUnique({
       where: { id: cropId },
       include: {
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
     const FG_NAVY   = "FF1B3A5C";
     const NCOLS     = 7;
 
-    const addMergedTitle = (text: string, bg: string, fg: string, sz: number) => {
+    const addTitle = (text: string, bg: string, fg: string, sz: number) => {
       const row = ws.addRow([text]);
       ws.mergeCells(row.number, 1, row.number, NCOLS);
       const cell = row.getCell(1);
@@ -61,34 +63,31 @@ export async function POST(req: NextRequest) {
       row.height     = 24;
     };
 
-    const placedStr = new Date(crop.placementDate).toLocaleDateString("en-GB");
-    addMergedTitle(
-      `${farm.name}  |  Crop: ${crop.cropNumber}  |  Placed: ${placedStr}  |  Breed: ${crop.breed || "—"}`,
+    addTitle(
+      `${farm.name}  |  Crop: ${crop.cropNumber}  |  Placed: ${new Date(crop.placementDate).toLocaleDateString("en-GB")}  |  Breed: ${crop.breed || "—"}`,
       BG_NAVY, FG_WHITE, 12
     );
-    addMergedTitle(
+    addTitle(
       `Farm code: ${farm.code}  |  Generated: ${new Date().toLocaleDateString("en-GB")}`,
       "FFF0F4F9", FG_NAVY, 10
     );
     ws.addRow([]);
-    addMergedTitle("Placement Information", BG_NAVY, FG_WHITE, 11);
+    addTitle("Placement Information", BG_NAVY, FG_WHITE, 11);
 
-    // Header row
     const hdr = ws.addRow(["House", "Batch No", "Placement Date", "Flock Number", "Birds Placed", "Parent Age (wks)", "Hatchery"]);
     hdr.height = 26;
     hdr.eachCell((cell, col) => {
       cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: BG_HEADER } };
       cell.font      = { bold: true, size: 9, color: { argb: FG_NAVY } };
       cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle" };
-      cell.border = {
-        top: { style: "thin", color: { argb: "FFB8CCE0" } },
+      cell.border    = {
+        top:    { style: "thin", color: { argb: "FFB8CCE0" } },
         bottom: { style: "thin", color: { argb: "FFB8CCE0" } },
-        left: { style: "thin", color: { argb: "FFB8CCE0" } },
-        right: { style: "thin", color: { argb: "FFB8CCE0" } },
+        left:   { style: "thin", color: { argb: "FFB8CCE0" } },
+        right:  { style: "thin", color: { argb: "FFB8CCE0" } },
       };
     });
 
-    // Sort placements
     const sorted = [...crop.placements].sort((a, b) => {
       const hc = a.house.name.localeCompare(b.house.name, undefined, { numeric: true, sensitivity: "base" });
       return hc !== 0 ? hc : a.batchNo - b.batchNo;
@@ -97,20 +96,19 @@ export async function POST(req: NextRequest) {
     let totalBirds = 0;
     sorted.forEach((p, i) => {
       totalBirds += p.birdsPlaced;
-      const dateStr = new Date(p.placementDate).toLocaleDateString("en-GB");
       const row = ws.addRow([
         p.house.name,
         p.batchNo,
-        dateStr,
-        p.flockNumber   || "—",
+        new Date(p.placementDate).toLocaleDateString("en-GB"),
+        p.flockNumber    || "—",
         p.birdsPlaced,
         p.parentAgeWeeks != null ? p.parentAgeWeeks : "—",
-        p.hatchery      || "—",
+        p.hatchery       || "—",
       ]);
       row.eachCell((cell, col) => {
         cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: i % 2 === 0 ? BG_EVEN : "FFFFFFFF" } };
         cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle" };
-        cell.border = {
+        cell.border    = {
           left:   { style: "hair", color: { argb: "FFD0D8E8" } },
           right:  { style: "hair", color: { argb: "FFD0D8E8" } },
           bottom: { style: "hair", color: { argb: "FFD0D8E8" } },
@@ -120,13 +118,12 @@ export async function POST(req: NextRequest) {
       row.getCell(5).font = { bold: true, size: 10 };
     });
 
-    // Total row
     const totRow = ws.addRow(["TOTAL", "", "", "", totalBirds, "", ""]);
     totRow.eachCell((cell, col) => {
       cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDEDED" } };
       cell.font      = { bold: true, size: 10 };
       cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle" };
-      cell.border = {
+      cell.border    = {
         top:    { style: "medium", color: { argb: "FF9EB4CC" } },
         bottom: { style: "medium", color: { argb: "FF9EB4CC" } },
         left:   { style: "thin",   color: { argb: "FFD0D8E8" } },
@@ -134,10 +131,15 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    const buffer = await wb.xlsx.writeBuffer();
+    // Write to /tmp (writable on Vercel), read back, delete
     const fileName = `placement-${crop.cropNumber}-${Date.now()}.xlsx`;
+    const tmpPath  = path.join(os.tmpdir(), fileName);
+    await wb.xlsx.writeFile(tmpPath);
+    const fileBuffer = fs.readFileSync(tmpPath);
+    try { fs.unlinkSync(tmpPath); } catch {}
 
-    return new Response(Buffer.from(buffer), {
+    return new NextResponse(fileBuffer, {
+      status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="${fileName}"`,
@@ -146,9 +148,6 @@ export async function POST(req: NextRequest) {
 
   } catch (err: any) {
     console.error("PLACEMENT EXPORT ERROR:", err);
-    return NextResponse.json(
-      { error: err?.message || "Server error while exporting." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err?.message || "Server error while exporting." }, { status: 500 });
   }
 }

@@ -243,23 +243,28 @@ export async function POST(req: NextRequest) {
       ws.addRow([]); // blank separator between stages
     }
 
-    // ── Save ──────────────────────────────────────────────────────────────────
-    const exportDir = path.join(process.cwd(), "public", "exports");
-    if (!fs.existsSync(exportDir)) fs.mkdirSync(exportDir, { recursive: true });
+    // ── Write to /tmp, read back, return as download ─────────────────────────
+    const os       = require("os") as typeof import("os");
+    const fileName = `avara-${crop.cropNumber}-${Date.now()}.xlsx`;
+    const tmpPath  = path.join(os.tmpdir(), fileName);
 
-    const fileName     = `avara-${crop.cropNumber}-${Date.now()}.xlsx`;
-    const fullPath     = path.join(exportDir, fileName);
-    const relativePath = `/exports/${fileName}`;
+    await wb.xlsx.writeFile(tmpPath);
+    const fileBuffer = fs.readFileSync(tmpPath);
+    try { fs.unlinkSync(tmpPath); } catch {}
 
-    await wb.xlsx.writeFile(fullPath);
-
-    const saved = await prisma.avaraExport.create({
-      data: { cropId: crop.id, stage: "FULL_REPORT", fileName, filePath: relativePath },
+    await prisma.avaraExport.create({
+      data: { cropId: crop.id, stage: "FULL_REPORT", fileName, filePath: "" },
     });
 
-    return NextResponse.json({ ok: true, exportId: saved.id, fileName, filePath: relativePath });
-  } catch (error) {
+    return new NextResponse(fileBuffer, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+      },
+    });
+  } catch (error: any) {
     console.error("AVARA EXPORT ERROR:", error);
-    return NextResponse.json({ error: "Server error while exporting." }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Server error while exporting." }, { status: 500 });
   }
 }

@@ -137,17 +137,19 @@ export default function AvaraPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cropId }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Export failed");
-
-      // Trigger download
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Export failed");
+      }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = data.filePath;
-      link.download = data.fileName;
+      link.href     = url;
+      link.download = `avara-${cropLabel || cropId}-${Date.now()}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
+      URL.revokeObjectURL(url);
       setMsg("Export successful.");
       loadHistory(cropId);
     } catch (err: any) {
