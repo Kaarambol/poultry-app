@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getCurrentFarmId, setCurrentCropId } from "@/lib/app-context";
+import { getCurrentFarmId, setCurrentCropId, isViewingHistory, getHistoryCropId } from "@/lib/app-context";
 import { FarmRole } from "@/lib/ui-permissions";
 
 type FarmInfo = {
@@ -33,10 +33,17 @@ export default function HomePage() {
 
   async function loadData(farmId: string) {
     try {
+      const viewing = isViewingHistory();
+      const historyCropId = getHistoryCropId();
+
+      const cropUrl = viewing && historyCropId
+        ? `/api/crops/${historyCropId}`
+        : `/api/crops/active?farmId=${farmId}`;
+
       const [rFarms, rRole, rCrop, rHouses] = await Promise.all([
         fetch("/api/farms/list"),
         fetch(`/api/farms/access/me?farmId=${farmId}`),
-        fetch(`/api/crops/active?farmId=${farmId}`),
+        fetch(cropUrl),
         fetch(`/api/houses/list?farmId=${farmId}`),
       ]);
 
@@ -55,7 +62,7 @@ export default function HomePage() {
       const dCrop = await rCrop.json();
       if (rCrop.ok && dCrop) {
         setActiveCrop(dCrop);
-        setCurrentCropId(dCrop.id);
+        if (!viewing) setCurrentCropId(dCrop.id);
       }
 
       const dHouses = await rHouses.json();
