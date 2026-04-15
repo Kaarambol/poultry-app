@@ -41,7 +41,10 @@ export async function GET(req: NextRequest) {
     const birdsAlive  = birdsPlaced - totalLosses;
 
     const startDate   = new Date(crop.placementDate);
-    const ageDaysToday = Math.floor((Date.now() - startDate.getTime()) / 86400000) + 1;
+    // Age consistent with dashboard: placement day = day 0; read from last daily record if available
+    const lastRecord  = allRecords.length > 0 ? allRecords[allRecords.length - 1] : null;
+    const ageRefDate  = lastRecord ? new Date(lastRecord.date) : new Date();
+    const ageDaysToday = Math.floor((ageRefDate.getTime() - startDate.getTime()) / 86400000);
     const last7        = allRecords.slice(-7);
 
     // ── Build Excel ───────────────────────────────────────────────────────────
