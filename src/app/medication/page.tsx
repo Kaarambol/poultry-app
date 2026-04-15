@@ -169,7 +169,7 @@ export default function MedicationPage() {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
-      link.download = `Vet-Report-Crop-${vetCropId}.csv`;
+      link.download = `Vet-Report-Crop-${activeCropId}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
