@@ -37,15 +37,20 @@ export default function HomePage() {
       const historyCropId = getHistoryCropId();
 
       const cropUrl = viewing && historyCropId
-        ? `/api/crops/${historyCropId}`
+        ? `/api/crops/details?cropId=${historyCropId}`
         : `/api/crops/active?farmId=${farmId}`;
 
-      const [rFarms, rRole, rCrop, rHouses] = await Promise.all([
+      const fetches: Promise<Response>[] = [
         fetch("/api/farms/list"),
         fetch(`/api/farms/access/me?farmId=${farmId}`),
         fetch(cropUrl),
         fetch(`/api/houses/list?farmId=${farmId}`),
-      ]);
+      ];
+      if (viewing && historyCropId) {
+        fetches.push(fetch(`/api/daily-records/list?cropId=${historyCropId}`));
+      }
+
+      const [rFarms, rRole, rCrop, rHouses, rDaily] = await Promise.all(fetches);
 
       const dFarms = await rFarms.json();
       if (Array.isArray(dFarms)) {
@@ -61,8 +66,13 @@ export default function HomePage() {
 
       const dCrop = await rCrop.json();
       if (rCrop.ok && dCrop) {
-        setActiveCrop(dCrop);
-        if (!viewing) setCurrentCropId(dCrop.id);
+        if (viewing && rDaily) {
+          const dDaily = await rDaily.json();
+          setActiveCrop({ ...dCrop, dailyRecords: Array.isArray(dDaily) ? dDaily : [] });
+        } else {
+          setActiveCrop(dCrop);
+          setCurrentCropId(dCrop.id);
+        }
       }
 
       const dHouses = await rHouses.json();
