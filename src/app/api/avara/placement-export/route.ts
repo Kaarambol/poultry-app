@@ -12,10 +12,10 @@ export async function POST(req: NextRequest) {
     const cropId = String(body.cropId || "").trim();
     if (!cropId) return NextResponse.json({ error: "cropId is required." }, { status: 400 });
 
+    // Fetch crop separately from farm to avoid any include issue
     const crop = await prisma.crop.findUnique({
       where: { id: cropId },
       include: {
-        farm: true,
         placements: {
           include: { house: true },
           orderBy: [{ houseId: "asc" }, { batchNo: "asc" }],
@@ -25,113 +25,108 @@ export async function POST(req: NextRequest) {
 
     if (!crop) return NextResponse.json({ error: "Crop not found." }, { status: 404 });
 
-    const role = await getUserRoleOnFarm(uid, crop.farmId);
-    if (!canView(role)) {
-      return NextResponse.json({ error: "No permission." }, { status: 403 });
-    }
+    const farm = await prisma.farm.findUnique({ where: { id: crop.farmId } });
+    if (!farm) return NextResponse.json({ error: "Farm not found." }, { status: 404 });
 
-    // ── Build Excel ───────────────────────────────────────────────────────────
+    const role = await getUserRoleOnFarm(uid, crop.farmId);
+    if (!canView(role)) return NextResponse.json({ error: "No permission." }, { status: 403 });
+
     const wb = new ExcelJS.Workbook();
-    wb.creator = "Poultry App";
     const ws = wb.addWorksheet("Placement Information");
 
-    const NCOLS = 7;
+    ws.columns = [
+      { width: 16 },
+      { width: 9  },
+      { width: 14 },
+      { width: 16 },
+      { width: 13 },
+      { width: 14 },
+      { width: 22 },
+    ];
+
     const BG_NAVY   = "FF1B3A5C";
     const BG_HEADER = "FFD9E8F5";
     const BG_EVEN   = "FFFAFCFF";
     const FG_WHITE  = "FFFFFFFF";
     const FG_NAVY   = "FF1B3A5C";
+    const NCOLS     = 7;
 
-    ws.columns = [
-      { key: "house",       width: 16 },
-      { key: "batch",       width: 9  },
-      { key: "date",        width: 14 },
-      { key: "flock",       width: 16 },
-      { key: "birds",       width: 13 },
-      { key: "parentAge",   width: 14 },
-      { key: "hatchery",    width: 22 },
-    ];
+    const addMergedTitle = (text: string, bg: string, fg: string, sz: number) => {
+      const row = ws.addRow([text]);
+      ws.mergeCells(row.number, 1, row.number, NCOLS);
+      const cell = row.getCell(1);
+      cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+      cell.font      = { bold: true, size: sz, color: { argb: fg } };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      row.height     = 24;
+    };
 
-    function mergedHeader(text: string, bgArgb: string, fgArgb: string, size = 11) {
-      const r = ws.addRow([text]);
-      ws.mergeCells(r.number, 1, r.number, NCOLS);
-      const c = r.getCell(1);
-      c.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: bgArgb } };
-      c.font      = { bold: true, size, color: { argb: fgArgb } };
-      c.alignment = { horizontal: "center", vertical: "middle" };
-      r.height    = 24;
-      return r;
-    }
-
-    // Title rows
-    mergedHeader(
-      `${crop.farm.name}  |  Crop: ${crop.cropNumber}  |  Placed: ${new Date(crop.placementDate).toLocaleDateString("en-GB")}  |  Breed: ${crop.breed || "—"}`,
+    const placedStr = new Date(crop.placementDate).toLocaleDateString("en-GB");
+    addMergedTitle(
+      `${farm.name}  |  Crop: ${crop.cropNumber}  |  Placed: ${placedStr}  |  Breed: ${crop.breed || "—"}`,
       BG_NAVY, FG_WHITE, 12
     );
-    mergedHeader(
-      `Farm code: ${crop.farm.code}  |  Generated: ${new Date().toLocaleDateString("en-GB")}`,
+    addMergedTitle(
+      `Farm code: ${farm.code}  |  Generated: ${new Date().toLocaleDateString("en-GB")}`,
       "FFF0F4F9", FG_NAVY, 10
     );
+    ws.addRow([]);
+    addMergedTitle("Placement Information", BG_NAVY, FG_WHITE, 11);
 
-    ws.addRow([]); // spacer
-
-    // Section header
-    mergedHeader("Placement Information", BG_NAVY, FG_WHITE, 11);
-
-    // Column headers
-    const hdr = ws.addRow(["House", "Batch\nNo", "Placement\nDate", "Flock\nNumber", "Birds\nPlaced", "Parent Age\n(weeks)", "Hatchery"]);
-    hdr.height = 32;
+    // Header row
+    const hdr = ws.addRow(["House", "Batch No", "Placement Date", "Flock Number", "Birds Placed", "Parent Age (wks)", "Hatchery"]);
+    hdr.height = 26;
     hdr.eachCell((cell, col) => {
       cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: BG_HEADER } };
       cell.font      = { bold: true, size: 9, color: { argb: FG_NAVY } };
-      cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle", wrapText: true };
-      cell.border    = {
-        top:    { style: "thin", color: { argb: "FFB8CCE0" } },
+      cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle" };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FFB8CCE0" } },
         bottom: { style: "thin", color: { argb: "FFB8CCE0" } },
-        left:   { style: "thin", color: { argb: "FFB8CCE0" } },
-        right:  { style: "thin", color: { argb: "FFB8CCE0" } },
+        left: { style: "thin", color: { argb: "FFB8CCE0" } },
+        right: { style: "thin", color: { argb: "FFB8CCE0" } },
       };
     });
 
-    // Sort placements: by house name (numeric-aware), then batch number
+    // Sort placements
     const sorted = [...crop.placements].sort((a, b) => {
-      const hCmp = a.house.name.localeCompare(b.house.name, undefined, { numeric: true, sensitivity: "base" });
-      return hCmp !== 0 ? hCmp : a.batchNo - b.batchNo;
+      const hc = a.house.name.localeCompare(b.house.name, undefined, { numeric: true, sensitivity: "base" });
+      return hc !== 0 ? hc : a.batchNo - b.batchNo;
     });
 
+    let totalBirds = 0;
     sorted.forEach((p, i) => {
-      const dr = ws.addRow([
+      totalBirds += p.birdsPlaced;
+      const dateStr = new Date(p.placementDate).toLocaleDateString("en-GB");
+      const row = ws.addRow([
         p.house.name,
         p.batchNo,
-        new Date(p.placementDate).toLocaleDateString("en-GB"),
-        p.flockNumber  || "—",
+        dateStr,
+        p.flockNumber   || "—",
         p.birdsPlaced,
         p.parentAgeWeeks != null ? p.parentAgeWeeks : "—",
-        p.hatchery     || "—",
+        p.hatchery      || "—",
       ]);
-
-      dr.eachCell((cell, col) => {
+      row.eachCell((cell, col) => {
         cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: i % 2 === 0 ? BG_EVEN : "FFFFFFFF" } };
         cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle" };
-        cell.border    = {
+        cell.border = {
           left:   { style: "hair", color: { argb: "FFD0D8E8" } },
           right:  { style: "hair", color: { argb: "FFD0D8E8" } },
           bottom: { style: "hair", color: { argb: "FFD0D8E8" } },
         };
         cell.font = { size: 10 };
       });
-      // Birds placed right-aligned bold
-      dr.getCell(5).font = { bold: true, size: 10 };
+      row.getCell(5).font = { bold: true, size: 10 };
     });
 
-    // Totals row
-    const totalBirds = sorted.reduce((s, p) => s + p.birdsPlaced, 0);
-    const tr = ws.addRow(["TOTAL", "", "", "", totalBirds, "", ""]);
-    tr.eachCell((cell, col) => {
+    // Total row
+    const totRow = ws.addRow(["TOTAL", "", "", "", totalBirds, "", ""]);
+    totRow.eachCell((cell, col) => {
       cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDEDED" } };
       cell.font      = { bold: true, size: 10 };
       cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle" };
-      cell.border    = {
+      cell.border = {
         top:    { style: "medium", color: { argb: "FF9EB4CC" } },
         bottom: { style: "medium", color: { argb: "FF9EB4CC" } },
         left:   { style: "thin",   color: { argb: "FFD0D8E8" } },
@@ -139,18 +134,21 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // ── Return as direct download (no filesystem write) ───────────────────────
     const buffer = await wb.xlsx.writeBuffer();
     const fileName = `placement-${crop.cropNumber}-${Date.now()}.xlsx`;
 
-    return new NextResponse(buffer as Buffer, {
+    return new Response(Buffer.from(buffer), {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="${fileName}"`,
       },
     });
-  } catch (error) {
-    console.error("PLACEMENT EXPORT ERROR:", error);
-    return NextResponse.json({ error: "Server error while exporting." }, { status: 500 });
+
+  } catch (err: any) {
+    console.error("PLACEMENT EXPORT ERROR:", err);
+    return NextResponse.json(
+      { error: err?.message || "Server error while exporting." },
+      { status: 500 }
+    );
   }
 }
