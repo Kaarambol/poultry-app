@@ -52,6 +52,7 @@ export default function AvaraPage() {
   const [history, setHistory]     = useState<ExportItem[]>([]);
   const [msg, setMsg]             = useState("Loading...");
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPlacement, setIsExportingPlacement] = useState(false);
 
   async function loadFarmName(farmId: string) {
     const r = await fetch("/api/farms/list");
@@ -93,6 +94,32 @@ export default function AvaraPage() {
     const r = await fetch(`/api/avara/history?cropId=${selectedCropId}`);
     const data = await r.json();
     if (Array.isArray(data)) setHistory(data);
+  }
+
+  async function exportPlacement() {
+    if (!cropId) return;
+    setIsExportingPlacement(true);
+    setMsg("Generating placement report...");
+    try {
+      const res = await fetch("/api/avara/placement-export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cropId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Export failed");
+      const link = document.createElement("a");
+      link.href = data.filePath;
+      link.download = data.fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setMsg("Placement report downloaded.");
+    } catch (err: any) {
+      setMsg("Export failed: " + err.message);
+    } finally {
+      setIsExportingPlacement(false);
+    }
   }
 
   async function exportExcel() {
@@ -165,6 +192,14 @@ export default function AvaraPage() {
 
           {cropId && canOperate && (
             <div className="mobile-sticky-actions">
+              <button
+                className="mobile-full-button"
+                onClick={exportPlacement}
+                disabled={isExportingPlacement}
+                style={{ marginBottom: 8 }}
+              >
+                {isExportingPlacement ? "Generating..." : "Placement Information"}
+              </button>
               <button
                 className="mobile-full-button"
                 onClick={exportExcel}
