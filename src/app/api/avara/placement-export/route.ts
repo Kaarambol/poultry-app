@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canView } from "@/lib/permissions";
 import ExcelJS from "exceljs";
-import path from "path";
-import fs from "fs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -141,17 +139,16 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // ── Save ──────────────────────────────────────────────────────────────────
-    const exportDir  = path.join(process.cwd(), "public", "exports");
-    if (!fs.existsSync(exportDir)) fs.mkdirSync(exportDir, { recursive: true });
+    // ── Return as direct download (no filesystem write) ───────────────────────
+    const buffer = await wb.xlsx.writeBuffer();
+    const fileName = `placement-${crop.cropNumber}-${Date.now()}.xlsx`;
 
-    const fileName     = `placement-${crop.cropNumber}-${Date.now()}.xlsx`;
-    const fullPath     = path.join(exportDir, fileName);
-    const relativePath = `/exports/${fileName}`;
-
-    await wb.xlsx.writeFile(fullPath);
-
-    return NextResponse.json({ ok: true, fileName, filePath: relativePath });
+    return new NextResponse(buffer as Buffer, {
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+      },
+    });
   } catch (error) {
     console.error("PLACEMENT EXPORT ERROR:", error);
     return NextResponse.json({ error: "Server error while exporting." }, { status: 500 });
