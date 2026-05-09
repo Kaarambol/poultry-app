@@ -271,6 +271,7 @@ export default function HouseTablePage({
     fontSize: "0.5rem",
     padding: "4px 3px",
     verticalAlign: "bottom",
+    textAlign: "center",
     minWidth: 36,
   };
 
@@ -316,7 +317,7 @@ export default function HouseTablePage({
           </div>
         ) : (
           <div style={{ overflowX: "auto", width: "100%" }}>
-            <table style={{ fontSize: "0.55rem", borderCollapse: "collapse", width: "max-content", minWidth: "100%" }}>
+            <table style={{ fontSize: "0.55rem", borderCollapse: "collapse", width: "max-content", minWidth: "100%", textAlign: "center" }}>
               <thead>
                 <tr>
                   <th style={thStyle}>Date</th>
