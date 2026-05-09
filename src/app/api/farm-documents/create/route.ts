@@ -5,6 +5,7 @@ import { getUserRoleOnFarm, canOperate } from "@/lib/permissions";
 import { writeChangeLog } from "@/lib/change-log";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function parseOptionalDate(value: FormDataEntryValue | null) {
   if (!value) return null;
