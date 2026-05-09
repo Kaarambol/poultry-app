@@ -538,44 +538,24 @@ export default function NightCheckPage() {
             <p style={{ margin: 0 }}>No night checks yet.</p>
           </div>
         ) : (
-          <div className="mobile-card" style={{ overflowX: "auto" }}>
-            <table className="mobile-table" style={{ fontSize: "0.65rem", whiteSpace: "nowrap", textAlign: "center", borderCollapse: "collapse" }}>
+          <div style={{ width: "100vw", position: "relative", left: "50%", transform: "translateX(-50%)", overflowX: "auto", padding: "0 8px" }}>
+            <style>{`.nc-table td, .nc-table th { border: 1px solid #e5e7eb; padding: 3px 4px; }`}</style>
+            <table className="nc-table" style={{ fontSize: "0.5rem", textAlign: "center", borderCollapse: "collapse", width: "max-content", minWidth: "100%" }}>
               <thead>
-                <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>By</th>
-                  <th>Hum</th>
-                  <th>CO2</th>
-                  <th>NH3</th>
-                  <th>Litter</th>
-                  <th>Wet</th>
-                  <th>Cap</th>
-                  <th>Birds</th>
-                  <th>Crop fill</th>
-                  <th>Unusual</th>
-                  <th>Water sys</th>
-                  <th>Feed sys</th>
-                  <th>Vent</th>
-                  <th>Alarm</th>
-                  <th>Generator</th>
-                  <th>Lighting</th>
-                  <th>Windows</th>
-                  <th>Fridge</th>
-                  <th>Litter smpl</th>
-                  <th>Fire ext</th>
-                  <th>Foot dip</th>
-                  <th>Dosatron</th>
-                  <th>Vitamin</th>
-                  <th>Vacc</th>
-                  <th>Medic</th>
-                  <th>Pest ctrl</th>
-                  <th>H2O san</th>
-                  <th>Cal H2O</th>
-                  <th>Cal Temp</th>
-                  <th>Cal Hum</th>
-                  <th>Cal Wgh</th>
-                  <th>Comments</th>
+                <tr style={{ background: "#f1f5f9" }}>
+                  {([
+                    "Date","Check Time","Checked By",
+                    "Humidity","CO₂","Ammonia (NH₃)","Litter Score","Wet Areas","Capping",
+                    "Birds OK","Crop Fill OK","Unusual Behaviour",
+                    "Water System","Feed System","Ventilation","Alarm","Generator","Lighting",
+                    "Windows Open","Fridge Temp","Litter Sample Taken","Fire Extinguisher",
+                    "Foot Dip Change","Dosatron Check","Vitamin Add","Vaccination","Medication",
+                    "Pest Control","Water Sanitizer",
+                    "Cal. Water Meter","Cal. Temp Probe","Cal. Humidity Probe","Cal. Weigher",
+                    "Comments",
+                  ] as string[]).map((h) => (
+                    <th key={h} style={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.25, verticalAlign: "bottom", minWidth: 36, fontSize: "0.5rem" }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -625,3 +605,4 @@ export default function NightCheckPage() {
     </div>
   );
 }
+
