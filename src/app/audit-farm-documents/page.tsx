@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { upload } from "@vercel/blob/client";
 import { getCurrentFarmId } from "@/lib/app-context";
 import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
 
@@ -168,6 +169,7 @@ export default function AuditFarmDocumentsPage() {
   const [existingFileUrl, setExistingFileUrl] = useState("");
   const [existingFileName, setExistingFileName] = useState("");
 
+  const [uploading, setUploading] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -263,7 +265,7 @@ export default function AuditFarmDocumentsPage() {
   async function saveDocument(e: React.FormEvent) {
     e.preventDefault();
 
-    const url = editingId
+    const apiUrl = editingId
       ? "/api/farm-documents/update"
       : "/api/farm-documents/create";
 
@@ -286,30 +288,56 @@ export default function AuditFarmDocumentsPage() {
     form.append("allowMultiple", String(allowMultiple));
 
     if (selectedFile) {
-      form.append("file", selectedFile);
+      try {
+        setUploading(true);
+        setMsgType("info");
+        setMsg("Uploading file…");
+
+        const blob = await upload(selectedFile.name, selectedFile, {
+          access: "public",
+          handleUploadUrl: "/api/farm-documents/upload-token",
+        });
+
+        form.append("preUploadedFileUrl", blob.url);
+        form.append("preUploadedBlobPath", blob.pathname);
+        form.append("preUploadedOriginalFileName", selectedFile.name);
+        form.append("preUploadedMimeType", selectedFile.type || "application/octet-stream");
+      } catch (err) {
+        setUploading(false);
+        setMsgType("error");
+        setMsg("File upload failed. Please try again.");
+        return;
+      } finally {
+        setUploading(false);
+      }
     }
 
-    const r = await fetch(url, {
-      method: "POST",
-      body: form,
-    });
+    try {
+      const r = await fetch(apiUrl, {
+        method: "POST",
+        body: form,
+      });
 
-    const data = await r.json();
+      const data = await r.json();
 
-    if (!r.ok) {
+      if (!r.ok) {
+        setMsgType("error");
+        setMsg(data.error || "Error saving document.");
+        return;
+      }
+
+      setMsgType("success");
+      setMsg(editingId ? "Document updated." : "Document added.");
+      clearForm();
+      await loadAlerts(currentFarmId);
+      await loadAllDocuments(currentFarmId);
+
+      if (searchExecuted && searchQuery.trim().length >= 2) {
+        await runSearch(searchQuery);
+      }
+    } catch {
       setMsgType("error");
-      setMsg(data.error || "Error saving document.");
-      return;
-    }
-
-    setMsgType("success");
-    setMsg(editingId ? "Document updated." : "Document added.");
-    clearForm();
-    await loadAlerts(currentFarmId);
-    await loadAllDocuments(currentFarmId);
-
-    if (searchExecuted && searchQuery.trim().length >= 2) {
-      await runSearch(searchQuery);
+      setMsg("Network error. Please try again.");
     }
   }
 
@@ -839,8 +867,8 @@ export default function AuditFarmDocumentsPage() {
             {canOperate && (
               <div className="mobile-sticky-actions">
                 <div className="mobile-sticky-actions__inner">
-                  <button className="mobile-full-button" type="submit">
-                    {editingId ? "Update Document" : "Add Document"}
+                  <button className="mobile-full-button" type="submit" disabled={uploading}>
+                    {uploading ? "Uploading file…" : editingId ? "Update Document" : "Add Document"}
                   </button>
 
                   {editingId && (

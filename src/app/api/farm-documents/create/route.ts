@@ -91,19 +91,33 @@ export async function POST(req: NextRequest) {
     let storedFileName: string | null = null;
     let mimeType: string | null = null;
 
-    const fileValue = form.get("file");
+    // Client-side pre-uploaded file (used for large files > 4.5 MB)
+    const preUploadedFileUrl = String(form.get("preUploadedFileUrl") || "").trim();
+    const preUploadedBlobPath = String(form.get("preUploadedBlobPath") || "").trim();
+    const preUploadedOriginalFileName = String(form.get("preUploadedOriginalFileName") || "").trim();
+    const preUploadedMimeType = String(form.get("preUploadedMimeType") || "").trim();
 
-    if (fileValue instanceof File && fileValue.size > 0) {
-      const saved = await saveFarmDocumentFile({
-        farmId,
-        file: fileValue,
-      });
+    if (preUploadedFileUrl) {
+      fileUrl = preUploadedFileUrl;
+      blobPath = preUploadedBlobPath || null;
+      originalFileName = preUploadedOriginalFileName || null;
+      storedFileName = preUploadedBlobPath || null;
+      mimeType = preUploadedMimeType || null;
+    } else {
+      const fileValue = form.get("file");
 
-      fileUrl = saved.fileUrl ?? null;
-      blobPath = saved.blobPath ?? saved.storedFileName ?? null;
-      originalFileName = saved.originalFileName ?? fileValue.name ?? null;
-      storedFileName = saved.storedFileName ?? null;
-      mimeType = saved.mimeType ?? fileValue.type ?? null;
+      if (fileValue instanceof File && fileValue.size > 0) {
+        const saved = await saveFarmDocumentFile({
+          farmId,
+          file: fileValue,
+        });
+
+        fileUrl = saved.fileUrl ?? null;
+        blobPath = saved.blobPath ?? saved.storedFileName ?? null;
+        originalFileName = saved.originalFileName ?? fileValue.name ?? null;
+        storedFileName = saved.storedFileName ?? null;
+        mimeType = saved.mimeType ?? fileValue.type ?? null;
+      }
     }
 
     const document = await prisma.farmDocument.create({
