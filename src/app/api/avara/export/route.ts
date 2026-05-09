@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     const placed = new Date(crop.placementDate);
     const daily = crop.daily.map(r => ({
       ...r,
-      ageDay: Math.floor((new Date(r.date).getTime() - placed.getTime()) / 86400000) + 1,
+      ageDay: Math.floor((new Date(r.date).getTime() - placed.getTime()) / 86400000),
     }));
 
     // ── Per-house cumulative trackers for CDMR ────────────────────────────────
@@ -95,14 +95,18 @@ export async function POST(req: NextRequest) {
         const mort       = recs.reduce((s, r) => s + r.mort,       0);
         const cullsSmall = recs.reduce((s, r) => s + r.cullsSmall, 0);
         const cullsLeg   = recs.reduce((s, r) => s + r.cullsLeg,   0);
-        const otherCulls = recs.reduce((s, r) => s + r.culls,      0);
 
         let weight: number | null = null;
-        for (const r of recs) {
-          if (r.avgWeightG != null) weight = r.avgWeightG / 1000;
+        if (stage.toDay === 9999) {
+          for (const r of recs) {
+            if (r.avgWeightG != null) weight = r.avgWeightG / 1000;
+          }
+        } else {
+          const weightRec = recs.find(r => r.ageDay === stage.toDay);
+          if (weightRec?.avgWeightG != null) weight = weightRec.avgWeightG / 1000;
         }
 
-        const allCulls = cullsSmall + cullsLeg + otherCulls;
+        const allCulls = cullsSmall + cullsLeg;
         cumMort[house.id]  += mort;
         cumCulls[house.id] += allCulls;
 

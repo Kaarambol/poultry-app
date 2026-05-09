@@ -77,7 +77,7 @@ export async function GET(req: Request) {
       const ageDays =
         Math.floor(
           (recordDate.getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
-        ) + 1;
+        );
 
       return ageDays <= maxDay;
     });
