@@ -1,0 +1,1 @@
+ALTER TABLE "FarmDocument" ADD COLUMN "allowMultiple" BOOLEAN NOT NULL DEFAULT false;

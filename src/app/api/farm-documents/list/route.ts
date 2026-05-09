@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
         referenceNo: true,
         issuer: true,
         notes: true,
+        allowMultiple: true,
         createdAt: true,
         updatedAt: true,
       },

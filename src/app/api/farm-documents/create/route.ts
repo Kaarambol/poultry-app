@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
     const referenceNo = String(form.get("referenceNo") || "").trim();
     const issuer = String(form.get("issuer") || "").trim();
     const notes = String(form.get("notes") || "").trim();
+    const allowMultiple = parseBoolean(form.get("allowMultiple"));
 
     if (!farmId || !title || !documentType) {
       return NextResponse.json(
@@ -125,6 +126,7 @@ export async function POST(req: NextRequest) {
         referenceNo: referenceNo || null,
         issuer: issuer || null,
         notes: notes || null,
+        allowMultiple,
       },
     });
 

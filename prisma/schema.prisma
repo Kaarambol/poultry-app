@@ -261,6 +261,7 @@ model FarmDocument {
   referenceNo      String?
   issuer           String?
   notes            String?
+  allowMultiple    Boolean   @default(false)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 

@@ -30,6 +30,7 @@ type FarmDocument = {
   referenceNo: string | null;
   issuer: string | null;
   notes: string | null;
+  allowMultiple: boolean;
   createdAt: string;
 };
 
@@ -162,10 +163,12 @@ export default function AuditFarmDocumentsPage() {
   const [referenceNo, setReferenceNo] = useState("");
   const [issuer, setIssuer] = useState("");
   const [notes, setNotes] = useState("");
+  const [allowMultiple, setAllowMultiple] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [existingFileUrl, setExistingFileUrl] = useState("");
   const [existingFileName, setExistingFileName] = useState("");
 
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<FarmDocument[]>([]);
@@ -251,6 +254,7 @@ export default function AuditFarmDocumentsPage() {
     setReferenceNo("");
     setIssuer("");
     setNotes("");
+    setAllowMultiple(false);
     setSelectedFile(null);
     setExistingFileUrl("");
     setExistingFileName("");
@@ -279,6 +283,7 @@ export default function AuditFarmDocumentsPage() {
     form.append("referenceNo", referenceNo);
     form.append("issuer", issuer);
     form.append("notes", notes);
+    form.append("allowMultiple", String(allowMultiple));
 
     if (selectedFile) {
       form.append("file", selectedFile);
@@ -420,6 +425,7 @@ export default function AuditFarmDocumentsPage() {
     setReferenceNo(doc.referenceNo || "");
     setIssuer(doc.issuer || "");
     setNotes(doc.notes || "");
+    setAllowMultiple(doc.allowMultiple);
     setSelectedFile(null);
     setExistingFileUrl(doc.fileUrl || "");
     setExistingFileName(doc.originalFileName || "");
@@ -793,6 +799,44 @@ export default function AuditFarmDocumentsPage() {
               disabled={!canOperate}
             />
 
+            <div style={{ marginTop: 16, marginBottom: 4 }}>
+              <label style={{ fontWeight: 600, display: "block", marginBottom: 8 }}>Document behaviour</label>
+              <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #cbd5e1", width: "fit-content" }}>
+                <button
+                  type="button"
+                  onClick={() => setAllowMultiple(false)}
+                  disabled={!canOperate}
+                  style={{
+                    padding: "8px 18px", fontSize: "0.85rem", border: "none", cursor: canOperate ? "pointer" : "default",
+                    background: !allowMultiple ? "#1B3A5C" : "#f8fafc",
+                    color: !allowMultiple ? "#fff" : "#475569",
+                    fontWeight: !allowMultiple ? 700 : 400,
+                  }}
+                >
+                  🔄 Replace
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllowMultiple(true)}
+                  disabled={!canOperate}
+                  style={{
+                    padding: "8px 18px", fontSize: "0.85rem", border: "none", cursor: canOperate ? "pointer" : "default",
+                    background: allowMultiple ? "#1B3A5C" : "#f8fafc",
+                    color: allowMultiple ? "#fff" : "#475569",
+                    fontWeight: allowMultiple ? 700 : 400,
+                    borderLeft: "1px solid #cbd5e1",
+                  }}
+                >
+                  📁 Keep history
+                </button>
+              </div>
+              <p style={{ margin: "6px 0 0", fontSize: "0.78rem", color: "#64748b" }}>
+                {allowMultiple
+                  ? "Each new upload is added to the history — old versions are kept."
+                  : "New upload replaces the current version."}
+              </p>
+            </div>
+
             {canOperate && (
               <div className="mobile-sticky-actions">
                 <div className="mobile-sticky-actions__inner">
@@ -815,90 +859,130 @@ export default function AuditFarmDocumentsPage() {
           </form>
         </div>
 
-        {allDocuments.length > 0 && (
-          <div className="mobile-card" style={{ overflowX: "auto" }}>
-            <h2>All Documents ({allDocuments.length})</h2>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-              <thead>
-                <tr style={{ background: "#f5f5f5" }}>
-                  <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Title</th>
-                  <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Type</th>
-                  <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Expiry date</th>
-                  <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Next review</th>
-                  <th style={{ textAlign: "left", padding: "8px 10px", borderBottom: "2px solid #ddd" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allDocuments.map((doc, idx) => {
-                  const badge = getDocumentStatusBadge(doc);
+        {allDocuments.length > 0 && (() => {
+          // Group by title
+          const groups = new Map<string, FarmDocument[]>();
+          for (const doc of allDocuments) {
+            const key = doc.title;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(doc);
+          }
+          // Sort groups: single docs first (allowMultiple=false), then multi
+          const sorted = Array.from(groups.entries()).sort(([, a], [, b]) => {
+            const aMulti = a[0].allowMultiple;
+            const bMulti = b[0].allowMultiple;
+            if (aMulti === bMulti) return a[0].title.localeCompare(b[0].title);
+            return aMulti ? 1 : -1;
+          });
+
+          return (
+            <div className="mobile-card">
+              <h2>All Documents ({allDocuments.length})</h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 8 }}>
+                {sorted.map(([groupTitle, docs]) => {
+                  const isMulti = docs[0].allowMultiple;
+                  const isExpanded = expandedGroups.has(groupTitle);
+                  const latest = docs[0];
+                  const badge = getDocumentStatusBadge(latest);
+
+                  if (!isMulti) {
+                    // Single doc — one row, no expand
+                    return (
+                      <div key={groupTitle} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", gap: 8 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{latest.title}</span>
+                          <span style={{ marginLeft: 8, fontSize: "0.75rem", fontWeight: 600, color: badge.color }}>{badge.label}</span>
+                          <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>
+                            {formatDocumentTypeLabel(latest.documentType)}
+                            {latest.expiryDate ? ` · Expires: ${formatDate(latest.expiryDate)}` : ""}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          {latest.fileUrl && (
+                            <a href={`/api/farm-documents/file?url=${encodeURIComponent(latest.fileUrl)}`} target="_blank" rel="noreferrer"
+                              className="mobile-button mobile-button--secondary" style={{ padding: "4px 10px", fontSize: "0.78rem", textDecoration: "none" }}>
+                              View
+                            </a>
+                          )}
+                          {canOperate && (
+                            <>
+                              <button type="button" className="mobile-button mobile-button--secondary"
+                                style={{ padding: "4px 10px", fontSize: "0.78rem" }} onClick={() => startEdit(latest)}>Edit</button>
+                              <button type="button" className="mobile-button mobile-button--danger"
+                                style={{ padding: "4px 10px", fontSize: "0.78rem" }} onClick={() => deleteDocument(latest.id)}>Delete</button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Multi doc — collapsible group
                   return (
-                    <tr
-                      key={doc.id}
-                      style={{ background: idx % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #eee" }}
-                    >
-                      <td style={{ padding: "8px 10px", wordBreak: "break-word", maxWidth: 260 }}>
-                        <span style={{ fontWeight: 500 }}>{doc.title}</span>
-                        <span
-                          style={{
-                            marginLeft: 8,
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            color: badge.color,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                        {formatDocumentTypeLabel(doc.documentType)}
-                      </td>
-                      <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                        {formatDate(doc.expiryDate)}
-                      </td>
-                      <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                        {formatDate(doc.nextReviewDate)}
-                      </td>
-                      <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                        {doc.fileUrl && (
-                          <a
-                            href={`/api/farm-documents/file?url=${encodeURIComponent(doc.fileUrl)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mobile-button mobile-button--secondary"
-                            style={{ marginRight: 6, padding: "4px 10px", fontSize: "0.8rem", textDecoration: "none" }}
-                          >
-                            Preview
-                          </a>
-                        )}
-                        {canOperate && (
-                          <>
-                            <button
-                              type="button"
-                              className="mobile-button mobile-button--secondary"
-                              style={{ marginRight: 6, padding: "4px 10px", fontSize: "0.8rem" }}
-                              onClick={() => startEdit(doc)}
-                            >
-                              Edit
+                    <div key={groupTitle} style={{ border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: "#f8fafc", cursor: "pointer" }}
+                        onClick={() => setExpandedGroups(prev => {
+                          const next = new Set(prev);
+                          if (next.has(groupTitle)) next.delete(groupTitle); else next.add(groupTitle);
+                          return next;
+                        })}>
+                        <div>
+                          <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>📁 {groupTitle}</span>
+                          <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "#64748b" }}>{docs.length} version{docs.length !== 1 ? "s" : ""}</span>
+                          <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>{formatDocumentTypeLabel(latest.documentType)}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          {canOperate && (
+                            <button type="button" className="mobile-button mobile-button--secondary"
+                              style={{ padding: "4px 12px", fontSize: "0.78rem" }}
+                              onClick={e => { e.stopPropagation(); clearForm(); setTitle(groupTitle); setDocumentType(latest.documentType); setAllowMultiple(true); formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+                              + Add new
                             </button>
-                            <button
-                              type="button"
-                              className="mobile-button mobile-button--danger"
-                              style={{ padding: "4px 10px", fontSize: "0.8rem" }}
-                              onClick={() => deleteDocument(doc.id)}
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
+                          )}
+                          <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>{isExpanded ? "▲" : "▼"}</span>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div style={{ borderTop: "1px solid #e2e8f0" }}>
+                          {docs.map((doc, idx) => {
+                            const b = getDocumentStatusBadge(doc);
+                            return (
+                              <div key={doc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: idx % 2 === 0 ? "#fff" : "#fafcff", borderBottom: idx < docs.length - 1 ? "1px solid #f1f5f9" : "none", gap: 8 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <span style={{ fontSize: "0.82rem", color: "#374151" }}>{formatDate(doc.issueDate || doc.createdAt)}</span>
+                                  <span style={{ marginLeft: 8, fontSize: "0.75rem", fontWeight: 600, color: b.color }}>{b.label}</span>
+                                  {doc.expiryDate && <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "#64748b" }}>Exp: {formatDate(doc.expiryDate)}</span>}
+                                  {doc.referenceNo && <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "#64748b" }}>{doc.referenceNo}</span>}
+                                </div>
+                                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                  {doc.fileUrl && (
+                                    <a href={`/api/farm-documents/file?url=${encodeURIComponent(doc.fileUrl)}`} target="_blank" rel="noreferrer"
+                                      className="mobile-button mobile-button--secondary" style={{ padding: "3px 8px", fontSize: "0.75rem", textDecoration: "none" }}>
+                                      View
+                                    </a>
+                                  )}
+                                  {canOperate && (
+                                    <>
+                                      <button type="button" className="mobile-button mobile-button--secondary"
+                                        style={{ padding: "3px 8px", fontSize: "0.75rem" }} onClick={() => startEdit(doc)}>Edit</button>
+                                      <button type="button" className="mobile-button mobile-button--danger"
+                                        style={{ padding: "3px 8px", fontSize: "0.75rem" }} onClick={() => deleteDocument(doc.id)}>Delete</button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </div>
+            </div>
+          );
+        })()}
 
         {searchExecuted && (
           <>
