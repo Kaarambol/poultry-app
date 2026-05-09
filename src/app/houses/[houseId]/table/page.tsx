@@ -273,7 +273,9 @@ export default function HouseTablePage({
     verticalAlign: "bottom",
     textAlign: "center",
     minWidth: 36,
+    border: "1px solid #d1d5db",
   };
+
 
   return (
     <div className="mobile-page" style={{ maxWidth: "100%", margin: "20px 0", padding: "0 8px 28px" }}>
@@ -317,7 +319,8 @@ export default function HouseTablePage({
           </div>
         ) : (
           <div style={{ overflowX: "auto", width: "100%" }}>
-            <table style={{ fontSize: "0.55rem", borderCollapse: "collapse", width: "max-content", minWidth: "100%", textAlign: "center" }}>
+            <style>{`.house-table td, .house-table th { border: 1px solid #e5e7eb; } .house-table td { padding: 3px 3px; }`}</style>
+            <table className="house-table" style={{ fontSize: "0.55rem", borderCollapse: "collapse", width: "max-content", minWidth: "100%", textAlign: "center" }}>
               <thead>
                 <tr>
                   <th style={thStyle}>Date</th>
