@@ -264,9 +264,19 @@ export default function HouseTablePage({
     );
   }
 
+  const thStyle: React.CSSProperties = {
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    lineHeight: 1.25,
+    fontSize: "0.5rem",
+    padding: "4px 3px",
+    verticalAlign: "bottom",
+    minWidth: 36,
+  };
+
   return (
-    <div className="mobile-page">
-      <div className="page-shell">
+    <div className="mobile-page" style={{ maxWidth: "100%", margin: "20px 0", padding: "0 8px 28px" }}>
+      <div className="page-shell" style={{ maxWidth: "100%" }}>
         <div className="page-intro">
           <div className="page-intro__meta-card">
             <div className="page-intro__eyebrow">House table</div>
@@ -305,37 +315,37 @@ export default function HouseTablePage({
             <p style={{ margin: 0 }}>No daily records available yet for this house.</p>
           </div>
         ) : (
-          <div className="mobile-table-wrap">
-            <table style={{ fontSize: "0.55rem" }}>
+          <div style={{ overflowX: "auto", width: "100%" }}>
+            <table style={{ fontSize: "0.55rem", borderCollapse: "collapse", width: "max-content", minWidth: "100%" }}>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Age</th>
-                  <th>Mort</th>
-                  <th>Culls</th>
-                  <th>Total</th>
-                  <th>Culls Sm</th>
-                  <th>Culls Leg</th>
-                  <th>Avg Wt g</th>
-                  <th>Wt %</th>
-                  <th>Wt Tgt g</th>
-                  <th>H₂O Tgt ml</th>
-                  <th>H₂O /1000</th>
-                  <th>Feed Tgt g</th>
-                  <th>Feed /1000</th>
-                  <th>H₂O L</th>
-                  <th>Feed kg</th>
-                  <th>Tmp Max</th>
-                  <th>Tmp Min</th>
-                  <th>Tmp Tgt</th>
-                  <th>Hum Max</th>
-                  <th>Hum Min</th>
-                  <th>CO₂ Max</th>
-                  <th>CO₂ Min</th>
-                  <th>NH₃ ppm</th>
-                  <th>Litter</th>
-                  <th>Notes</th>
-                  {!historyMode && <th></th>}
+                  <th style={thStyle}>Date</th>
+                  <th style={thStyle}>Age (days)</th>
+                  <th style={thStyle}>Mortality</th>
+                  <th style={thStyle}>Culls Total</th>
+                  <th style={thStyle}>Cumulative Mortality</th>
+                  <th style={thStyle}>Culls Small</th>
+                  <th style={thStyle}>Culls Leg</th>
+                  <th style={thStyle}>Avg Weight (g)</th>
+                  <th style={thStyle}>Weight %</th>
+                  <th style={thStyle}>Weight Target (g)</th>
+                  <th style={thStyle}>Water Target (ml)</th>
+                  <th style={thStyle}>Water per 1000</th>
+                  <th style={thStyle}>Feed Target (g)</th>
+                  <th style={thStyle}>Feed per 1000</th>
+                  <th style={thStyle}>Water Consumption (L)</th>
+                  <th style={thStyle}>Feed (kg)</th>
+                  <th style={thStyle}>Temp Max (°C)</th>
+                  <th style={thStyle}>Temp Min (°C)</th>
+                  <th style={thStyle}>Temp Target (°C)</th>
+                  <th style={thStyle}>Humidity Max (%)</th>
+                  <th style={thStyle}>Humidity Min (%)</th>
+                  <th style={thStyle}>CO₂ Max (ppm)</th>
+                  <th style={thStyle}>CO₂ Min (ppm)</th>
+                  <th style={thStyle}>Ammonia (ppm)</th>
+                  <th style={thStyle}>Litter Score</th>
+                  <th style={thStyle}>Notes</th>
+                  {!historyMode && <th style={thStyle}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -551,7 +561,7 @@ export default function HouseTablePage({
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
         )}
       </div>
     </div>
