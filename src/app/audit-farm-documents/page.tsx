@@ -722,8 +722,7 @@ export default function AuditFarmDocumentsPage() {
             <label>Attach file (camera / scan / PDF / image)</label>
             <input
               type="file"
-              accept="image/*,application/pdf"
-              capture="environment"
+              accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
               onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
               disabled={!canOperate}
             />
