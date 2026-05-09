@@ -145,6 +145,51 @@ export default function ThinClearPage() {
     await loadPage();
   }
 
+  async function saveAll() {
+    const warnings: string[] = [];
+
+    for (const row of rows) {
+      if (row.thinDate && !row.thinBirds) {
+        warnings.push(`${row.houseName}: Thin Date 1 set but Thin Birds 1 missing.`);
+      }
+      if (row.thin2Date && !row.thin2Birds) {
+        warnings.push(`${row.houseName}: Thin Date 2 set but Thin Birds 2 missing.`);
+      }
+    }
+
+    for (const row of rows) {
+      const r = await fetch(`/api/crops/${cropId}/thin-clear`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placementId: row.id,
+          thinDate: row.thinDate,
+          thinBirds: row.thinBirds,
+          thin2Date: row.thin2Date,
+          thin2Birds: row.thin2Birds,
+          clearDate: row.clearDate,
+        }),
+      });
+
+      const data = await r.json();
+
+      if (!r.ok) {
+        setMsgType("error");
+        setMsg(data.error || `Save error for ${row.houseName}.`);
+        return;
+      }
+    }
+
+    if (warnings.length > 0) {
+      setMsgType("info");
+      setMsg(warnings.join(" "));
+    } else {
+      setMsgType("success");
+      setMsg("All houses saved.");
+    }
+    await loadPage();
+  }
+
   const alertClass =
     msgType === "error"
       ? "mobile-alert mobile-alert--error"
@@ -264,17 +309,19 @@ export default function ThinClearPage() {
                   />
                 </div>
 
-                <div className="mobile-actions" style={{ marginTop: 12 }}>
-                  <button
-                    type="button"
-                    className="mobile-button mobile-button--secondary"
-                    onClick={() => saveRow(row)}
-                  >
-                    Save
-                  </button>
-                </div>
               </div>
             ))}
+
+            <div className="mobile-actions" style={{ marginTop: 16 }}>
+              <button
+                type="button"
+                className="mobile-button mobile-button--secondary"
+                onClick={saveAll}
+                disabled={!cropId}
+              >
+                Save All Houses
+              </button>
+            </div>
           </div>
         )}
       </div>
