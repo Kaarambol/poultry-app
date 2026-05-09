@@ -82,6 +82,7 @@ export default function MedicationPage() {
 
   const [folders, setFolders] = useState<CropFolder[]>([]);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
+  const [viewingRecord, setViewingRecord] = useState<MedicationRecord | null>(null);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
 
@@ -245,6 +246,66 @@ export default function MedicationPage() {
 
   return (
     <div className="mobile-page">
+
+      {/* VIEW MODAL */}
+      {viewingRecord && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "20px 12px", overflowY: "auto" }}
+          onClick={() => setViewingRecord(null)}>
+          <div style={{ background: "#fff", borderRadius: 12, padding: 20, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{viewingRecord.medicineName}</h2>
+              <button onClick={() => setViewingRecord(null)} style={{ background: "none", border: "none", fontSize: "1.4rem", cursor: "pointer", color: "#64748b" }}>✕</button>
+            </div>
+            {[
+              ["Start Date", fmtDate(viewingRecord.startDate)],
+              ["Finish Date", fmtDate(viewingRecord.finishDate)],
+              ["Supplier", viewingRecord.supplier],
+              ["Batch No", viewingRecord.batchNo],
+              ["Expiry Date", fmtDate(viewingRecord.expireDate)],
+              ["Quantity Purchased", viewingRecord.quantityPurchased],
+              ["Quantity Used", viewingRecord.quantityUsed],
+              ["Animal Identity", viewingRecord.animalIdentity],
+              ["Houses Treated", viewingRecord.housesTreated],
+              ["Birds Treated", viewingRecord.birdsTreated != null ? String(viewingRecord.birdsTreated) : null],
+              ["Withdrawal Period", viewingRecord.withdrawalPeriod],
+              ["Safe Slaughter Date", fmtDate(viewingRecord.safeSlaughterDate)],
+              ["Administrator Name", viewingRecord.administratorName],
+              ["Reason for Treatment", viewingRecord.reasonForTreatment],
+              ["Method of Treatment", viewingRecord.methodOfTreatment],
+              ["Dose mg/g", viewingRecord.dose],
+              ["Total mg/PCU", viewingRecord.totalMgPcu],
+            ].map(([label, value]) => value ? (
+              <div key={label as string} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #f1f5f9", gap: 8 }}>
+                <span style={{ fontSize: "0.82rem", color: "#64748b", flexShrink: 0 }}>{label}</span>
+                <span style={{ fontSize: "0.85rem", fontWeight: 500, textAlign: "right" }}>{value}</span>
+              </div>
+            ) : null)}
+            {(viewingRecord.report || viewingRecord.prescription) && (
+              <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {viewingRecord.report && (
+                  <a href={viewingRecord.report} target="_blank" rel="noreferrer"
+                    style={{ display: "inline-block", padding: "8px 16px", background: "#1B3A5C", color: "#fff", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
+                    View Report
+                  </a>
+                )}
+                {viewingRecord.prescription && (
+                  <a href={viewingRecord.prescription} target="_blank" rel="noreferrer"
+                    style={{ display: "inline-block", padding: "8px 16px", background: "#1B3A5C", color: "#fff", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
+                    View Prescription
+                  </a>
+                )}
+              </div>
+            )}
+            <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
+              <a href={`/medication/print?id=${viewingRecord.id}`} target="_blank"
+                style={{ display: "inline-block", padding: "8px 16px", background: "#f1f5f9", color: "#1e293b", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
+                Print
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="page-shell">
         <div className="page-intro">
           <div className="page-intro__meta-card">
@@ -431,14 +492,24 @@ export default function MedicationPage() {
                             {record.housesTreated ? ` · ${record.housesTreated}` : ""}
                           </div>
                         </div>
-                        <a
-                          href={`/medication/print?id=${record.id}`}
-                          target="_blank"
-                          className="mobile-button mobile-button--secondary"
-                          style={{ flexShrink: 0, fontSize: "0.8rem", padding: "4px 10px" }}
-                        >
-                          Print
-                        </a>
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            className="mobile-button mobile-button--secondary"
+                            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+                            onClick={() => setViewingRecord(record)}
+                          >
+                            View
+                          </button>
+                          <a
+                            href={`/medication/print?id=${record.id}`}
+                            target="_blank"
+                            className="mobile-button mobile-button--secondary"
+                            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+                          >
+                            Print
+                          </a>
+                        </div>
                       </div>
                     ))}
                   </div>
