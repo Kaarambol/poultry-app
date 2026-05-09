@@ -193,11 +193,11 @@ export default function MedicationPrintPage() {
               </tr>
               <tr>
                 <td className="label">Report</td>
-                <td colSpan={3}>{record.report || ""}</td>
+                <td colSpan={3}>{record.report ? "Attached" : ""}</td>
               </tr>
               <tr>
                 <td className="label">Prescription</td>
-                <td colSpan={3}>{record.prescription || ""}</td>
+                <td colSpan={3}>{record.prescription ? "Attached" : ""}</td>
               </tr>
             </tbody>
           </table>

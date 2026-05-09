@@ -76,8 +76,9 @@ export default function MedicationPage() {
   const [methodOfTreatment, setMethodOfTreatment] = useState("");
   const [dose, setDose] = useState("");
   const [totalMgPcu, setTotalMgPcu] = useState("");
-  const [report, setReport] = useState("");
-  const [prescription, setPrescription] = useState("");
+  const [reportFile, setReportFile] = useState<File | null>(null);
+  const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
+  const [formKey, setFormKey] = useState(0);
 
   const [folders, setFolders] = useState<CropFolder[]>([]);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
@@ -189,7 +190,9 @@ export default function MedicationPage() {
     setAnimalIdentity("Broiler"); setHousesTreated(""); setBirdsTreated("");
     setFinishDate(""); setWithdrawalPeriod(""); setSafeSlaughterDate("");
     setAdministratorName(""); setReasonForTreatment(""); setMethodOfTreatment("");
-    setDose(""); setTotalMgPcu(""); setReport(""); setPrescription("");
+    setDose(""); setTotalMgPcu("");
+    setReportFile(null); setPrescriptionFile(null);
+    setFormKey(k => k + 1);
   }
 
   async function saveMedication(e: React.FormEvent) {
@@ -199,17 +202,32 @@ export default function MedicationPage() {
       setMsg("No farm selected.");
       return;
     }
+    const fd = new FormData();
+    fd.append("farmId",             currentFarmId);
+    fd.append("startDate",          startDate);
+    fd.append("medicineName",       medicineName);
+    fd.append("supplier",           supplier);
+    fd.append("batchNo",            batchNo);
+    fd.append("expireDate",         expireDate);
+    fd.append("quantityPurchased",  quantityPurchased);
+    fd.append("quantityUsed",       quantityUsed);
+    fd.append("animalIdentity",     animalIdentity);
+    fd.append("housesTreated",      housesTreated);
+    fd.append("birdsTreated",       birdsTreated);
+    fd.append("finishDate",         finishDate);
+    fd.append("withdrawalPeriod",   withdrawalPeriod);
+    fd.append("safeSlaughterDate",  safeSlaughterDate);
+    fd.append("administratorName",  administratorName);
+    fd.append("reasonForTreatment", reasonForTreatment);
+    fd.append("methodOfTreatment",  methodOfTreatment);
+    fd.append("dose",               dose);
+    fd.append("totalMgPcu",         totalMgPcu);
+    if (reportFile)       fd.append("reportFile",       reportFile);
+    if (prescriptionFile) fd.append("prescriptionFile", prescriptionFile);
+
     const r = await fetch("/api/medications/create", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        farmId: currentFarmId,
-        startDate, medicineName, supplier, batchNo, expireDate,
-        quantityPurchased, quantityUsed, animalIdentity, housesTreated,
-        birdsTreated: birdsTreated === "" ? null : Number(birdsTreated),
-        finishDate, withdrawalPeriod, safeSlaughterDate, administratorName,
-        reasonForTreatment, methodOfTreatment, dose, totalMgPcu, report, prescription,
-      }),
+      body: fd,
     });
     const data = await r.json();
     if (!r.ok) {
@@ -314,9 +332,35 @@ export default function MedicationPage() {
               <div><label>Dose mg/g</label><input value={dose} onChange={e => setDose(e.target.value)} disabled={!canOperate} /></div>
               <div><label>Total mg/PCU</label><input value={totalMgPcu} onChange={e => setTotalMgPcu(e.target.value)} disabled={!canOperate} /></div>
             </div>
-            <div className="mobile-grid mobile-grid--2">
-              <div><label>Report</label><input value={report} onChange={e => setReport(e.target.value)} disabled={!canOperate} /></div>
-              <div><label>Prescription</label><input value={prescription} onChange={e => setPrescription(e.target.value)} disabled={!canOperate} /></div>
+            <div className="mobile-grid mobile-grid--2" key={formKey}>
+              <div>
+                <label>Report (file)</label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={e => setReportFile(e.target.files?.[0] ?? null)}
+                  disabled={!canOperate}
+                />
+                {reportFile && (
+                  <div style={{ fontSize: "0.8rem", color: "#16a34a", marginTop: 4 }}>
+                    ✓ {reportFile.name}
+                  </div>
+                )}
+              </div>
+              <div>
+                <label>Prescription (file)</label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={e => setPrescriptionFile(e.target.files?.[0] ?? null)}
+                  disabled={!canOperate}
+                />
+                {prescriptionFile && (
+                  <div style={{ fontSize: "0.8rem", color: "#16a34a", marginTop: 4 }}>
+                    ✓ {prescriptionFile.name}
+                  </div>
+                )}
+              </div>
             </div>
             <button className="mobile-full-button" type="submit" disabled={!canOperate}>
               Save Record

@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canOperate } from "@/lib/permissions";
 import { writeChangeLog } from "@/lib/change-log";
+import { put } from "@vercel/blob";
+
+export const runtime = "nodejs";
+
+async function uploadMedFile(file: File, cropId: string, field: string): Promise<string> {
+  const safeName = (file.name || "file")
+    .normalize("NFKD")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_+/g, "_");
+  const pathname = `medication-files/${cropId}/${field}-${Date.now()}-${safeName}`;
+  const blob = await put(pathname, file, {
+    access: "private",
+    addRandomSuffix: true,
+    token: process.env.BLOB_READ_WRITE_TOKEN!,
+  });
+  return blob.url;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,11 +31,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
+    const form = await req.formData();
 
-    const farmId = String(body.farmId || "").trim();
-    const startDate = String(body.startDate || "").trim();
-    const medicineName = String(body.medicineName || "").trim();
+    const farmId       = String(form.get("farmId")       || "").trim();
+    const startDate    = String(form.get("startDate")    || "").trim();
+    const medicineName = String(form.get("medicineName") || "").trim();
 
     if (!farmId || !startDate || !medicineName) {
       return NextResponse.json(
@@ -37,7 +54,6 @@ export async function POST(req: NextRequest) {
 
     const startDateObj = new Date(startDate);
 
-    // Auto-assign to the crop whose date range contains startDate
     const crop = await prisma.crop.findFirst({
       where: {
         farmId,
@@ -59,32 +75,47 @@ export async function POST(req: NextRequest) {
 
     const cropId = crop.id;
 
+    const birdsTreatedRaw = form.get("birdsTreated");
+    const birdsTreated =
+      birdsTreatedRaw === null || birdsTreatedRaw === "" ? null : Number(birdsTreatedRaw);
+
+    // Handle optional file uploads
+    let reportValue: string | null = null;
+    let prescriptionValue: string | null = null;
+
+    const reportFile = form.get("reportFile");
+    if (reportFile instanceof File && reportFile.size > 0) {
+      reportValue = await uploadMedFile(reportFile, cropId, "report");
+    }
+
+    const prescriptionFile = form.get("prescriptionFile");
+    if (prescriptionFile instanceof File && prescriptionFile.size > 0) {
+      prescriptionValue = await uploadMedFile(prescriptionFile, cropId, "prescription");
+    }
+
     const record = await prisma.medicationRecord.create({
       data: {
         cropId,
-        startDate: startDateObj,
+        startDate:           startDateObj,
         medicineName,
-        supplier: body.supplier || null,
-        batchNo: body.batchNo || null,
-        expireDate: body.expireDate ? new Date(body.expireDate) : null,
-        quantityPurchased: body.quantityPurchased || null,
-        quantityUsed: body.quantityUsed || null,
-        animalIdentity: body.animalIdentity || null,
-        housesTreated: body.housesTreated || null,
-        birdsTreated:
-          body.birdsTreated === "" || body.birdsTreated === null || body.birdsTreated === undefined
-            ? null
-            : Number(body.birdsTreated),
-        finishDate: body.finishDate ? new Date(body.finishDate) : null,
-        withdrawalPeriod: body.withdrawalPeriod || null,
-        safeSlaughterDate: body.safeSlaughterDate ? new Date(body.safeSlaughterDate) : null,
-        administratorName: body.administratorName || null,
-        reasonForTreatment: body.reasonForTreatment || null,
-        methodOfTreatment: body.methodOfTreatment || null,
-        dose: body.dose || null,
-        totalMgPcu: body.totalMgPcu || null,
-        report: body.report || null,
-        prescription: body.prescription || null,
+        supplier:            String(form.get("supplier")            || "") || null,
+        batchNo:             String(form.get("batchNo")             || "") || null,
+        expireDate:          form.get("expireDate")      ? new Date(String(form.get("expireDate")))      : null,
+        quantityPurchased:   String(form.get("quantityPurchased")   || "") || null,
+        quantityUsed:        String(form.get("quantityUsed")        || "") || null,
+        animalIdentity:      String(form.get("animalIdentity")      || "") || null,
+        housesTreated:       String(form.get("housesTreated")       || "") || null,
+        birdsTreated,
+        finishDate:          form.get("finishDate")      ? new Date(String(form.get("finishDate")))      : null,
+        withdrawalPeriod:    String(form.get("withdrawalPeriod")    || "") || null,
+        safeSlaughterDate:   form.get("safeSlaughterDate") ? new Date(String(form.get("safeSlaughterDate"))) : null,
+        administratorName:   String(form.get("administratorName")   || "") || null,
+        reasonForTreatment:  String(form.get("reasonForTreatment")  || "") || null,
+        methodOfTreatment:   String(form.get("methodOfTreatment")   || "") || null,
+        dose:                String(form.get("dose")                || "") || null,
+        totalMgPcu:          String(form.get("totalMgPcu")          || "") || null,
+        report:              reportValue,
+        prescription:        prescriptionValue,
       },
     });
 
