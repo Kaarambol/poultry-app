@@ -19,7 +19,10 @@ export async function GET(req: NextRequest) {
       where: { id: cropId },
       include: {
         farm: true,
-        placements: { where: { houseId } },   // all batches for this house
+        placements: {
+          where:   { houseId },
+          orderBy: { batchNo: "asc" },
+        },
       },
     });
     if (!crop) return NextResponse.json({ error: "Crop not found" }, { status: 404 });
@@ -74,14 +77,16 @@ export async function GET(req: NextRequest) {
     ws.addRow([]);
 
     // Info rows
+    const reportDate = new Date().toLocaleDateString("en-GB");
     const infoRows: [string, string | number][] = [
-      ["Farm",               crop.farm.name],
-      ["House",              house?.name || houseId],
-      ["Crop Number",        crop.cropNumber],
-      ["Arrival Date",       startDate.toLocaleDateString("en-GB")],
-      ["Birds Placed",       birdsPlaced],
-      ["Current Birds Alive",birdsAlive],
-      ["Current Age",        `${ageDaysToday} days`],
+      ["Farm",                crop.farm.name],
+      ["House",               house?.name || houseId],
+      ["Crop Number",         crop.cropNumber],
+      ["Arrival Date",        startDate.toLocaleDateString("en-GB")],
+      ["Birds Placed",        birdsPlaced],
+      ["Current Birds Alive", birdsAlive],
+      ["Current Age",         `${ageDaysToday} days`],
+      ["Report Generated",    reportDate],
     ];
     for (const [label, value] of infoRows) {
       const r = ws.addRow([label, value]);
@@ -89,6 +94,45 @@ export async function GET(req: NextRequest) {
       r.getCell(2).font = { size: 10 };
       r.height = 18;
     }
+
+    ws.addRow([]);
+
+    // Placement information per batch
+    const placementHdr = ws.addRow(["Placement Information", "", "", ""]);
+    ws.mergeCells(placementHdr.number, 1, placementHdr.number, NCOLS);
+    placementHdr.getCell(1).fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E8F5" } };
+    placementHdr.getCell(1).font      = { bold: true, size: 10, color: { argb: FG_NAVY } };
+    placementHdr.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+    placementHdr.height = 20;
+
+    const batchHdr = ws.addRow(["Batch No", "Flock Number", "Birds Placed", ""]);
+    batchHdr.height = 18;
+    batchHdr.eachCell((cell) => {
+      cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F4F9" } };
+      cell.font      = { bold: true, size: 10, color: { argb: FG_NAVY } };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.border    = {
+        top:    { style: "thin", color: { argb: "FFB8CCE0" } },
+        bottom: { style: "thin", color: { argb: "FFB8CCE0" } },
+        left:   { style: "thin", color: { argb: "FFB8CCE0" } },
+        right:  { style: "thin", color: { argb: "FFB8CCE0" } },
+      };
+    });
+
+    crop.placements.forEach((p, i) => {
+      const pr = ws.addRow([p.batchNo, p.flockNumber || "—", p.birdsPlaced, ""]);
+      pr.height = 18;
+      pr.eachCell((cell) => {
+        cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: i % 2 === 0 ? "FFFAFCFF" : "FFFFFFFF" } };
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.font      = { size: 10 };
+        cell.border    = {
+          left:   { style: "hair", color: { argb: "FFD0D8E8" } },
+          right:  { style: "hair", color: { argb: "FFD0D8E8" } },
+          bottom: { style: "hair", color: { argb: "FFD0D8E8" } },
+        };
+      });
+    });
 
     ws.addRow([]);
 
