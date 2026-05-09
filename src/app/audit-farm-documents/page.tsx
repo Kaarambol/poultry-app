@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { upload } from "@vercel/blob/client";
 import { getCurrentFarmId } from "@/lib/app-context";
 import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
 
@@ -169,7 +168,6 @@ export default function AuditFarmDocumentsPage() {
   const [existingFileUrl, setExistingFileUrl] = useState("");
   const [existingFileName, setExistingFileName] = useState("");
 
-  const [uploading, setUploading] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -265,9 +263,15 @@ export default function AuditFarmDocumentsPage() {
   async function saveDocument(e: React.FormEvent) {
     e.preventDefault();
 
-    const apiUrl = editingId
+    const url = editingId
       ? "/api/farm-documents/update"
       : "/api/farm-documents/create";
+
+    if (selectedFile && selectedFile.size > 4 * 1024 * 1024) {
+      setMsgType("error");
+      setMsg(`File too large (${(selectedFile.size / 1024 / 1024).toFixed(1)} MB). Maximum is 4 MB. Please compress the image before uploading.`);
+      return;
+    }
 
     const form = new FormData();
     form.append("id", editingId);
@@ -288,56 +292,30 @@ export default function AuditFarmDocumentsPage() {
     form.append("allowMultiple", String(allowMultiple));
 
     if (selectedFile) {
-      try {
-        setUploading(true);
-        setMsgType("info");
-        setMsg("Uploading file…");
-
-        const blob = await upload(selectedFile.name, selectedFile, {
-          access: "public",
-          handleUploadUrl: "/api/farm-documents/upload-token",
-        });
-
-        form.append("preUploadedFileUrl", blob.url);
-        form.append("preUploadedBlobPath", blob.pathname);
-        form.append("preUploadedOriginalFileName", selectedFile.name);
-        form.append("preUploadedMimeType", selectedFile.type || "application/octet-stream");
-      } catch (err) {
-        setUploading(false);
-        setMsgType("error");
-        setMsg("File upload failed. Please try again.");
-        return;
-      } finally {
-        setUploading(false);
-      }
+      form.append("file", selectedFile);
     }
 
-    try {
-      const r = await fetch(apiUrl, {
-        method: "POST",
-        body: form,
-      });
+    const r = await fetch(url, {
+      method: "POST",
+      body: form,
+    });
 
-      const data = await r.json();
+    const data = await r.json();
 
-      if (!r.ok) {
-        setMsgType("error");
-        setMsg(data.error || "Error saving document.");
-        return;
-      }
-
-      setMsgType("success");
-      setMsg(editingId ? "Document updated." : "Document added.");
-      clearForm();
-      await loadAlerts(currentFarmId);
-      await loadAllDocuments(currentFarmId);
-
-      if (searchExecuted && searchQuery.trim().length >= 2) {
-        await runSearch(searchQuery);
-      }
-    } catch {
+    if (!r.ok) {
       setMsgType("error");
-      setMsg("Network error. Please try again.");
+      setMsg(data.error || "Error saving document.");
+      return;
+    }
+
+    setMsgType("success");
+    setMsg(editingId ? "Document updated." : "Document added.");
+    clearForm();
+    await loadAlerts(currentFarmId);
+    await loadAllDocuments(currentFarmId);
+
+    if (searchExecuted && searchQuery.trim().length >= 2) {
+      await runSearch(searchQuery);
     }
   }
 
@@ -867,8 +845,8 @@ export default function AuditFarmDocumentsPage() {
             {canOperate && (
               <div className="mobile-sticky-actions">
                 <div className="mobile-sticky-actions__inner">
-                  <button className="mobile-full-button" type="submit" disabled={uploading}>
-                    {uploading ? "Uploading file…" : editingId ? "Update Document" : "Add Document"}
+                  <button className="mobile-full-button" type="submit">
+                    {editingId ? "Update Document" : "Add Document"}
                   </button>
 
                   {editingId && (
