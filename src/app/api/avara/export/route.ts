@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
             if (r.avgWeightG != null) weight = r.avgWeightG / 1000;
           }
         } else {
-          const weightRec = recs.find(r => r.ageDay === stage.toDay - 1);
+          const weightRec = daily.find(r => r.houseId === house.id && r.ageDay === stage.toDay + 1);
           if (weightRec?.avgWeightG != null) weight = weightRec.avgWeightG / 1000;
         }
 
