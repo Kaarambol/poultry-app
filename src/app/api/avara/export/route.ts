@@ -37,6 +37,9 @@ export async function POST(req: NextRequest) {
         daily: {
           orderBy: [{ houseId: "asc" }, { date: "asc" }],
         },
+        targetProfile: {
+          include: { days: true },
+        },
       },
     });
 
@@ -65,6 +68,14 @@ export async function POST(req: NextRequest) {
       ageDay: Math.floor((new Date(r.date).getTime() - placed.getTime()) / 86400000),
     }));
 
+    // ── Target weight lookup map: dayNumber → weightTargetG ──────────────────
+    const targetWeightMap: Record<number, number> = {};
+    if (crop.targetProfile) {
+      for (const d of crop.targetProfile.days) {
+        if (d.weightTargetG != null) targetWeightMap[d.dayNumber] = d.weightTargetG;
+      }
+    }
+
     // ── Per-house cumulative trackers for CDMR ────────────────────────────────
     const cumMort:  Record<string, number> = {};
     const cumCulls: Record<string, number> = {};
@@ -77,6 +88,7 @@ export async function POST(req: NextRequest) {
       cullsSmall: number;
       cullsLeg: number;
       weight: number | null;
+      weightPct: number | null;
       periodLossPct: number;
       cdmr: number;
     };
@@ -114,7 +126,11 @@ export async function POST(req: NextRequest) {
         const periodLossPct = house.birdsPlaced > 0 ? (totalLoss      / house.birdsPlaced) * 100 : 0;
         const cdmr          = house.birdsPlaced > 0 ? ((cumMort[house.id] + cumCulls[house.id]) / house.birdsPlaced) * 100 : 0;
 
-        rows.push({ houseName: house.name, birdsPlaced: house.birdsPlaced, mort, cullsSmall, cullsLeg, weight, periodLossPct, cdmr });
+        const weightDayKey  = stage.toDay === 9999 ? null : stage.toDay + 1;
+        const targetWeightG = weightDayKey != null ? (targetWeightMap[weightDayKey] ?? null) : null;
+        const weightPct     = weight != null && targetWeightG != null ? (weight * 1000 / targetWeightG) * 100 : null;
+
+        rows.push({ houseName: house.name, birdsPlaced: house.birdsPlaced, mort, cullsSmall, cullsLeg, weight, weightPct, periodLossPct, cdmr });
       }
 
       blocks.push({ label: stage.label, fromDay: stage.fromDay, toDay: stage.toDay, rows });
@@ -126,17 +142,18 @@ export async function POST(req: NextRequest) {
     const ws = wb.addWorksheet("Weekly Return");
 
     ws.columns = [
-      { key: "house",    width: 16 },
-      { key: "placed",   width: 13 },
-      { key: "mort",     width: 9  },
-      { key: "cullsSm",  width: 11 },
-      { key: "cullsLeg", width: 11 },
-      { key: "weight",   width: 10 },
-      { key: "periodPct",width: 12 },
-      { key: "cdmr",     width: 10 },
+      { key: "house",     width: 16 },
+      { key: "placed",    width: 13 },
+      { key: "mort",      width: 9  },
+      { key: "cullsSm",   width: 11 },
+      { key: "cullsLeg",  width: 11 },
+      { key: "weight",    width: 10 },
+      { key: "weightPct", width: 11 },
+      { key: "periodPct", width: 12 },
+      { key: "cdmr",      width: 10 },
     ];
 
-    const NCOLS = 8;
+    const NCOLS = 9;
     const BG_NAVY   = "FF1B3A5C";
     const BG_HEADER = "FFD9E8F5";
     const BG_TOTAL  = "FFEDEDED";
@@ -170,7 +187,7 @@ export async function POST(req: NextRequest) {
       mergedHeader(`${block.label}  ·  ${periodLabel}`, BG_NAVY, FG_WHITE, 11);
 
       // Column headers
-      const hdr = ws.addRow(["House", "Birds\nPlaced", "Mort", "Culls\nSmall", "Culls\nLeg", "Weight\n(kg)", "Period\nLoss %", "CDMR\n%"]);
+      const hdr = ws.addRow(["House", "Birds\nPlaced", "Mort", "Culls\nSmall", "Culls\nLeg", "Weight\n(kg)", "Weight\n%", "Period\nLoss %", "CDMR\n%"]);
       hdr.height = 32;
       hdr.eachCell((cell, col) => {
         cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: BG_HEADER } };
@@ -200,6 +217,7 @@ export async function POST(req: NextRequest) {
           r.cullsSmall || "",
           r.cullsLeg   || "",
           r.weight !== null ? r.weight : "",
+          r.weightPct !== null ? r.weightPct : "",
           r.periodLossPct,
           r.cdmr,
         ]);
@@ -218,8 +236,11 @@ export async function POST(req: NextRequest) {
         if (r.weight !== null) {
           dr.getCell(6).numFmt = "0.000";
         }
-        dr.getCell(7).numFmt = "0.0000";
+        if (r.weightPct !== null) {
+          dr.getCell(7).numFmt = "0.00";
+        }
         dr.getCell(8).numFmt = "0.0000";
+        dr.getCell(9).numFmt = "0.0000";
       });
 
       // Total row
@@ -229,7 +250,7 @@ export async function POST(req: NextRequest) {
         ? block.rows.reduce((s, r) => s + (r.cdmr / 100) * r.birdsPlaced, 0) / totBirds * 100
         : 0;
 
-      const tr = ws.addRow(["TOTAL", totBirds, totMort || "", totCullsSm || "", totCullsLeg || "", "", totalPct, totalCdmr]);
+      const tr = ws.addRow(["TOTAL", totBirds, totMort || "", totCullsSm || "", totCullsLeg || "", "", "", totalPct, totalCdmr]);
       tr.eachCell((cell, col) => {
         cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: BG_TOTAL } };
         cell.font   = { bold: true, size: 10 };
@@ -241,8 +262,8 @@ export async function POST(req: NextRequest) {
           right:  { style: "thin",   color: { argb: "FFD0D8E8" } },
         };
       });
-      tr.getCell(7).numFmt = "0.0000";
       tr.getCell(8).numFmt = "0.0000";
+      tr.getCell(9).numFmt = "0.0000";
 
       ws.addRow([]); // blank separator between stages
     }
