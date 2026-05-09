@@ -284,13 +284,13 @@ export default function MedicationPage() {
             {(viewingRecord.report || viewingRecord.prescription) && (
               <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {viewingRecord.report && (
-                  <a href={viewingRecord.report} target="_blank" rel="noreferrer"
+                  <a href={`/api/farm-documents/file?url=${encodeURIComponent(viewingRecord.report)}`} target="_blank" rel="noreferrer"
                     style={{ display: "inline-block", padding: "8px 16px", background: "#1B3A5C", color: "#fff", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
                     View Report
                   </a>
                 )}
                 {viewingRecord.prescription && (
-                  <a href={viewingRecord.prescription} target="_blank" rel="noreferrer"
+                  <a href={`/api/farm-documents/file?url=${encodeURIComponent(viewingRecord.prescription)}`} target="_blank" rel="noreferrer"
                     style={{ display: "inline-block", padding: "8px 16px", background: "#1B3A5C", color: "#fff", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
                     View Prescription
                   </a>
