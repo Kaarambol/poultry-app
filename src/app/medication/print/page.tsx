@@ -73,15 +73,22 @@ export default function MedicationPrintPage() {
         margin: "20px auto",
         fontFamily: "Arial, sans-serif",
         color: "#000",
+        padding: "0 16px",
       }}
     >
       <style>{`
+        @page {
+          margin: 0;
+          size: A4;
+        }
         @media print {
           button {
             display: none !important;
           }
           body {
             margin: 0;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
           .app-nav {
             display: none !important;
