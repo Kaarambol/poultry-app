@@ -83,6 +83,17 @@ export default function MedicationPrintPage() {
           body {
             margin: 0;
           }
+          .app-nav {
+            display: none !important;
+          }
+          .app-shell {
+            display: block !important;
+          }
+          .app-main {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: none !important;
+          }
         }
         table {
           width: 100%;
