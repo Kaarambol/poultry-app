@@ -12,6 +12,7 @@ import {
   setCurrentCropId,
   setCurrentFarmId,
 } from "@/lib/app-context";
+import { ROUTE_TO_KEY, isDark } from "@/lib/color-defaults";
 
 type Farm = {
   id: string;
@@ -30,31 +31,32 @@ type AlertItem = {
 
 // Main navigation links
 const mainLinks = [
-  { href: "/",           label: "Home",        bg: "#fffef5" },
-  { href: "/dashboard",  label: "Dashboard",   bg: "#fefce8" },
-  { href: "/daily",      label: "Daily Entry", bg: "#e0f2fe" },
-  { href: "/feed",       label: "Feed",        bg: "#dcfce7" },
-  { href: "/night-check",label: "Night Check", bg: "#e0e7ff" },
-  { href: "/total",      label: "Total",       bg: "#cffafe" },
+  { href: "/",            label: "Home"        },
+  { href: "/dashboard",   label: "Dashboard"   },
+  { href: "/daily",       label: "Daily Entry" },
+  { href: "/feed",        label: "Feed"        },
+  { href: "/night-check", label: "Night Check" },
+  { href: "/total",       label: "Total"       },
 ];
 
 const setupLinks = [
-  { href: "/farms",         label: "Create Farm",   bg: "#f1f5f9" },
-  { href: "/farms/setup",   label: "Farm Setup",    bg: "#f1f5f9" },
-  { href: "/crops",         label: "Create Crop",   bg: "#f1f5f9" },
-  { href: "/crops/targets", label: "Crop Targets",  bg: "#f1f5f9" },
-  { href: "/access",        label: "Access",        bg: "#f1f5f9" },
-  { href: "/log",           label: "Log",           bg: "#f1f5f9" },
-  { href: "/admin",         label: "Admin",         bg: "#f1f5f9" },
+  { href: "/settings/colors", label: "Color Settings" },
+  { href: "/farms",           label: "Create Farm"    },
+  { href: "/farms/setup",     label: "Farm Setup"     },
+  { href: "/crops",           label: "Create Crop"    },
+  { href: "/crops/targets",   label: "Crop Targets"   },
+  { href: "/access",          label: "Access"         },
+  { href: "/log",             label: "Log"            },
+  { href: "/admin",           label: "Admin"          },
 ];
 
 const recordsLinks = [
-  { href: "/check-flock",            label: "Check Flock",    bg: "#ecfccb" },
-  { href: "/audit-farm-documents",   label: "Farm Documents", bg: "#ffe4e6" },
-  { href: "/medication",             label: "Medication",     bg: "#ccfbf1" },
-  { href: "/history",                label: "History",        bg: "#ede9fe" },
-  { href: "/avara",                  label: "Week Report",    bg: "#ffedd5" },
-  { href: "/forum",                  label: "Forum",          bg: "#dbeafe" },
+  { href: "/check-flock",           label: "Check Flock"    },
+  { href: "/audit-farm-documents",  label: "Farm Documents" },
+  { href: "/medication",            label: "Medication"     },
+  { href: "/history",               label: "History"        },
+  { href: "/avara",                 label: "Week Report"    },
+  { href: "/forum",                 label: "Forum"          },
 ];
 
 export default function AppNav() {
@@ -71,6 +73,7 @@ export default function AppNav() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [historyMode, setHistoryMode] = useState(false);
   const [historyCropLabel, setHistoryCropLabel] = useState("");
+  const [navColors, setNavColors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadFarms() {
@@ -156,6 +159,35 @@ export default function AppNav() {
     checkHistoryMode();
   }, [pathname]);
 
+  useEffect(() => {
+    function loadColors() {
+      try {
+        const stored = localStorage.getItem("userColors");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const navMap: Record<string, string> = {};
+          for (const [route, key] of ROUTE_TO_KEY) {
+            if (parsed[key]?.nav) navMap[route] = parsed[key].nav;
+          }
+          setNavColors(navMap);
+          return;
+        }
+      } catch {}
+      fetch("/api/settings/colors")
+        .then(r => r.json())
+        .then(data => {
+          const navMap: Record<string, string> = {};
+          for (const [route, key] of ROUTE_TO_KEY) {
+            if (data[key]?.nav) navMap[route] = data[key].nav;
+          }
+          setNavColors(navMap);
+          localStorage.setItem("userColors", JSON.stringify(data));
+        })
+        .catch(() => {});
+    }
+    loadColors();
+  }, []);
+
   async function handleExitHistory() {
     clearHistoryCropId();
     setHistoryMode(false);
@@ -235,12 +267,14 @@ export default function AppNav() {
             const active = pathname === link.href;
             const baseClass = `app-nav__link${active ? " app-nav__link--active" : ""}`;
             const className = link.href === "/audit-farm-documents" ? auditLinkClass(baseClass) : baseClass;
+            const navBg = !active ? (navColors[link.href] ?? link.bg) : undefined;
+            const textColor = navBg && isDark(navBg) ? "#fff" : undefined;
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 className={className}
-                style={!active && link.bg ? { background: link.bg } : undefined}
+                style={navBg ? { background: navBg, color: textColor } : undefined}
               >
                 {link.label}
                 {link.href === "/audit-farm-documents" && docAlerts.length > 0 && (
@@ -307,7 +341,8 @@ export default function AppNav() {
                     Exit History Mode
                   </button>
                 )}
-<button type="button" className="app-nav__link" onClick={handleLogout} disabled={loggingOut}>
+                <button type="button" className="app-nav__link" onClick={handleLogout} disabled={loggingOut}
+                  style={{ background: "#fee2e2", color: "#b91c1c", fontWeight: 700 }}>
                   {loggingOut ? "Logging out..." : "Logout"}
                 </button>
               </div>

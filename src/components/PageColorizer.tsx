@@ -1,37 +1,62 @@
 "use client";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { ROUTE_TO_KEY, DEFAULT_COLORS, mergeWithDefaults } from "@/lib/color-defaults";
 
-// Per-page background tint — muted pastels
-const PAGE_TINTS: [string, string][] = [
-  ["/dashboard",            "#fefce8"], // warm yellow
-  ["/daily",                "#f0f9ff"], // sky blue
-  ["/feed",                 "#f0fdf4"], // soft green
-  ["/night-check",          "#eef2ff"], // light indigo
-  ["/total",                "#ecfeff"], // pale cyan
-  ["/check-flock",          "#f7fee7"], // lime
-  ["/audit-farm-documents", "#fff1f2"], // soft rose
-  ["/medication",           "#f0fdfa"], // teal
-  ["/history",              "#f5f3ff"], // lavender
-  ["/avara",                "#fff7ed"], // warm orange
-  ["/forum",                "#eff6ff"], // periwinkle
-  ["/crops",                "#faf5ff"], // violet
-  ["/farms",                "#f0fdf4"], // green
-  ["/thin-clear",           "#fdf4ff"], // pink
-  ["/houses",               "#fffbeb"], // amber
-  ["/manage",               "#f8fafc"], // neutral
-  ["/",                     "#fffef5"], // cream (home)
-];
+function applyColors(colors: Record<string, { bg: string; nav: string }>, pathname: string) {
+  const match = ROUTE_TO_KEY.find(
+    ([path, _key]) => pathname === path || (path !== "/" && pathname.startsWith(path))
+  );
+  const key = match?.[1] ?? "home";
+  const c = colors[key] ?? DEFAULT_COLORS[key];
+  if (c) {
+    document.documentElement.style.setProperty("--page-bg", c.bg);
+    document.documentElement.style.setProperty("--page-nav-color", c.nav);
+  }
+}
+
+let cachedColors: Record<string, { bg: string; nav: string }> | null = null;
 
 export default function PageColorizer() {
   const pathname = usePathname();
 
   useEffect(() => {
-    const match = PAGE_TINTS.find(
-      ([path]) => pathname === path || (path !== "/" && pathname.startsWith(path))
-    );
-    const tint = match?.[1] ?? "#f6f8fb";
-    document.documentElement.style.setProperty("--page-bg", tint);
+    // Apply cached immediately to avoid flash
+    if (cachedColors) {
+      applyColors(cachedColors, pathname);
+      return;
+    }
+    // Try localStorage cache first
+    try {
+      const stored = localStorage.getItem("userColors");
+      if (stored) {
+        cachedColors = JSON.parse(stored);
+        applyColors(cachedColors!, pathname);
+      }
+    } catch {}
+
+    // Fetch from API and update
+    fetch("/api/settings/colors")
+      .then(r => r.json())
+      .then(data => {
+        cachedColors = data;
+        localStorage.setItem("userColors", JSON.stringify(data));
+        applyColors(data, pathname);
+      })
+      .catch(() => {
+        const defaults = mergeWithDefaults({});
+        applyColors(defaults, pathname);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (cachedColors) applyColors(cachedColors, pathname);
+    else {
+      try {
+        const stored = localStorage.getItem("userColors");
+        if (stored) applyColors(JSON.parse(stored), pathname);
+      } catch {}
+    }
   }, [pathname]);
 
   return null;
