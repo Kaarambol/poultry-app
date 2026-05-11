@@ -307,7 +307,7 @@ export default function NightCheckPage() {
   function chk(v: boolean) { return v ? "✓" : ""; }
 
   return (
-    <div className="mobile-page">
+    <div className="mobile-page night-check-page">
       <div className="page-shell">
         <div className="page-intro">
           <div className="page-intro__meta-card">
@@ -542,7 +542,7 @@ export default function NightCheckPage() {
             <style>{`.nc-table td, .nc-table th { border: 1px solid #e5e7eb; padding: 3px 4px; }`}</style>
             <table className="nc-table" style={{ fontSize: "0.5rem", textAlign: "center", borderCollapse: "collapse", width: "max-content", minWidth: "100%" }}>
               <thead>
-                <tr style={{ background: "#f1f5f9" }}>
+                <tr>
                   {([
                     "Date","Check Time","Checked By",
                     "Humidity","CO₂","Ammonia (NH₃)","Litter Score","Wet Areas","Capping",

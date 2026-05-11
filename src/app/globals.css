@@ -796,3 +796,49 @@ p {
     box-shadow: none !important;
   }
 }
+
+/* ── Night Check dark theme ─────────────────────────────── */
+.night-check-page .mobile-card,
+.night-check-page .mobile-record-card {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.night-check-page .mobile-card h2,
+.night-check-page .mobile-card h3,
+.night-check-page .mobile-card label,
+.night-check-page .mobile-card span,
+.night-check-page .mobile-card p,
+.night-check-page .mobile-section-title {
+  color: #e2e8f0;
+}
+
+.night-check-page .mobile-card input[type="text"],
+.night-check-page .mobile-card input[type="date"],
+.night-check-page .mobile-card input[type="time"],
+.night-check-page .mobile-card textarea {
+  background: #0f172a;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.night-check-page .nc-table {
+  color: #e2e8f0;
+}
+
+.night-check-page .nc-table th {
+  background: #1e293b !important;
+  color: #94a3b8;
+  border-color: #334155 !important;
+}
+
+.night-check-page .nc-table td {
+  background: #0f172a;
+  border-color: #1e293b !important;
+  color: #e2e8f0;
+}
+
+.night-check-page .nc-table tr:nth-child(even) td {
+  background: #131f2e;
+}
