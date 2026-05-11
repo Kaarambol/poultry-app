@@ -738,12 +738,38 @@ p {
 /* Login / Register responsive layout */
 @media (max-width: 768px) {
   .auth-ad-col { display: none !important; }
-  .auth-hero   { display: none !important; }
+
+  /* Vertical layout on mobile */
+  .auth-layout {
+    flex-direction: column !important;
+  }
+
+  /* Compact hero banner at the top */
+  .auth-hero {
+    flex: none !important;
+    height: 210px !important;
+    padding: 24px 24px 20px !important;
+    justify-content: flex-end !important;
+    align-items: flex-start !important;
+  }
+
+  /* Hide the subtitle paragraph and feature list in hero */
+  .auth-hero p,
+  .auth-hero-features {
+    display: none !important;
+  }
+
+  /* Slightly smaller title in hero on mobile */
+  .auth-hero h1 {
+    font-size: 1.6rem !important;
+    margin-bottom: 0 !important;
+  }
+
   .auth-form-panel {
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
-    padding: 32px 24px !important;
+    padding: 32px 24px 48px !important;
     box-shadow: none !important;
   }
 }

@@ -39,7 +39,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
+    <div className="auth-layout" style={{ display: "flex", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
 
       {/* ── Left ad column ── */}
       <aside className="auth-ad-col" style={adColumnStyle}>
@@ -68,7 +68,7 @@ export default function RegisterPage() {
           <p style={{ fontSize: "1.05rem", lineHeight: 1.7, color: "#d4efd4", marginBottom: 32 }}>
             Get full access to real-time flock tracking, automatic alerts, performance benchmarking and document management.
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="auth-hero-features" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {[
               ["🐔", "Track every house & batch in real-time"],
               ["📊", "Feed, water & mortality analytics"],

@@ -40,7 +40,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
+    <div className="auth-layout" style={{ display: "flex", minHeight: "100vh", fontFamily: "system-ui, sans-serif" }}>
 
       {/* ── Left ad column ── */}
       <aside className="auth-ad-col" style={adColumnStyle}>
@@ -69,7 +69,7 @@ export default function LoginPage() {
           <p style={{ fontSize: "1.05rem", lineHeight: 1.7, color: "#d4efd4", marginBottom: 32 }}>
             Monitor your flock performance, feed efficiency, health records and compliance — all in one place.
           </p>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="auth-hero-features" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             {["Daily records", "Mortality tracking", "Feed & water metrics", "Farm documents"].map(f => (
               <span key={f} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 20, padding: "5px 14px", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
                 ✓ {f}
