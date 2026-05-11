@@ -52,10 +52,10 @@ body {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: url('/icon.svg');
+  background-image: url('/chicken-mark.svg');
   background-repeat: repeat;
-  background-size: 72px 72px;
-  opacity: 0.035;
+  background-size: 80px 80px;
+  opacity: 0.04;
   pointer-events: none;
   z-index: 0;
 }
@@ -639,9 +639,17 @@ p {
 }
 
 .page-intro__meta-card {
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 16px;
   padding: 14px 16px;
+  background: linear-gradient(135deg, #1f6feb 0%, #1054c4 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(31,111,235,0.25);
+}
+
+.page-intro__meta-card > * {
+  color: rgba(255,255,255,0.85) !important;
+}
   background: rgba(255, 255, 255, 0.9);
   box-shadow: var(--shadow-sm);
 }
@@ -650,6 +658,7 @@ p {
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
+  color: rgba(255,255,255,0.7) !important;
   letter-spacing: 0.05em;
   color: var(--text-soft);
   margin-bottom: 6px;
@@ -659,11 +668,12 @@ p {
   margin: 0;
   font-size: 28px;
   line-height: 1.05;
+  color: #fff;
 }
 
 .page-intro__subtitle {
   margin: 0;
-  color: var(--text-soft);
+  color: rgba(255,255,255,0.75);
 }
 
 .hide-mobile {

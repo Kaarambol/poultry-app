@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Tail feathers -->
+  <ellipse cx="358" cy="248" rx="58" ry="21" fill="#1f3a5c" transform="rotate(-52 358 248)"/>
+  <ellipse cx="378" cy="278" rx="58" ry="21" fill="#1f3a5c" transform="rotate(-30 378 278)"/>
+  <ellipse cx="382" cy="312" rx="56" ry="21" fill="#1f3a5c" transform="rotate(-8 382 312)"/>
+  <!-- Body -->
+  <ellipse cx="242" cy="318" rx="132" ry="102" fill="#1f3a5c"/>
+  <!-- Neck -->
+  <ellipse cx="188" cy="268" rx="40" ry="56" fill="#1f3a5c"/>
+  <!-- Head -->
+  <circle cx="172" cy="198" r="64" fill="#1f3a5c"/>
+  <!-- Comb -->
+  <circle cx="160" cy="143" r="19" fill="#1f3a5c"/>
+  <circle cx="182" cy="131" r="22" fill="#1f3a5c"/>
+  <circle cx="206" cy="138" r="18" fill="#1f3a5c"/>
+  <!-- Wattle -->
+  <ellipse cx="118" cy="222" rx="16" ry="24" fill="#1f3a5c"/>
+  <!-- Beak -->
+  <polygon points="128,200 90,212 128,225" fill="#1f3a5c"/>
+  <!-- Legs -->
+  <rect x="202" y="408" width="19" height="52" rx="9" fill="#1f3a5c"/>
+  <rect x="256" y="408" width="19" height="52" rx="9" fill="#1f3a5c"/>
+  <!-- Left foot -->
+  <line x1="211" y1="460" x2="178" y2="476" stroke="#1f3a5c" stroke-width="14" stroke-linecap="round"/>
+  <line x1="211" y1="460" x2="211" y2="480" stroke="#1f3a5c" stroke-width="14" stroke-linecap="round"/>
+  <line x1="211" y1="460" x2="238" y2="476" stroke="#1f3a5c" stroke-width="14" stroke-linecap="round"/>
+  <!-- Right foot -->
+  <line x1="265" y1="460" x2="232" y2="476" stroke="#1f3a5c" stroke-width="14" stroke-linecap="round"/>
+  <line x1="265" y1="460" x2="265" y2="480" stroke="#1f3a5c" stroke-width="14" stroke-linecap="round"/>
+  <line x1="265" y1="460" x2="292" y2="476" stroke="#1f3a5c" stroke-width="14" stroke-linecap="round"/>
+</svg>
