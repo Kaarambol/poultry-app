@@ -33,7 +33,6 @@ model User {
   forumTopics   ForumTopic[]       @relation("ForumTopicAuthor")
   forumPosts    ForumPost[]        @relation("ForumPostAuthor")
   forumLanguage UserForumLanguage?
-  colorSettings UserColorSettings?
 }
 
 model Farm {
@@ -485,14 +484,6 @@ model UserForumLanguage {
   language String @default("en")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model UserColorSettings {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  colors    Json     @default("{}")
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model TargetProfileDay {

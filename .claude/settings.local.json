@@ -10,7 +10,16 @@
       "WebFetch(domain:unsplash.com)",
       "WebFetch(domain:www.pexels.com)",
       "WebSearch",
-      "Bash(npx vercel:*)"
+      "Bash(npx vercel:*)",
+      "Bash(sed -n '185,225p' C:/Users/grzeg/poultry-app/src/app/feed/page.tsx)",
+      "Bash(sed -n '100,145p' C:/Users/grzeg/poultry-app/src/app/night-check/page.tsx)",
+      "Bash(sed -n '95,145p' C:/Users/grzeg/poultry-app/src/app/medication/page.tsx)",
+      "Bash(grep:*)",
+      "Bash(done)",
+      "Bash(node -e \"const fs=require\\(''fs''\\); console.log\\(''node ok''\\)\")",
+      "Bash(wait)",
+      "Bash(npm list:*)",
+      "Bash(node:*)"
     ]
   }
 }

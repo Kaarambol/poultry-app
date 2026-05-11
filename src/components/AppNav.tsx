@@ -12,7 +12,7 @@ import {
   setCurrentCropId,
   setCurrentFarmId,
 } from "@/lib/app-context";
-import { ROUTE_TO_KEY, isDark } from "@/lib/color-defaults";
+import { ROUTE_TO_KEY, DEFAULT_COLORS, isDark } from "@/lib/color-defaults";
 
 type Farm = {
   id: string;
@@ -40,14 +40,13 @@ const mainLinks = [
 ];
 
 const setupLinks = [
-  { href: "/settings/colors", label: "Color Settings" },
-  { href: "/farms",           label: "Create Farm"    },
-  { href: "/farms/setup",     label: "Farm Setup"     },
-  { href: "/crops",           label: "Create Crop"    },
-  { href: "/crops/targets",   label: "Crop Targets"   },
-  { href: "/access",          label: "Access"         },
-  { href: "/log",             label: "Log"            },
-  { href: "/admin",           label: "Admin"          },
+  { href: "/farms",         label: "Create Farm"  },
+  { href: "/farms/setup",   label: "Farm Setup"   },
+  { href: "/crops",         label: "Create Crop"  },
+  { href: "/crops/targets", label: "Crop Targets" },
+  { href: "/access",        label: "Access"       },
+  { href: "/log",           label: "Log"          },
+  { href: "/admin",         label: "Admin"        },
 ];
 
 const recordsLinks = [
@@ -73,7 +72,6 @@ export default function AppNav() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [historyMode, setHistoryMode] = useState(false);
   const [historyCropLabel, setHistoryCropLabel] = useState("");
-  const [navColors, setNavColors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadFarms() {
@@ -159,34 +157,6 @@ export default function AppNav() {
     checkHistoryMode();
   }, [pathname]);
 
-  useEffect(() => {
-    function loadColors() {
-      try {
-        const stored = localStorage.getItem("userColors");
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          const navMap: Record<string, string> = {};
-          for (const [route, key] of ROUTE_TO_KEY) {
-            if (parsed[key]?.nav) navMap[route] = parsed[key].nav;
-          }
-          setNavColors(navMap);
-          return;
-        }
-      } catch {}
-      fetch("/api/settings/colors")
-        .then(r => r.json())
-        .then(data => {
-          const navMap: Record<string, string> = {};
-          for (const [route, key] of ROUTE_TO_KEY) {
-            if (data[key]?.nav) navMap[route] = data[key].nav;
-          }
-          setNavColors(navMap);
-          localStorage.setItem("userColors", JSON.stringify(data));
-        })
-        .catch(() => {});
-    }
-    loadColors();
-  }, []);
 
   async function handleExitHistory() {
     clearHistoryCropId();
@@ -258,7 +228,7 @@ export default function AppNav() {
     return base;
   }
 
-  function renderSection(title: string, links: Array<{ href: string; label: string; bg?: string }>) {
+  function renderSection(title: string, links: Array<{ href: string; label: string }>) {
     return (
       <div className="app-nav__panel">
         <div className="app-nav__field-label">{title}</div>
@@ -267,7 +237,8 @@ export default function AppNav() {
             const active = pathname === link.href;
             const baseClass = `app-nav__link${active ? " app-nav__link--active" : ""}`;
             const className = link.href === "/audit-farm-documents" ? auditLinkClass(baseClass) : baseClass;
-            const navBg = !active ? (navColors[link.href] ?? link.bg) : undefined;
+            const routeKey = ROUTE_TO_KEY.find(([path]) => path === link.href)?.[1];
+            const navBg = !active && routeKey ? DEFAULT_COLORS[routeKey]?.nav : undefined;
             const textColor = navBg && isDark(navBg) ? "#fff" : undefined;
             return (
               <Link

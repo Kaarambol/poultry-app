@@ -1,24 +1,5 @@
 export type PageColors = { bg: string; nav: string };
 
-export const PAGE_LABELS: Record<string, string> = {
-  "home":                 "Home",
-  "dashboard":            "Dashboard",
-  "daily":                "Daily Entry",
-  "feed":                 "Feed",
-  "night-check":          "Night Check",
-  "total":                "Total",
-  "check-flock":          "Check Flock",
-  "audit-farm-documents": "Farm Documents",
-  "medication":           "Medication",
-  "history":              "History",
-  "avara":                "Week Report",
-  "forum":                "Forum",
-  "crops":                "Crops",
-  "farms":                "Farms",
-  "thin-clear":           "Thin & Clear",
-  "houses":               "Houses",
-};
-
 export const DEFAULT_COLORS: Record<string, PageColors> = {
   "home":                 { bg: "#fffef5", nav: "#fffef5" },
   "dashboard":            { bg: "#fefce8", nav: "#fefce8" },
@@ -68,15 +49,4 @@ export function isDark(hex: string): boolean {
   } catch {
     return false;
   }
-}
-
-export function mergeWithDefaults(saved: Record<string, Partial<PageColors>>): Record<string, PageColors> {
-  const result: Record<string, PageColors> = {};
-  for (const key of Object.keys(PAGE_LABELS)) {
-    result[key] = {
-      bg:  saved[key]?.bg  || DEFAULT_COLORS[key]?.bg  || "#f6f8fb",
-      nav: saved[key]?.nav || DEFAULT_COLORS[key]?.nav || "#f1f5f9",
-    };
-  }
-  return result;
 }
