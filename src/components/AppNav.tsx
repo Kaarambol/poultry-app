@@ -30,31 +30,31 @@ type AlertItem = {
 
 // Main navigation links
 const mainLinks = [
-  { href: "/", label: "Home" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/daily", label: "Daily Entry" },
-  { href: "/feed", label: "Feed" },
-  { href: "/night-check", label: "Night Check" },
-  { href: "/total", label: "Total" },
+  { href: "/",           label: "Home",        bg: "#fffef5" },
+  { href: "/dashboard",  label: "Dashboard",   bg: "#fefce8" },
+  { href: "/daily",      label: "Daily Entry", bg: "#e0f2fe" },
+  { href: "/feed",       label: "Feed",        bg: "#dcfce7" },
+  { href: "/night-check",label: "Night Check", bg: "#e0e7ff" },
+  { href: "/total",      label: "Total",       bg: "#cffafe" },
 ];
 
 const setupLinks = [
-  { href: "/farms", label: "Create Farm" },
-  { href: "/farms/setup", label: "Farm Setup" },
-  { href: "/crops", label: "Create Crop" },
-  { href: "/crops/targets", label: "Crop Targets" },
-  { href: "/access", label: "Access" },
-  { href: "/log", label: "Log" },
-  { href: "/admin", label: "Admin" },
+  { href: "/farms",         label: "Create Farm",   bg: "#f1f5f9" },
+  { href: "/farms/setup",   label: "Farm Setup",    bg: "#f1f5f9" },
+  { href: "/crops",         label: "Create Crop",   bg: "#f1f5f9" },
+  { href: "/crops/targets", label: "Crop Targets",  bg: "#f1f5f9" },
+  { href: "/access",        label: "Access",        bg: "#f1f5f9" },
+  { href: "/log",           label: "Log",           bg: "#f1f5f9" },
+  { href: "/admin",         label: "Admin",         bg: "#f1f5f9" },
 ];
 
 const recordsLinks = [
-  { href: "/check-flock", label: "Check Flock" },
-  { href: "/audit-farm-documents", label: "Farm Documents" },
-  { href: "/medication", label: "Medication" },
-  { href: "/history", label: "History" },
-  { href: "/avara", label: "Week Report" },
-  { href: "/forum", label: "Forum" },
+  { href: "/check-flock",            label: "Check Flock",    bg: "#ecfccb" },
+  { href: "/audit-farm-documents",   label: "Farm Documents", bg: "#ffe4e6" },
+  { href: "/medication",             label: "Medication",     bg: "#ccfbf1" },
+  { href: "/history",                label: "History",        bg: "#ede9fe" },
+  { href: "/avara",                  label: "Week Report",    bg: "#ffedd5" },
+  { href: "/forum",                  label: "Forum",          bg: "#dbeafe" },
 ];
 
 export default function AppNav() {
@@ -226,7 +226,7 @@ export default function AppNav() {
     return base;
   }
 
-  function renderSection(title: string, links: Array<{ href: string; label: string }>) {
+  function renderSection(title: string, links: Array<{ href: string; label: string; bg?: string }>) {
     return (
       <div className="app-nav__panel">
         <div className="app-nav__field-label">{title}</div>
@@ -236,7 +236,12 @@ export default function AppNav() {
             const baseClass = `app-nav__link${active ? " app-nav__link--active" : ""}`;
             const className = link.href === "/audit-farm-documents" ? auditLinkClass(baseClass) : baseClass;
             return (
-              <Link key={link.href} href={link.href} className={className}>
+              <Link
+                key={link.href}
+                href={link.href}
+                className={className}
+                style={!active && link.bg ? { background: link.bg } : undefined}
+              >
                 {link.label}
                 {link.href === "/audit-farm-documents" && docAlerts.length > 0 && (
                   <span className="app-nav__badge">{docAlerts.length}</span>

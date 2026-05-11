@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import AppNav from "@/components/AppNav";
 import PwaSetup from "@/components/PwaSetup";
+import PageColorizer from "@/components/PageColorizer";
 import "./globals.css";
 
 export default async function AppLayout({
@@ -43,6 +44,7 @@ export default async function AppLayout({
       <head>{pwaHead}</head>
       <body>
         <PwaSetup />
+        <PageColorizer />
         <div className="app-shell">
           <AppNav />
           <main className="app-main">{children}</main>
