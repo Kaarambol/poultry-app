@@ -22,13 +22,6 @@ type ReportData = {
   houses: ReportHouse[];
 };
 
-type ExportItem = {
-  id: string;
-  stage: string;
-  fileName: string;
-  filePath: string;
-  createdAt: string;
-};
 
 const stages = [
   { value: "DAY_3",  label: "Day 3"  },
@@ -47,9 +40,8 @@ export default function AvaraPage() {
   const [cropLabel, setCropLabel] = useState("");
   const [stage, setStage]         = useState("DAY_3");
   const [report, setReport]       = useState<ReportData | null>(null);
-  const [history, setHistory]     = useState<ExportItem[]>([]);
   const [msg, setMsg]             = useState("Loading...");
-  const [isExporting, setIsExporting] = useState(false);
+  const [isExporting, setIsExporting]             = useState(false);
   const [isExportingPlacement, setIsExportingPlacement] = useState(false);
 
   async function loadFarmName(farmId: string) {
@@ -75,7 +67,6 @@ export default function AvaraPage() {
       setCropLabel(data.cropNumber);
       setCurrentCropId(data.id);
       loadReport(data.id, stage);
-      loadHistory(data.id);
       setMsg("");
     } else {
       setMsg("No active crop found.");
@@ -86,12 +77,6 @@ export default function AvaraPage() {
     const r = await fetch(`/api/avara/report?cropId=${selectedCropId}&stage=${selectedStage}`);
     const data = await r.json();
     if (r.ok) setReport(data);
-  }
-
-  async function loadHistory(selectedCropId: string) {
-    const r = await fetch(`/api/avara/history?cropId=${selectedCropId}`);
-    const data = await r.json();
-    if (Array.isArray(data)) setHistory(data);
   }
 
   async function exportPlacement() {
@@ -149,7 +134,6 @@ export default function AvaraPage() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       setMsg("Export successful.");
-      loadHistory(cropId);
     } catch (err: any) {
       setMsg("Export failed: " + err.message);
     } finally {
@@ -247,26 +231,6 @@ export default function AvaraPage() {
           </>
         )}
 
-        <h2 className="mobile-section-title">Export History</h2>
-        <div className="mobile-record-list">
-          {history.length === 0 && <p style={{ color: "#999", padding: "12px" }}>No exports yet.</p>}
-          {history.map((item) => (
-            <div key={item.id} className="mobile-record-card">
-              <h3 className="mobile-record-card__title">{item.fileName}</h3>
-              <div className="mobile-record-row">
-                <strong>Stage</strong><span>{item.stage}</span>
-              </div>
-              <div className="mobile-record-row">
-                <strong>Date</strong><span>{new Date(item.createdAt).toLocaleString("en-GB")}</span>
-              </div>
-              <div className="mobile-actions" style={{ marginTop: 12 }}>
-                <a href={item.filePath} target="_blank" className="mobile-button mobile-button--secondary">
-                  Download
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );

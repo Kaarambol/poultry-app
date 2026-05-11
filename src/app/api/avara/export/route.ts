@@ -64,23 +64,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Dynamic thin / clear day numbers from placement data ─────────────────
-    let thinDay: number | null = null;
-    let clearDay: number | null = null;
+    // ── Per-house thin / clear day numbers ───────────────────────────────────
+    // Each house can have a different thin/clear date — compute from placements.
+    const houseThinDay:  Record<string, number | null> = {};
+    const houseClearDay: Record<string, number | null> = {};
+    for (const h of houses) { houseThinDay[h.id] = null; houseClearDay[h.id] = null; }
 
     for (const p of crop.placements) {
       if (p.thinDate) {
         const d = Math.floor((new Date(p.thinDate).getTime() - placed.getTime()) / 86400000);
-        if (thinDay === null || d < thinDay) thinDay = d;
+        if (houseThinDay[p.houseId] === null || d < houseThinDay[p.houseId]!)
+          houseThinDay[p.houseId] = d;
       }
       if (p.clearDate) {
         const d = Math.floor((new Date(p.clearDate).getTime() - placed.getTime()) / 86400000);
-        if (clearDay === null || d > clearDay) clearDay = d;
+        if (houseClearDay[p.houseId] === null || d > houseClearDay[p.houseId]!)
+          houseClearDay[p.houseId] = d;
       }
     }
 
+    const anyThin  = Object.values(houseThinDay).some(d => d !== null);
+    const anyClear = Object.values(houseClearDay).some(d => d !== null);
+
     // ── Stages ───────────────────────────────────────────────────────────────
     // weightOnly = true → show only weight + CDMR, no period mortality columns
+    // THIN / CLEAR use per-house effective days inside the house loop.
     type Stage = { key: string; label: string; fromDay: number; toDay: number; weightOnly: boolean };
 
     const STAGES: Stage[] = [
@@ -94,11 +102,11 @@ export async function POST(req: NextRequest) {
       { key: "DAY_28", label: "Day 28", fromDay: 22, toDay: 28, weightOnly: false },
     ];
 
-    if (thinDay !== null) {
-      STAGES.push({ key: "THIN",  label: "Thin",  fromDay: 29,          toDay: thinDay,           weightOnly: false });
-      STAGES.push({ key: "CLEAR", label: "Clear", fromDay: thinDay + 1, toDay: clearDay ?? 9999,   weightOnly: false });
-    } else {
-      STAGES.push({ key: "THIN_CLEAR", label: "Thin / Clear", fromDay: 29, toDay: clearDay ?? 9999, weightOnly: false });
+    if (anyThin || anyClear) {
+      // THIN: 29 → each house's own thin day
+      STAGES.push({ key: "THIN",  label: "Thin",  fromDay: 29, toDay: 9999, weightOnly: false });
+      // CLEAR: each house's thin+1 → each house's own clear day
+      STAGES.push({ key: "CLEAR", label: "Clear", fromDay: 29, toDay: 9999, weightOnly: false });
     }
 
     // ── Helper: cumulative CDMR for a house up to a given day ─────────────────
@@ -124,15 +132,28 @@ export async function POST(req: NextRequest) {
       weightOnly: boolean;
     };
 
-    type StageBlock = { label: string; fromDay: number; toDay: number; rows: Row[] };
+    type StageBlock = { key: string; label: string; fromDay: number; toDay: number; rows: Row[] };
     const blocks: StageBlock[] = [];
 
     for (const stage of STAGES) {
       const rows: Row[] = [];
 
       for (const house of houses) {
+        // For THIN/CLEAR: use each house's own dates
+        let effectiveFromDay = stage.fromDay;
+        let effectiveToDay   = stage.toDay;
+
+        if (stage.key === "THIN") {
+          effectiveFromDay = 29;
+          effectiveToDay   = houseThinDay[house.id] ?? 9999;
+        } else if (stage.key === "CLEAR") {
+          const hThin      = houseThinDay[house.id];
+          effectiveFromDay = hThin !== null ? hThin + 1 : 29;
+          effectiveToDay   = houseClearDay[house.id] ?? 9999;
+        }
+
         const recs = daily.filter(r =>
-          r.houseId === house.id && r.ageDay >= stage.fromDay && r.ageDay <= stage.toDay
+          r.houseId === house.id && r.ageDay >= effectiveFromDay && r.ageDay <= effectiveToDay
         );
 
         // For weightOnly stages (Day 26) don't sum period mortality
@@ -141,13 +162,13 @@ export async function POST(req: NextRequest) {
         const cullsLeg   = stage.weightOnly ? 0 : recs.reduce((s, r) => s + r.cullsLeg,   0);
 
         let weight: number | null = null;
-        if (stage.toDay >= 9000) {
-          // Clearance: take last available weight record in the period
+        if (effectiveToDay >= 9000 || stage.key === "CLEAR") {
+          // Clearance or open-ended: take last available weight record in the period
           for (const r of recs) {
             if (r.avgWeightG != null) weight = r.avgWeightG / 1000;
           }
         } else {
-          const weightRec = daily.find(r => r.houseId === house.id && r.ageDay === stage.toDay + 1);
+          const weightRec = daily.find(r => r.houseId === house.id && r.ageDay === effectiveToDay + 1);
           if (weightRec?.avgWeightG != null) weight = weightRec.avgWeightG / 1000;
         }
 
@@ -155,8 +176,8 @@ export async function POST(req: NextRequest) {
         const totalLoss     = mort + allCulls;
         const periodLossPct = stage.weightOnly ? 0 : (house.birdsPlaced > 0 ? (totalLoss / house.birdsPlaced) * 100 : 0);
 
-        // CDMR: cumulative up to the last day of this stage (independent per stage)
-        const cdmr = getCdmr(house.id, stage.toDay, house.birdsPlaced);
+        // CDMR: cumulative up to the effective last day of this stage (per-house)
+        const cdmr = getCdmr(house.id, effectiveToDay, house.birdsPlaced);
 
         // Weight %: compare to target for the stage's end day (toDay), not toDay+1
         const targetWeightG = stage.toDay < 9000 ? (targetWeightMap[stage.toDay] ?? null) : null;
@@ -165,7 +186,7 @@ export async function POST(req: NextRequest) {
         rows.push({ houseName: house.name, birdsPlaced: house.birdsPlaced, mort, cullsSmall, cullsLeg, weight, weightPct, periodLossPct, cdmr, weightOnly: stage.weightOnly });
       }
 
-      blocks.push({ label: stage.label, fromDay: stage.fromDay, toDay: stage.toDay, rows });
+      blocks.push({ key: stage.key, label: stage.label, fromDay: stage.fromDay, toDay: stage.toDay, rows });
     }
 
     // ── Build Excel ───────────────────────────────────────────────────────────
@@ -211,9 +232,11 @@ export async function POST(req: NextRequest) {
     ws.addRow([]); // spacer
 
     for (const block of blocks) {
-      const periodLabel = block.toDay >= 9000
-        ? `Days ${block.fromDay} to end`
-        : `Days ${block.fromDay} – ${block.toDay}`;
+      const periodLabel =
+        block.key === "THIN"  ? "Days 29 – Thin (per house)" :
+        block.key === "CLEAR" ? "Thin+1 – Clear (per house)" :
+        block.toDay >= 9000   ? `Days ${block.fromDay} to end` :
+                                `Days ${block.fromDay} – ${block.toDay}`;
 
       // Stage title
       mergedHeader(`${block.label}  ·  ${periodLabel}`, BG_NAVY, FG_WHITE, 11);
@@ -312,10 +335,6 @@ export async function POST(req: NextRequest) {
     await wb.xlsx.writeFile(tmpPath);
     const fileBuffer = fs.readFileSync(tmpPath);
     try { fs.unlinkSync(tmpPath); } catch {}
-
-    await prisma.avaraExport.create({
-      data: { cropId: crop.id, stage: "FULL_REPORT", fileName, filePath: "" },
-    });
 
     return new NextResponse(fileBuffer, {
       status: 200,
