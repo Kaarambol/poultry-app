@@ -650,17 +650,13 @@ p {
 .page-intro__meta-card > * {
   color: rgba(255,255,255,0.85) !important;
 }
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: var(--shadow-sm);
-}
 
 .page-intro__eyebrow {
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.7) !important;
+  color: rgba(255,255,255,0.7);
   letter-spacing: 0.05em;
-  color: var(--text-soft);
   margin-bottom: 6px;
 }
 
