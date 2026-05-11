@@ -1,12 +1,51 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="80" fill="#2563eb"/>
-  <!-- Barn roof -->
-  <polygon points="80,240 256,100 432,240" fill="white" opacity="0.95"/>
-  <!-- Barn body -->
-  <rect x="120" y="240" width="272" height="172" fill="white" opacity="0.95"/>
-  <!-- Barn door -->
-  <rect x="216" y="310" width="80" height="102" fill="#2563eb"/>
-  <!-- Barn window -->
-  <rect x="148" y="268" width="52" height="52" rx="4" fill="#2563eb"/>
-  <rect x="312" y="268" width="52" height="52" rx="4" fill="#2563eb"/>
+  <!-- Background -->
+  <rect width="512" height="512" rx="90" fill="#1f6feb"/>
+
+  <!-- Tail feathers -->
+  <ellipse cx="358" cy="248" rx="58" ry="21" fill="white" opacity="0.85" transform="rotate(-52 358 248)"/>
+  <ellipse cx="378" cy="278" rx="58" ry="21" fill="white" transform="rotate(-30 378 278)"/>
+  <ellipse cx="382" cy="312" rx="56" ry="21" fill="white" opacity="0.85" transform="rotate(-8 382 312)"/>
+
+  <!-- Body -->
+  <ellipse cx="242" cy="318" rx="132" ry="102" fill="white"/>
+
+  <!-- Wing -->
+  <ellipse cx="218" cy="330" rx="88" ry="56" fill="#dde8ff" transform="rotate(-12 218 330)"/>
+
+  <!-- Neck -->
+  <ellipse cx="188" cy="268" rx="40" ry="56" fill="white"/>
+
+  <!-- Head -->
+  <circle cx="172" cy="198" r="64" fill="white"/>
+
+  <!-- Comb (3 red bumps) -->
+  <circle cx="160" cy="143" r="19" fill="#e53e3e"/>
+  <circle cx="182" cy="131" r="22" fill="#e53e3e"/>
+  <circle cx="206" cy="138" r="18" fill="#e53e3e"/>
+  <rect x="155" y="148" width="57" height="22" rx="4" fill="#e53e3e"/>
+
+  <!-- Wattle -->
+  <ellipse cx="118" cy="222" rx="16" ry="24" fill="#e53e3e"/>
+
+  <!-- Eye -->
+  <circle cx="150" cy="193" r="14" fill="#1f6feb"/>
+  <circle cx="153" cy="190" r="6" fill="white"/>
+
+  <!-- Beak -->
+  <polygon points="128,200 93,212 128,225" fill="#f6ad55"/>
+
+  <!-- Legs -->
+  <rect x="202" y="408" width="19" height="52" rx="9" fill="#f6ad55"/>
+  <rect x="256" y="408" width="19" height="52" rx="9" fill="#f6ad55"/>
+
+  <!-- Left foot -->
+  <line x1="211" y1="460" x2="180" y2="474" stroke="#f6ad55" stroke-width="12" stroke-linecap="round"/>
+  <line x1="211" y1="460" x2="211" y2="478" stroke="#f6ad55" stroke-width="12" stroke-linecap="round"/>
+  <line x1="211" y1="460" x2="237" y2="474" stroke="#f6ad55" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Right foot -->
+  <line x1="265" y1="460" x2="234" y2="474" stroke="#f6ad55" stroke-width="12" stroke-linecap="round"/>
+  <line x1="265" y1="460" x2="265" y2="478" stroke="#f6ad55" stroke-width="12" stroke-linecap="round"/>
+  <line x1="265" y1="460" x2="291" y2="474" stroke="#f6ad55" stroke-width="12" stroke-linecap="round"/>
 </svg>
