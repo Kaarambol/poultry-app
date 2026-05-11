@@ -5,18 +5,6 @@ import ExcelJS from "exceljs";
 import path from "path";
 import fs from "fs";
 
-// Period day ranges for each stage
-const STAGES = [
-  { key: "DAY_3",       label: "Day 3",        fromDay: 1,  toDay: 3    },
-  { key: "DAY_7",       label: "Day 7",         fromDay: 4,  toDay: 7    },
-  { key: "DAY_14",      label: "Day 14",        fromDay: 8,  toDay: 14   },
-  { key: "DAY_21",      label: "Day 21",        fromDay: 15, toDay: 21   },
-  { key: "DAY_26",      label: "Day 26",        fromDay: 22, toDay: 26   },
-  { key: "DAY_28",      label: "Day 28",        fromDay: 27, toDay: 28   },
-  { key: "THIN_35",     label: "Thin / Day 35", fromDay: 29, toDay: 35   },
-  { key: "TOTAL_CLEAR", label: "Total Clear",   fromDay: 36, toDay: 9999 },
-] as const;
-
 export async function POST(req: NextRequest) {
   try {
     const uid = req.cookies.get("uid")?.value;
@@ -76,11 +64,53 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Per-house cumulative trackers for CDMR ────────────────────────────────
-    const cumMort:  Record<string, number> = {};
-    const cumCulls: Record<string, number> = {};
-    for (const h of houses) { cumMort[h.id] = 0; cumCulls[h.id] = 0; }
+    // ── Dynamic thin / clear day numbers from placement data ─────────────────
+    let thinDay: number | null = null;
+    let clearDay: number | null = null;
 
+    for (const p of crop.placements) {
+      if (p.thinDate) {
+        const d = Math.floor((new Date(p.thinDate).getTime() - placed.getTime()) / 86400000);
+        if (thinDay === null || d < thinDay) thinDay = d;
+      }
+      if (p.clearDate) {
+        const d = Math.floor((new Date(p.clearDate).getTime() - placed.getTime()) / 86400000);
+        if (clearDay === null || d > clearDay) clearDay = d;
+      }
+    }
+
+    // ── Stages ───────────────────────────────────────────────────────────────
+    // weightOnly = true → show only weight + CDMR, no period mortality columns
+    type Stage = { key: string; label: string; fromDay: number; toDay: number; weightOnly: boolean };
+
+    const STAGES: Stage[] = [
+      { key: "DAY_3",  label: "Day 3",  fromDay: 1,  toDay: 3,  weightOnly: false },
+      { key: "DAY_7",  label: "Day 7",  fromDay: 4,  toDay: 7,  weightOnly: false },
+      { key: "DAY_14", label: "Day 14", fromDay: 8,  toDay: 14, weightOnly: false },
+      { key: "DAY_21", label: "Day 21", fromDay: 15, toDay: 21, weightOnly: false },
+      // Day 26: single-day snapshot — weight and CDMR only, no period mortality
+      { key: "DAY_26", label: "Day 26", fromDay: 26, toDay: 26, weightOnly: true  },
+      // Day 28: full period 22–28
+      { key: "DAY_28", label: "Day 28", fromDay: 22, toDay: 28, weightOnly: false },
+    ];
+
+    if (thinDay !== null) {
+      STAGES.push({ key: "THIN",  label: "Thin",  fromDay: 29,          toDay: thinDay,           weightOnly: false });
+      STAGES.push({ key: "CLEAR", label: "Clear", fromDay: thinDay + 1, toDay: clearDay ?? 9999,   weightOnly: false });
+    } else {
+      STAGES.push({ key: "THIN_CLEAR", label: "Thin / Clear", fromDay: 29, toDay: clearDay ?? 9999, weightOnly: false });
+    }
+
+    // ── Helper: cumulative CDMR for a house up to a given day ─────────────────
+    // Independent per-stage — no shared accumulator, so DAY_26 and DAY_28 don't conflict.
+    const getCdmr = (houseId: string, upToDay: number, birdsPlaced: number): number => {
+      const recs = daily.filter(r => r.houseId === houseId && r.ageDay <= upToDay);
+      const totMort  = recs.reduce((s, r) => s + r.mort, 0);
+      const totCulls = recs.reduce((s, r) => s + r.cullsSmall + r.cullsLeg, 0);
+      return birdsPlaced > 0 ? (totMort + totCulls) / birdsPlaced * 100 : 0;
+    };
+
+    // ── Build stage blocks ────────────────────────────────────────────────────
     type Row = {
       houseName: string;
       birdsPlaced: number;
@@ -91,6 +121,7 @@ export async function POST(req: NextRequest) {
       weightPct: number | null;
       periodLossPct: number;
       cdmr: number;
+      weightOnly: boolean;
     };
 
     type StageBlock = { label: string; fromDay: number; toDay: number; rows: Row[] };
@@ -104,12 +135,14 @@ export async function POST(req: NextRequest) {
           r.houseId === house.id && r.ageDay >= stage.fromDay && r.ageDay <= stage.toDay
         );
 
-        const mort       = recs.reduce((s, r) => s + r.mort,       0);
-        const cullsSmall = recs.reduce((s, r) => s + r.cullsSmall, 0);
-        const cullsLeg   = recs.reduce((s, r) => s + r.cullsLeg,   0);
+        // For weightOnly stages (Day 26) don't sum period mortality
+        const mort       = stage.weightOnly ? 0 : recs.reduce((s, r) => s + r.mort,       0);
+        const cullsSmall = stage.weightOnly ? 0 : recs.reduce((s, r) => s + r.cullsSmall, 0);
+        const cullsLeg   = stage.weightOnly ? 0 : recs.reduce((s, r) => s + r.cullsLeg,   0);
 
         let weight: number | null = null;
-        if (stage.toDay === 9999) {
+        if (stage.toDay >= 9000) {
+          // Clearance: take last available weight record in the period
           for (const r of recs) {
             if (r.avgWeightG != null) weight = r.avgWeightG / 1000;
           }
@@ -118,19 +151,18 @@ export async function POST(req: NextRequest) {
           if (weightRec?.avgWeightG != null) weight = weightRec.avgWeightG / 1000;
         }
 
-        const allCulls = cullsSmall + cullsLeg;
-        cumMort[house.id]  += mort;
-        cumCulls[house.id] += allCulls;
+        const allCulls      = cullsSmall + cullsLeg;
+        const totalLoss     = mort + allCulls;
+        const periodLossPct = stage.weightOnly ? 0 : (house.birdsPlaced > 0 ? (totalLoss / house.birdsPlaced) * 100 : 0);
 
-        const totalLoss    = mort + allCulls;
-        const periodLossPct = house.birdsPlaced > 0 ? (totalLoss      / house.birdsPlaced) * 100 : 0;
-        const cdmr          = house.birdsPlaced > 0 ? ((cumMort[house.id] + cumCulls[house.id]) / house.birdsPlaced) * 100 : 0;
+        // CDMR: cumulative up to the last day of this stage (independent per stage)
+        const cdmr = getCdmr(house.id, stage.toDay, house.birdsPlaced);
 
-        const weightDayKey  = stage.toDay === 9999 ? null : stage.toDay + 1;
-        const targetWeightG = weightDayKey != null ? (targetWeightMap[weightDayKey] ?? null) : null;
+        // Weight %: compare to target for the stage's end day (toDay), not toDay+1
+        const targetWeightG = stage.toDay < 9000 ? (targetWeightMap[stage.toDay] ?? null) : null;
         const weightPct     = weight != null && targetWeightG != null ? (weight * 1000 / targetWeightG) * 100 : null;
 
-        rows.push({ houseName: house.name, birdsPlaced: house.birdsPlaced, mort, cullsSmall, cullsLeg, weight, weightPct, periodLossPct, cdmr });
+        rows.push({ houseName: house.name, birdsPlaced: house.birdsPlaced, mort, cullsSmall, cullsLeg, weight, weightPct, periodLossPct, cdmr, weightOnly: stage.weightOnly });
       }
 
       blocks.push({ label: stage.label, fromDay: stage.fromDay, toDay: stage.toDay, rows });
@@ -179,7 +211,7 @@ export async function POST(req: NextRequest) {
     ws.addRow([]); // spacer
 
     for (const block of blocks) {
-      const periodLabel = block.toDay === 9999
+      const periodLabel = block.toDay >= 9000
         ? `Days ${block.fromDay} to end`
         : `Days ${block.fromDay} – ${block.toDay}`;
 
@@ -203,22 +235,23 @@ export async function POST(req: NextRequest) {
 
       // Data rows
       let totMort = 0, totCullsSm = 0, totCullsLeg = 0, totBirds = 0;
+      const isWeightOnly = block.rows.some(r => r.weightOnly);
 
       block.rows.forEach((r, i) => {
-        totMort      += r.mort;
-        totCullsSm   += r.cullsSmall;
-        totCullsLeg  += r.cullsLeg;
-        totBirds     += r.birdsPlaced;
+        totMort    += r.mort;
+        totCullsSm += r.cullsSmall;
+        totCullsLeg += r.cullsLeg;
+        totBirds   += r.birdsPlaced;
 
         const dr = ws.addRow([
           r.houseName,
           r.birdsPlaced,
-          r.mort       || "",
-          r.cullsSmall || "",
-          r.cullsLeg   || "",
+          r.weightOnly ? "" : (r.mort       || ""),
+          r.weightOnly ? "" : (r.cullsSmall || ""),
+          r.weightOnly ? "" : (r.cullsLeg   || ""),
           r.weight !== null ? r.weight : "",
           r.weightPct !== null ? r.weightPct : "",
-          r.periodLossPct,
+          r.weightOnly ? "" : r.periodLossPct,
           r.cdmr,
         ]);
 
@@ -230,27 +263,30 @@ export async function POST(req: NextRequest) {
             right:  { style: "hair", color: { argb: "FFD0D8E8" } },
             bottom: { style: "hair", color: { argb: "FFD0D8E8" } },
           };
-          cell.font      = { size: 10 };
+          cell.font = { size: 10 };
         });
 
-        if (r.weight !== null) {
-          dr.getCell(6).numFmt = "0.000";
-        }
-        if (r.weightPct !== null) {
-          dr.getCell(7).numFmt = "0.00";
-        }
-        dr.getCell(8).numFmt = "0.0000";
+        if (r.weight !== null) dr.getCell(6).numFmt = "0.000";
+        if (r.weightPct !== null) dr.getCell(7).numFmt = "0.00";
+        if (!r.weightOnly) dr.getCell(8).numFmt = "0.0000";
         dr.getCell(9).numFmt = "0.0000";
       });
 
       // Total row
       const totalPct  = totBirds > 0 ? ((totMort + totCullsSm + totCullsLeg) / totBirds) * 100 : 0;
-      // CDMR for total: weighted average from the last stage rows
       const totalCdmr = totBirds > 0
         ? block.rows.reduce((s, r) => s + (r.cdmr / 100) * r.birdsPlaced, 0) / totBirds * 100
         : 0;
 
-      const tr = ws.addRow(["TOTAL", totBirds, totMort || "", totCullsSm || "", totCullsLeg || "", "", "", totalPct, totalCdmr]);
+      const tr = ws.addRow([
+        "TOTAL", totBirds,
+        isWeightOnly ? "" : (totMort    || ""),
+        isWeightOnly ? "" : (totCullsSm || ""),
+        isWeightOnly ? "" : (totCullsLeg || ""),
+        "", "",
+        isWeightOnly ? "" : totalPct,
+        totalCdmr,
+      ]);
       tr.eachCell((cell, col) => {
         cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: BG_TOTAL } };
         cell.font   = { bold: true, size: 10 };
@@ -262,7 +298,7 @@ export async function POST(req: NextRequest) {
           right:  { style: "thin",   color: { argb: "FFD0D8E8" } },
         };
       });
-      tr.getCell(8).numFmt = "0.0000";
+      if (!isWeightOnly) tr.getCell(8).numFmt = "0.0000";
       tr.getCell(9).numFmt = "0.0000";
 
       ws.addRow([]); // blank separator between stages

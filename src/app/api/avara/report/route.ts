@@ -3,24 +3,13 @@ import { prisma } from "@/lib/db";
 
 function getMaxDayForStage(stage: string) {
   switch (stage) {
-    case "DAY_3":
-      return 3;
-    case "DAY_7":
-      return 7;
-    case "DAY_14":
-      return 14;
-    case "DAY_21":
-      return 21;
-    case "DAY_26":
-      return 26;
-    case "DAY_28":
-      return 28;
-    case "THIN_35":
-      return 35;
-    case "TOTAL_CLEAR":
-      return 9999;
-    default:
-      return null;
+    case "DAY_3":  return 3;
+    case "DAY_7":  return 7;
+    case "DAY_14": return 14;
+    case "DAY_21": return 21;
+    case "DAY_26": return 26;
+    case "DAY_28": return 28;
+    default:       return null;
   }
 }
 

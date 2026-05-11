@@ -31,14 +31,12 @@ type ExportItem = {
 };
 
 const stages = [
-  { value: "DAY_3",       label: "Day 3"          },
-  { value: "DAY_7",       label: "Day 7"           },
-  { value: "DAY_14",      label: "Day 14"          },
-  { value: "DAY_21",      label: "Day 21"          },
-  { value: "DAY_26",      label: "Day 26"          },
-  { value: "DAY_28",      label: "Day 28"          },
-  { value: "THIN_35",     label: "Thin / Day 35"   },
-  { value: "TOTAL_CLEAR", label: "Total Clear"     },
+  { value: "DAY_3",  label: "Day 3"  },
+  { value: "DAY_7",  label: "Day 7"  },
+  { value: "DAY_14", label: "Day 14" },
+  { value: "DAY_21", label: "Day 21" },
+  { value: "DAY_26", label: "Day 26" },
+  { value: "DAY_28", label: "Day 28" },
 ];
 
 export default function AvaraPage() {
