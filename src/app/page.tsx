@@ -112,26 +112,60 @@ export default function HomePage() {
     .map(([area, count]) => ({ area: Number(area), count: count as number }))
     .sort((a, b) => a.area - b.area);
 
+  const totalBirdsPlaced = (activeCrop?.placements || []).reduce((s: number, b: any) => s + Number(b.birdsPlaced || 0), 0);
+  const dayOfAge = activeCrop?.placementDate
+    ? Math.floor((Date.now() - new Date(activeCrop.placementDate).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
   return (
     <div className="mobile-page">
       <div className="page-shell">
         <div className="page-intro">
-          <div className="page-intro__meta-card">
-            <h1 className="page-intro__title">{farmName || "Farm Dashboard"}</h1>
-            <p className="page-intro__subtitle">Real-time stocking density and house equipment metrics.</p>
+          <div className="page-intro__meta-card" style={{ background: "linear-gradient(135deg, #1f6feb 0%, #1054c4 100%)", border: "none" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.65)", marginBottom: 6 }}>Farm Dashboard</div>
+            <h1 className="page-intro__title" style={{ color: "#fff" }}>{farmName || "Farm Dashboard"}</h1>
+            <p className="page-intro__subtitle" style={{ color: "rgba(255,255,255,0.75)" }}>Real-time stocking density and house equipment metrics.</p>
           </div>
         </div>
 
+        {/* STATS GRID */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+          {[
+            { label: "Birds Placed", value: totalBirdsPlaced > 0 ? totalBirdsPlaced.toLocaleString() : "—" },
+            { label: "Houses",       value: allHouses.length > 0 ? allHouses.length : "—" },
+            { label: "Farm Area",    value: totalFarmAreaM2 > 0 ? `${totalFarmAreaM2.toLocaleString()} m²` : "—" },
+            { label: "Crop No.",     value: activeCrop?.cropNumber || "—" },
+          ].map(({ label, value }) => (
+            <div key={label} className="mobile-card" style={{ marginBottom: 0, textAlign: "center", padding: "12px 8px" }}>
+              <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5d6b82", marginBottom: 4 }}>{label}</div>
+              <div style={{ fontSize: "1.35rem", fontWeight: 900, color: "#122033" }}>{value}</div>
+            </div>
+          ))}
+        </div>
+
         {/* CROP SUMMARY */}
+        {activeCrop && (
         <div className="mobile-card" style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>Crop: {activeCrop?.cropNumber || "-"}</h2>
-            <span className="mobile-badge mobile-badge--success">{activeCrop?.status}</span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5d6b82", marginBottom: 2 }}>Active Crop</div>
+              <div style={{ fontSize: "1rem", fontWeight: 700, color: "#122033" }}>{activeCrop.breed || "Ross 308"}</div>
+            </div>
+            <span className="mobile-badge mobile-badge--success">{activeCrop.status}</span>
           </div>
-          <div style={{ fontSize: "0.9rem" }}>
-            <strong>Breed:</strong> {activeCrop?.breed || "Ross 308"} | <strong>Placed:</strong> {formatDate(activeCrop?.placementDate)}
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            {dayOfAge !== null && (
+              <div style={{ textAlign: "center", background: "#f0f7ff", borderRadius: 12, padding: "10px 16px", border: "1px solid #cce5ff", flexShrink: 0 }}>
+                <div style={{ fontSize: "2rem", fontWeight: 900, color: "#004085", lineHeight: 1 }}>{dayOfAge}</div>
+                <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", color: "#004085", marginTop: 3 }}>Day of Age</div>
+              </div>
+            )}
+            <div style={{ flex: 1, fontSize: "0.85rem", display: "flex", flexDirection: "column", gap: 5 }}>
+              <div><span style={{ color: "#666" }}>Placed:</span> <strong>{formatDate(activeCrop.placementDate)}</strong></div>
+            </div>
           </div>
         </div>
+        )}
 
         {/* FARM INFORMATION TILE */}
         {farmInfo && (
@@ -248,9 +282,10 @@ export default function HomePage() {
             houseMap[hid].batches.push(batch);
           }
 
-          return Object.values(houseMap)
-            .sort((a, b) => (a.house.name || "").localeCompare(b.house.name || "", undefined, { numeric: true, sensitivity: "base" }))
-            .map(({ houseId, house: h, totalPlaced, thinDate, thin2Date, clearDate, batches }) => {
+          const sortedHouses = Object.values(houseMap)
+            .sort((a, b) => (a.house.name || "").localeCompare(b.house.name || "", undefined, { numeric: true, sensitivity: "base" }));
+          const totalHouses = sortedHouses.length;
+          return sortedHouses.map(({ houseId, house: h, totalPlaced, thinDate, thin2Date, clearDate, batches }, houseIndex) => {
             const area = Number(h.floorAreaM2 || h.usableAreaM2 || 0);
             const nips = Number(h.defaultNippleCount || 0);
             const pans = Number(h.defaultFeederPanCount || 0);
@@ -329,7 +364,10 @@ export default function HomePage() {
 
             return (
               <div key={houseId} className="mobile-card" style={{ marginBottom: 16, borderLeft: "5px solid var(--primary)" }}>
-                <h3 style={{ margin: "0 0 10px 0" }}>House: {h.name}</h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <h3 style={{ margin: 0 }}>{h.name}</h3>
+                  <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#5d6b82", background: "#f0f4f8", padding: "2px 8px", borderRadius: 8 }}>{houseIndex + 1}/{totalHouses}</span>
+                </div>
 
                 {/* DENSITY HIGHLIGHTS */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "15px" }}>
