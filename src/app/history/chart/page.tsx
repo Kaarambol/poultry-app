@@ -376,9 +376,10 @@ export default function HistoryChartPage() {
                       width={40}
                     />
                     <Tooltip
-                      formatter={(value: number | null, name: string) => {
+                      formatter={(value, name) => {
                         const s = metricSeries.find(x => x.id === name);
-                        return [value != null ? `${fmt(value)} ${s?.unit ?? ""}` : "—", s?.label ?? name];
+                        const v = typeof value === "number" ? value : null;
+                        return [v != null ? `${fmt(v)} ${s?.unit ?? ""}` : "—", s?.label ?? String(name)];
                       }}
                       labelFormatter={(label) => `Day ${label}`}
                       contentStyle={{ fontSize: "0.78rem" }}
