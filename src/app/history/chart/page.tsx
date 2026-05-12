@@ -171,7 +171,7 @@ export default function HistoryChartPage() {
             <div className="hist-step-label">Step 2 — Select crop{cropMode === "2" ? "s" : ""}</div>
             <div className={cropMode === "2" ? "mobile-grid mobile-grid--2" : ""}>
               <div>
-                <label style={{ fontSize: "0.78rem", color: "#2563eb", fontWeight: 700 }}>Crop A (blue)</label>
+                <label style={{ fontSize: "0.78rem", color: "#2563eb", fontWeight: 700 }}>Crop A (solid lines)</label>
                 <select value={cropA} onChange={e => { setCropA(e.target.value); setView("avg"); }}>
                   <option value="">— choose —</option>
                   {allCrops.map(c => <option key={c.id} value={c.id}>{cropLabel(c.id)}</option>)}
@@ -179,7 +179,7 @@ export default function HistoryChartPage() {
               </div>
               {cropMode === "2" && (
                 <div>
-                  <label style={{ fontSize: "0.78rem", color: "#7c3aed", fontWeight: 700 }}>Crop B (purple)</label>
+                  <label style={{ fontSize: "0.78rem", color: "#7c3aed", fontWeight: 700 }}>Crop B (dashed lines)</label>
                   <select value={cropB} onChange={e => { setCropB(e.target.value); setView("avg"); }} disabled={!cropA}>
                     <option value="">— choose —</option>
                     {allCrops.filter(c => c.id !== cropA).map(c => <option key={c.id} value={c.id}>{cropLabel(c.id)}</option>)}

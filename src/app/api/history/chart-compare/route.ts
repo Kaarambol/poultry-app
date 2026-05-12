@@ -26,17 +26,14 @@ export const METRIC_AXIS: Record<string, "left" | "right"> = {
   temperature: "right",
 };
 
-const CROP_COLORS = [
-  ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd"],  // blues — Crop A
-  ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"],  // purples — Crop B
-];
-
-const METRIC_DASH: Record<string, string | undefined> = {
-  water:       undefined,
-  feed:        "6 3",
-  weight:      undefined,
-  temperature: "2 4",
+const METRIC_COLORS: Record<string, string> = {
+  water:  "#2563eb",  // blue
+  feed:   "#ca8a04",  // amber/yellow
+  weight: "#111827",  // black
 };
+
+// Crop A = solid, Crop B = dashed
+const CROP_DASH = [undefined, "6 3"];
 
 export async function GET(req: NextRequest) {
   const uid = req.cookies.get("uid")?.value;
@@ -115,7 +112,6 @@ export async function GET(req: NextRequest) {
   for (let ci = 0; ci < crops.length; ci++) {
     const crop          = crops[ci];
     const placementDate = new Date(crop.placementDate);
-    const colorSet      = CROP_COLORS[ci] ?? CROP_COLORS[0];
     const targetMap     = targetMaps.get(crop.id) ?? new Map<number, number>();
 
     const whereHouse = view === "avg" ? {} : { houseId: view };
@@ -165,15 +161,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const cropLabel = `Crop ${crop.cropNumber}`;
-    let colorIdx = 0;
+    const cropLabel  = `Crop ${crop.cropNumber}`;
+    const cropDash   = CROP_DASH[ci] ?? CROP_DASH[0];
+    const cropSuffix = crops.length > 1 ? ` (${cropLabel})` : "";
 
     for (const met of metrics) {
-      const color     = colorSet[colorIdx++ % colorSet.length];
-      const strokeDash = METRIC_DASH[met];
-
-      if (met === "temperature" && crops.length === 1) {
-        // 1-crop mode: min + max lines
+      if (met === "temperature") {
+        // Always show min + max as separate lines
         const dataMin: Array<{ day: number; value: number | null }> = [];
         const dataMax: Array<{ day: number; value: number | null }> = [];
         for (let d = 1; d <= 42; d++) {
@@ -181,8 +175,8 @@ export async function GET(req: NextRequest) {
           dataMin.push({ day: d, value: agg && agg.tempCount > 0 ? +(agg.tempMinSum / agg.tempCount).toFixed(1) : null });
           dataMax.push({ day: d, value: agg && agg.tempCount > 0 ? +(agg.tempMaxSum / agg.tempCount).toFixed(1) : null });
         }
-        series.push({ id: `${crop.id}-temp-min`, label: `${cropLabel} – Temp min`, color, unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash, data: dataMin });
-        series.push({ id: `${crop.id}-temp-max`, label: `${cropLabel} – Temp max`, color: colorSet[colorIdx++ % colorSet.length], unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: "2 4", data: dataMax });
+        series.push({ id: `${crop.id}-temp-min`, label: `Temp min${cropSuffix}`, color: "#2563eb", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: cropDash, data: dataMin });
+        series.push({ id: `${crop.id}-temp-max`, label: `Temp max${cropSuffix}`, color: "#dc2626", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: cropDash ? "2 2" : "4 2", data: dataMax });
       } else {
         const data: Array<{ day: number; value: number | null }> = [];
         for (let d = 1; d <= 42; d++) {
@@ -196,21 +190,18 @@ export async function GET(req: NextRequest) {
               const targetG = targetMap.get(d);
               val = targetG && targetG > 0 ? +(avgG / targetG * 100).toFixed(1) : +(avgG).toFixed(0);
             }
-            if (met === "temperature" && agg.tempCount > 0) {
-              val = +((agg.tempMinSum + agg.tempMaxSum) / (2 * agg.tempCount)).toFixed(1);
-            }
           }
           data.push({ day: d, value: val });
         }
         series.push({
-          id: `${crop.id}-${met}`,
-          label: `${cropLabel} – ${METRIC_LABELS[met] ?? met}`,
-          color,
-          unit: METRIC_UNITS[met] ?? "",
-          axis: METRIC_AXIS[met] ?? "left",
-          metric: met,
-          cropId: crop.id,
-          strokeDash,
+          id:         `${crop.id}-${met}`,
+          label:      `${METRIC_LABELS[met] ?? met}${cropSuffix}`,
+          color:      METRIC_COLORS[met] ?? "#64748b",
+          unit:       METRIC_UNITS[met] ?? "",
+          axis:       METRIC_AXIS[met] ?? "left",
+          metric:     met,
+          cropId:     crop.id,
+          strokeDash: cropDash,
           data,
         });
       }
