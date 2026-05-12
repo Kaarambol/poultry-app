@@ -32,6 +32,11 @@ const METRIC_COLORS: Record<string, string> = {
   weight: "#111827",  // black
 };
 
+const HOUSE_COLORS = [
+  "#2563eb", "#dc2626", "#16a34a", "#d97706",
+  "#7c3aed", "#0891b2", "#db2777", "#65a30d", "#ea580c", "#0284c7",
+];
+
 // Crop A = solid, Crop B = dashed
 const CROP_DASH = [undefined, "6 3"];
 
@@ -97,6 +102,111 @@ export async function GET(req: NextRequest) {
     targetMaps.set(crop.id, map);
   }
 
+  // ── Multi-house mode: one series per house (single crop, single metric) ──
+  if (view === "multi") {
+    const houseIds = (searchParams.get("houseIds") ?? "").split(",").map(s => s.trim()).filter(Boolean);
+    if (houseIds.length === 0) {
+      return NextResponse.json({ error: "houseIds required for multi view." }, { status: 400 });
+    }
+    const crop = crops[0];
+    const placementDate = new Date(crop.placementDate);
+    const targetMap = targetMaps.get(crop.id) ?? new Map<number, number>();
+
+    type DayAggM = {
+      totalBirds: number; waterL: number; feedKg: number;
+      weightSum: number; weightCount: number;
+      tempMinSum: number; tempMaxSum: number; tempCount: number;
+    };
+
+    const multiSeries: Array<{
+      id: string; label: string; color: string; unit: string;
+      axis: "left" | "right"; metric: string; cropId: string;
+      strokeDash: string | undefined; data: Array<{ day: number; value: number | null }>;
+    }> = [];
+
+    for (let hi = 0; hi < houseIds.length; hi++) {
+      const houseId = houseIds[hi];
+      const houseName = houseMap.get(houseId) ?? houseId;
+      const color = HOUSE_COLORS[hi % HOUSE_COLORS.length];
+
+      const daily = await prisma.dailyRecord.findMany({
+        where: { cropId: crop.id, houseId },
+        orderBy: { date: "asc" },
+        select: {
+          date: true, houseId: true, birdsTotal: true,
+          feedKg: true, waterL: true, avgWeightG: true,
+          temperatureMinC: true, temperatureMaxC: true,
+        },
+      });
+
+      const houseBirds = crop.placements
+        .filter(p => p.houseId === houseId)
+        .reduce((s, p) => s + p.birdsPlaced, 0);
+
+      const byDay = new Map<number, DayAggM>();
+      for (const rec of daily) {
+        const day = Math.floor(
+          (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        if (day < 1 || day > 60) continue;
+        const birds = rec.birdsTotal > 0 ? rec.birdsTotal : houseBirds;
+        const ex = byDay.get(day);
+        if (ex) {
+          ex.totalBirds += birds; ex.waterL += rec.waterL; ex.feedKg += rec.feedKg;
+          if (rec.avgWeightG != null) { ex.weightSum += rec.avgWeightG; ex.weightCount++; }
+          if (rec.temperatureMinC != null && rec.temperatureMaxC != null) {
+            ex.tempMinSum += rec.temperatureMinC; ex.tempMaxSum += rec.temperatureMaxC; ex.tempCount++;
+          }
+        } else {
+          byDay.set(day, {
+            totalBirds: birds, waterL: rec.waterL, feedKg: rec.feedKg,
+            weightSum: rec.avgWeightG ?? 0, weightCount: rec.avgWeightG != null ? 1 : 0,
+            tempMinSum: rec.temperatureMinC ?? 0, tempMaxSum: rec.temperatureMaxC ?? 0,
+            tempCount: (rec.temperatureMinC != null && rec.temperatureMaxC != null) ? 1 : 0,
+          });
+        }
+      }
+
+      for (const met of metrics) {
+        if (met === "temperature") {
+          const data: Array<{ day: number; value: number | null }> = [];
+          for (let d = 1; d <= 42; d++) {
+            const agg = byDay.get(d);
+            const val = agg && agg.tempCount > 0
+              ? +(((agg.tempMinSum + agg.tempMaxSum) / 2) / agg.tempCount).toFixed(1)
+              : null;
+            data.push({ day: d, value: val });
+          }
+          multiSeries.push({ id: `${houseId}-temp`, label: houseName, color, unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: undefined, data });
+        } else {
+          const data: Array<{ day: number; value: number | null }> = [];
+          for (let d = 1; d <= 42; d++) {
+            const agg = byDay.get(d);
+            let val: number | null = null;
+            if (agg && agg.totalBirds > 0) {
+              if (met === "water")  val = +((agg.waterL / agg.totalBirds) * 1000).toFixed(2);
+              if (met === "feed")   val = +((agg.feedKg / agg.totalBirds) * 1000).toFixed(3);
+              if (met === "weight" && agg.weightCount > 0) {
+                const avgG = agg.weightSum / agg.weightCount;
+                const targetG = targetMap.get(d);
+                val = targetG && targetG > 0 ? +(avgG / targetG * 100).toFixed(1) : +(avgG).toFixed(0);
+              }
+            }
+            data.push({ day: d, value: val });
+          }
+          multiSeries.push({ id: `${houseId}-${met}`, label: houseName, color, unit: METRIC_UNITS[met] ?? "", axis: METRIC_AXIS[met] ?? "left", metric: met, cropId: crop.id, strokeDash: undefined, data });
+        }
+      }
+    }
+
+    return NextResponse.json({
+      series: multiSeries,
+      crops: crops.map(c => ({ id: c.id, label: `Crop ${c.cropNumber}`, placementDate: c.placementDate, status: c.status })),
+      houses,
+    });
+  }
+
+  // ── Standard mode ──
   const series: Array<{
     id: string;
     label: string;

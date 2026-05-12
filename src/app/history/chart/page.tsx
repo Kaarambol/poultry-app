@@ -54,6 +54,9 @@ export default function HistoryChartPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasChart, setHasChart] = useState(false);
+  const [multiHouseMode, setMultiHouseMode] = useState(false);
+  const [selectedHouses, setSelectedHouses] = useState<string[]>([]);
+  const [singleMetric, setSingleMetric] = useState("water");
 
   useEffect(() => {
     if (!farmId) return;
@@ -83,8 +86,24 @@ export default function HistoryChartPage() {
     if (!farmId) { setError("Choose a farm in the top menu."); return; }
     if (!cropA)  { setError("Choose Crop A."); return; }
     if (cropMode === "2" && !cropB) { setError("Choose Crop B."); return; }
-    if (selectedMetrics.length === 0) { setError("Choose at least one metric."); return; }
 
+    if (multiHouseMode) {
+      if (selectedHouses.length < 2) { setError("Select at least 2 houses to compare."); return; }
+      setLoading(true);
+      try {
+        const r = await fetch(
+          `/api/history/chart-compare?farmId=${farmId}&cropIds=${cropA}&metrics=${singleMetric}&view=multi&houseIds=${selectedHouses.join(",")}`
+        );
+        const data = await r.json();
+        if (!r.ok) { setError(data.error || "Error loading data."); return; }
+        setSeries(data.series ?? []);
+        setHasChart(true);
+      } catch { setError("Connection error."); }
+      finally { setLoading(false); }
+      return;
+    }
+
+    if (selectedMetrics.length === 0) { setError("Choose at least one metric."); return; }
     const cropIds = cropMode === "1" ? cropA : `${cropA},${cropB}`;
     setLoading(true);
     try {
@@ -152,7 +171,7 @@ export default function HistoryChartPage() {
             <div style={{ display: "flex", gap: 8 }}>
               {(["1", "2"] as const).map(m => (
                 <button key={m} type="button"
-                  onClick={() => { setCropMode(m); setView("avg"); }}
+                  onClick={() => { setCropMode(m); setView("avg"); if (m === "2") setMultiHouseMode(false); }}
                   style={{
                     padding: "8px 22px", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: "0.9rem",
                     border: cropMode === m ? "2px solid #2563eb" : "1px solid #dbe3ee",
@@ -172,7 +191,7 @@ export default function HistoryChartPage() {
             <div className={cropMode === "2" ? "mobile-grid mobile-grid--2" : ""}>
               <div>
                 <label style={{ fontSize: "0.78rem", color: "#2563eb", fontWeight: 700 }}>Crop A (solid lines)</label>
-                <select value={cropA} onChange={e => { setCropA(e.target.value); setView("avg"); }}>
+                <select value={cropA} onChange={e => { setCropA(e.target.value); setView("avg"); setSelectedHouses([]); }}>
                   <option value="">— choose —</option>
                   {allCrops.map(c => <option key={c.id} value={c.id}>{cropLabel(c.id)}</option>)}
                 </select>
@@ -193,14 +212,72 @@ export default function HistoryChartPage() {
           {cropA && (
             <div style={{ marginBottom: 18 }}>
               <div className="hist-step-label">Step 3 — View</div>
-              <select value={view} onChange={e => setView(e.target.value)}>
-                <option value="avg">Average — whole crop</option>
-                {availableHouses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
-              </select>
-              {cropMode === "2" && availableHouses.length > 0 && (
-                <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 4 }}>
-                  Selecting a house compares the same house between both crops.
+
+              {/* Toggle: single view vs compare houses (1 crop only, 2+ houses available) */}
+              {cropMode === "1" && availableHouses.length >= 2 && (
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  {[
+                    { key: false, label: "Single view" },
+                    { key: true,  label: "Compare houses" },
+                  ].map(opt => (
+                    <button key={String(opt.key)} type="button"
+                      onClick={() => { setMultiHouseMode(opt.key as boolean); }}
+                      style={{
+                        padding: "7px 18px", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: "0.82rem",
+                        border: multiHouseMode === opt.key ? "2px solid #2563eb" : "1px solid #dbe3ee",
+                        background: multiHouseMode === opt.key ? "#eff6ff" : "#fff",
+                        color: multiHouseMode === opt.key ? "#1d4ed8" : "#5d6b82",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
+              )}
+
+              {/* Multi-house checkboxes */}
+              {multiHouseMode ? (
+                <div>
+                  <div style={{ fontSize: "0.75rem", color: "#5d6b82", marginBottom: 6 }}>Select houses to compare:</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {availableHouses.map(h => {
+                      const checked = selectedHouses.includes(h.id);
+                      return (
+                        <button key={h.id} type="button"
+                          onClick={() => setSelectedHouses(prev =>
+                            checked ? prev.filter(id => id !== h.id) : [...prev, h.id]
+                          )}
+                          style={{
+                            padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: "0.82rem",
+                            border: checked ? "2px solid #2563eb" : "1px solid #dbe3ee",
+                            background: checked ? "#eff6ff" : "#fff",
+                            color: checked ? "#1d4ed8" : "#5d6b82",
+                            fontWeight: checked ? 700 : 500,
+                          }}
+                        >
+                          {h.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedHouses.length < 2 && (
+                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 4 }}>
+                      Select at least 2 houses.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <select value={view} onChange={e => setView(e.target.value)}>
+                    <option value="avg">Average — whole crop</option>
+                    {availableHouses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  </select>
+                  {cropMode === "2" && availableHouses.length > 0 && (
+                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 4 }}>
+                      Selecting a house compares the same house between both crops.
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -208,13 +285,14 @@ export default function HistoryChartPage() {
           {/* Step 4: metrics */}
           {cropA && (
             <div style={{ marginBottom: 18 }}>
-              <div className="hist-step-label">Step 4 — Metrics</div>
+              <div className="hist-step-label">Step 4 — {multiHouseMode ? "Metric (one only)" : "Metrics"}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {METRICS.map(m => {
-                  const active = selectedMetrics.includes(m.key);
+                  const active = multiHouseMode ? singleMetric === m.key : selectedMetrics.includes(m.key);
                   const isRight = m.axis === "right";
                   return (
-                    <button key={m.key} type="button" onClick={() => toggleMetric(m.key)}
+                    <button key={m.key} type="button"
+                      onClick={() => multiHouseMode ? setSingleMetric(m.key) : toggleMetric(m.key)}
                       style={{
                         padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: "0.82rem",
                         border: active ? `2px solid ${isRight ? "#7c3aed" : "#2563eb"}` : "1px solid #dbe3ee",
@@ -225,16 +303,20 @@ export default function HistoryChartPage() {
                     >
                       {m.label}
                       <span style={{ fontSize: "0.65rem", marginLeft: 4, opacity: 0.65 }}>{m.unit}</span>
-                      <span style={{ fontSize: "0.6rem", marginLeft: 3, opacity: 0.5 }}>
-                        {isRight ? "→R" : "←L"}
-                      </span>
+                      {!multiHouseMode && (
+                        <span style={{ fontSize: "0.6rem", marginLeft: 3, opacity: 0.5 }}>
+                          {isRight ? "→R" : "←L"}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
-              <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 6 }}>
-                L = left axis (water/feed) · R = right axis (weight%/temp)
-              </div>
+              {!multiHouseMode && (
+                <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 6 }}>
+                  L = left axis (water/feed) · R = right axis (weight%/temp)
+                </div>
+              )}
             </div>
           )}
 
