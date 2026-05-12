@@ -256,7 +256,7 @@ export default function HistoryChartPage() {
         )}
 
         {hasChart && series.length > 0 && (
-          <div className="mobile-card">
+          <div className="mobile-card" style={{ padding: "16px 8px" }}>
             {/* Legend */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
               {series.map(s => (
@@ -280,9 +280,9 @@ export default function HistoryChartPage() {
               </div>
             )}
 
-            <div style={{ width: "100%", height: 320 }}>
+            <div style={{ width: "100%", height: 520 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 4, right: hasRight ? 48 : 8, bottom: 4, left: 0 }}>
+                <LineChart data={chartData} margin={{ top: 10, right: hasRight ? 56 : 12, bottom: 16, left: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis dataKey="day" tick={{ fontSize: 10 }}
                     label={{ value: "Day of age", position: "insideBottomRight", offset: -4, fontSize: 10 }} />
