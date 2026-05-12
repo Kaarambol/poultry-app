@@ -35,7 +35,7 @@ const mainLinks = [
   { href: "/dashboard",   label: "Dashboard"   },
   { href: "/daily",       label: "Daily Entry" },
   { href: "/feed",        label: "Feed"        },
-  { href: "/night-check", label: "Night Check" },
+  { href: "/night-check", label: "Night Check", navBg: "#1e293b", navColor: "#e2e8f0" },
   { href: "/total",       label: "Total"       },
 ];
 
@@ -228,7 +228,7 @@ export default function AppNav() {
     return base;
   }
 
-  function renderSection(title: string, links: Array<{ href: string; label: string }>) {
+  function renderSection(title: string, links: Array<{ href: string; label: string; navBg?: string; navColor?: string }>) {
     return (
       <div className="app-nav__panel">
         <div className="app-nav__field-label">{title}</div>
@@ -237,16 +237,16 @@ export default function AppNav() {
             const active = pathname === link.href;
             const baseClass = `app-nav__link${active ? " app-nav__link--active" : ""}`;
             const className = link.href === "/audit-farm-documents" ? auditLinkClass(baseClass) : baseClass;
+            // Use explicit link navBg first, then fall back to DEFAULT_COLORS
             const routeKey = ROUTE_TO_KEY.find(([path]) => path === link.href)?.[1];
-            const navBg = !active && routeKey ? DEFAULT_COLORS[routeKey]?.nav : undefined;
-            const darkNav = navBg ? isDark(navBg) : false;
-            const linkClass = `${className}${darkNav ? " app-nav__link--dark" : ""}`;
+            const navBg = !active ? (link.navBg ?? (routeKey ? DEFAULT_COLORS[routeKey]?.nav : undefined)) : undefined;
+            const navColor = !active ? (link.navColor ?? (navBg && isDark(navBg) ? "#e2e8f0" : undefined)) : undefined;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={linkClass}
-                style={navBg ? { background: navBg } : undefined}
+                className={className}
+                style={navBg ? { background: navBg, color: navColor } : undefined}
               >
                 {link.label}
                 {link.href === "/audit-farm-documents" && docAlerts.length > 0 && (
