@@ -27,13 +27,25 @@ type CropResponse = {
   placements: PlacementRow[];
 };
 
+type House = { id: string; name: string };
+
 export default function ThinClearPage() {
   const [cropId, setCropIdState] = useState("");
   const [cropLabel, setCropLabel] = useState("");
   const [rows, setRows] = useState<PlacementRow[]>([]);
+  const [allHouses, setAllHouses] = useState<House[]>([]);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
   const [loading, setLoading] = useState(true);
+
+  // Add placement form
+  const [addHouseId, setAddHouseId] = useState("");
+  const [addDate, setAddDate] = useState(new Date().toISOString().slice(0, 10));
+  const [addBirds, setAddBirds] = useState("");
+  const [addFlock, setAddFlock] = useState("");
+  const [addHatchery, setAddHatchery] = useState("");
+  const [addMsg, setAddMsg] = useState("");
+  const [addMsgType, setAddMsgType] = useState<"error" | "success">("error");
 
   async function loadPage() {
     const farmId = getCurrentFarmId();
@@ -43,6 +55,12 @@ export default function ThinClearPage() {
       setMsg("Choose a farm in the top menu first.");
       return;
     }
+
+    // Load all farm houses for the add-placement dropdown
+    fetch(`/api/houses/list?farmId=${farmId}`)
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setAllHouses(d); })
+      .catch(() => {});
 
     const activeCropRes = await fetch(`/api/crops/active?farmId=${farmId}`);
     const activeCropData = await activeCropRes.json();
@@ -190,6 +208,38 @@ export default function ThinClearPage() {
     await loadPage();
   }
 
+  async function addPlacement(e: React.FormEvent) {
+    e.preventDefault();
+    setAddMsg("");
+    if (!cropId) { setAddMsgType("error"); setAddMsg("No active crop."); return; }
+    if (!addHouseId) { setAddMsgType("error"); setAddMsg("Choose a house."); return; }
+    if (!addDate) { setAddMsgType("error"); setAddMsg("Choose a date."); return; }
+    if (!addBirds || Number(addBirds) <= 0) { setAddMsgType("error"); setAddMsg("Enter birds placed."); return; }
+
+    const r = await fetch("/api/crops/add-placement", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cropId,
+        houseId: addHouseId,
+        placementDate: addDate,
+        birdsPlaced: Number(addBirds),
+        flockNumber: addFlock || null,
+        hatchery: addHatchery || null,
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      setAddMsgType("error");
+      setAddMsg(data.error || "Error adding placement.");
+      return;
+    }
+    setAddMsgType("success");
+    setAddMsg("House added to crop.");
+    setAddHouseId(""); setAddBirds(""); setAddFlock(""); setAddHatchery("");
+    await loadPage();
+  }
+
   const alertClass =
     msgType === "error"
       ? "mobile-alert mobile-alert--error"
@@ -231,6 +281,55 @@ export default function ThinClearPage() {
         <div className="mobile-card" style={{ marginBottom: 16 }}>
           <h2>Active Crop</h2>
           <p style={{ margin: 0 }}>{cropLabel || "-"}</p>
+        </div>
+
+        {/* Add house / placement to active crop */}
+        <div className="mobile-card" style={{ marginBottom: 16, borderLeft: "4px solid #2563eb" }}>
+          <h2 style={{ marginTop: 0 }}>Add House to Crop</h2>
+          <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "var(--text-soft)" }}>
+            Use when a house was placed after the crop was created (e.g. delivery split over 2 days).
+          </p>
+          <form onSubmit={addPlacement}>
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>House</label>
+                <select value={addHouseId} onChange={e => setAddHouseId(e.target.value)}>
+                  <option value="">— choose —</option>
+                  {allHouses.map(h => (
+                    <option key={h.id} value={h.id}>{h.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label>Placement Date</label>
+                <input type="date" value={addDate} onChange={e => setAddDate(e.target.value)} />
+              </div>
+            </div>
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Birds Placed</label>
+                <input type="number" min="1" value={addBirds} onChange={e => setAddBirds(e.target.value)} placeholder="e.g. 40000" />
+              </div>
+              <div>
+                <label>Flock Number</label>
+                <input type="text" value={addFlock} onChange={e => setAddFlock(e.target.value)} placeholder="optional" />
+              </div>
+            </div>
+            <div>
+              <label>Hatchery</label>
+              <input type="text" value={addHatchery} onChange={e => setAddHatchery(e.target.value)} placeholder="optional" />
+            </div>
+            {addMsg && (
+              <div className={addMsgType === "error" ? "mobile-alert mobile-alert--error" : "mobile-alert mobile-alert--success"} style={{ marginTop: 8 }}>
+                {addMsg}
+              </div>
+            )}
+            <div style={{ marginTop: 12 }}>
+              <button type="submit" className="mobile-full-button" disabled={!cropId}>
+                Add House to Crop
+              </button>
+            </div>
+          </form>
         </div>
 
         {rows.length === 0 ? (
