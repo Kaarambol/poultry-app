@@ -247,9 +247,12 @@ export default function HistoryPage() {
             <p className="page-intro__subtitle">
               Review finished crops, daily records, medication history and export files.
             </p>
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
               <Link href="/history/compare" className="mobile-button mobile-button--secondary">
-                Crop Comparison →
+                Stats Comparison →
+              </Link>
+              <Link href="/history/chart" className="mobile-button mobile-button--secondary">
+                Chart Comparison →
               </Link>
             </div>
           </div>
