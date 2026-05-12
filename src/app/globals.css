@@ -316,6 +316,18 @@ p {
   gap: 8px;
 }
 
+.app-nav__links--centered {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.app-nav__links--centered .app-nav__link {
+  flex: 0 1 140px;
+  justify-content: center;
+  text-align: center;
+}
+
 .app-nav__link {
   display: flex;
   align-items: center;

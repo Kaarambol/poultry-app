@@ -232,11 +232,11 @@ export default function AppNav() {
     return base;
   }
 
-  function renderSection(title: string, links: Array<{ href: string; label: string; navBg?: string; navColor?: string }>) {
+  function renderSection(title: string, links: Array<{ href: string; label: string; navBg?: string; navColor?: string }>, centered = false) {
     return (
       <div className="app-nav__panel">
         <div className="app-nav__field-label">{title}</div>
-        <div className="app-nav__links">
+        <div className={`app-nav__links${centered ? " app-nav__links--centered" : ""}`}>
           {links.map((link) => {
             const active = pathname === link.href;
             const baseClass = `app-nav__link${active ? " app-nav__link--active" : ""}`;
@@ -304,11 +304,11 @@ export default function AppNav() {
               </div>
             </div>
             {renderSection("Main Menu", mainLinks)}
-            {renderSection("Setup", setupLinks)}
+            {renderSection("Setup", setupLinks, true)}
             {renderSection("Records", recordsLinks)}
             <div className="app-nav__panel">
               <div className="app-nav__field-label">Session</div>
-              <div className="app-nav__links">
+              <div className="app-nav__links app-nav__links--centered">
                 {historyMode && (
                   <button
                     type="button"
@@ -320,7 +320,7 @@ export default function AppNav() {
                   </button>
                 )}
                 <button type="button" className="app-nav__link" onClick={handleLogout} disabled={loggingOut}
-                  style={{ background: "#fee2e2", color: "#b91c1c", fontWeight: 700 }}>
+                  style={{ background: "#fee2e2", color: "#b91c1c", fontWeight: 700, justifyContent: "center" }}>
                   {loggingOut ? "Logging out..." : "Logout"}
                 </button>
               </div>
