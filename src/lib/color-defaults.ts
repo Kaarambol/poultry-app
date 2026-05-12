@@ -1,14 +1,14 @@
 export type PageColors = { bg: string; nav: string };
 
 export const DEFAULT_COLORS: Record<string, PageColors> = {
-  "home":                 { bg: "#fffef5", nav: "#fffef5" },
-  "dashboard":            { bg: "#fefce8", nav: "#fefce8" },
-  "daily":                { bg: "#f0f9ff", nav: "#e0f2fe" },
-  "feed":                 { bg: "#f0fdf4", nav: "#dcfce7" },
+  "home":                 { bg: "#dbeafe", nav: "#3b82f6" },
+  "dashboard":            { bg: "#dbeafe", nav: "#3b82f6" },
+  "daily":                { bg: "#fef9c3", nav: "#eab308" },
+  "feed":                 { bg: "#fef9c3", nav: "#eab308" },
   "night-check":          { bg: "#0f172a", nav: "#1e293b" },
-  "total":                { bg: "#ecfeff", nav: "#cffafe" },
+  "total":                { bg: "#dcfce7", nav: "#16a34a" },
   "check-flock":          { bg: "#f7fee7", nav: "#ecfccb" },
-  "audit-farm-documents": { bg: "#fff1f2", nav: "#ffe4e6" },
+  "audit-farm-documents": { bg: "#fee2e2", nav: "#ef4444" },
   "medication":           { bg: "#f0fdfa", nav: "#ccfbf1" },
   "history":              { bg: "#f5f3ff", nav: "#ede9fe" },
   "avara":                { bg: "#fff7ed", nav: "#ffedd5" },
