@@ -123,6 +123,8 @@ export default function DailyPage() {
   }, [dayOfAge, targetDays]);
 
   // Live birds in the selected house — used to scale feed/water targets to whole house
+  // Thin birds are subtracted only from the day AFTER the thin date:
+  // on the thin day itself the full-house consumption is still recorded
   const selectedHouseLiveBirds = useMemo(() => {
     if (!houseId || !cropDetails) return null;
     const placed = cropDetails.placements
@@ -132,16 +134,23 @@ export default function DailyPage() {
     const losses = records
       .filter(r => r.houseId === houseId)
       .reduce((sum, r) => sum + r.mort + r.culls, 0);
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
+    // Use the record date being entered — thin subtracts only if thin date < record date
+    const recordDate = new Date(date || new Date());
+    recordDate.setHours(0, 0, 0, 0);
     let thinned = 0;
     for (const p of cropDetails.placements) {
       if (p.house.id !== houseId) continue;
-      if (p.thinBirds && p.thinDate && new Date(p.thinDate) <= today) thinned += p.thinBirds;
-      if (p.thin2Birds && p.thin2Date && new Date(p.thin2Date) <= today) thinned += p.thin2Birds;
+      if (p.thinBirds && p.thinDate) {
+        const td = new Date(p.thinDate); td.setHours(0, 0, 0, 0);
+        if (td < recordDate) thinned += p.thinBirds;
+      }
+      if (p.thin2Birds && p.thin2Date) {
+        const td = new Date(p.thin2Date); td.setHours(0, 0, 0, 0);
+        if (td < recordDate) thinned += p.thin2Birds;
+      }
     }
     return Math.max(0, placed - losses - thinned);
-  }, [houseId, cropDetails, records]);
+  }, [houseId, cropDetails, records, date]);
 
   const isWeeklyDay = useMemo(() => {
     if (!cropDetails?.placementDate || !date) return false;
