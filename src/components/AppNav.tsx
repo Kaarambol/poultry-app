@@ -239,13 +239,14 @@ export default function AppNav() {
             const className = link.href === "/audit-farm-documents" ? auditLinkClass(baseClass) : baseClass;
             const routeKey = ROUTE_TO_KEY.find(([path]) => path === link.href)?.[1];
             const navBg = !active && routeKey ? DEFAULT_COLORS[routeKey]?.nav : undefined;
-            const textColor = navBg && isDark(navBg) ? "#fff" : undefined;
+            const darkNav = navBg ? isDark(navBg) : false;
+            const linkClass = `${className}${darkNav ? " app-nav__link--dark" : ""}`;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={className}
-                style={navBg ? { background: navBg, color: textColor } : undefined}
+                className={linkClass}
+                style={navBg ? { background: navBg } : undefined}
               >
                 {link.label}
                 {link.href === "/audit-farm-documents" && docAlerts.length > 0 && (

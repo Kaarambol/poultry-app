@@ -738,6 +738,10 @@ p {
   }
 }
 
+.app-nav__link--dark {
+  color: #e2e8f0 !important;
+}
+
 .app-nav__link--alert-red {
   background: #ffe6e6;
   color: #b00020 !important;
