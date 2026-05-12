@@ -209,7 +209,7 @@ export async function GET(req: Request) {
       : null;
 
     const endMs = cropEndDate
-      ? Math.min(Date.now(), new Date(cropEndDate).getTime() + MSDAY)
+      ? new Date(cropEndDate).getTime()
       : Date.now();
     const ageDays = Math.max(
       1,

@@ -103,7 +103,7 @@ export default function TotalPage() {
 
     // Length of crop in weeks (capped at cropEndDate, same as ageDays)
     const cropEndMs = summary.crop.cropEndDate
-      ? Math.min(Date.now(), new Date(summary.crop.cropEndDate).getTime() + 24 * 60 * 60 * 1000)
+      ? new Date(summary.crop.cropEndDate).getTime()
       : Date.now();
     let lengthCropDays: number;
     if (prevCropFinishDate) {
