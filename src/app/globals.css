@@ -221,8 +221,7 @@ p {
   border-radius: 12px;
   display: grid;
   place-items: center;
-  font-weight: 800;
-  color: #fff;
+  font-size: 1.6rem;
   background: linear-gradient(135deg, var(--primary), #3d8bfd);
   box-shadow: var(--shadow-sm);
   flex: 0 0 auto;

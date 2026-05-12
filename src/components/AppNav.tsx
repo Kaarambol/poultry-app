@@ -271,7 +271,7 @@ export default function AppNav() {
       <div className="app-nav__inner">
         <div className="app-nav__bar">
           <div className="app-brand">
-            <div className="app-brand__badge" style={historyMode ? { background: "#f59e0b" } : undefined}>PA</div>
+            <div className="app-brand__badge" style={historyMode ? { background: "#f59e0b" } : undefined}>🐔</div>
             <div className="app-brand__text">
               <div className="app-brand__title">
                 Poultry Manage
