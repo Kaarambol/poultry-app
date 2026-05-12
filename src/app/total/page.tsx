@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { getCurrentFarmId, getHistoryCropId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
-import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
+import { FarmRole, canOperateUi, isReadOnlyUi, canSeeCosts, canAccessTotal } from "@/lib/ui-permissions";
 
 type Farm = {
   id: string;
@@ -297,6 +297,17 @@ export default function TotalPage() {
   }, []);
 
   const canOperate = canOperateUi(myRole) && !historyMode;
+  const showCosts = canSeeCosts(myRole);
+
+  if (myRole && !canAccessTotal(myRole)) {
+    return (
+      <div className="mobile-page"><div className="page-shell">
+        <div className="mobile-alert mobile-alert--error">
+          Access denied. Total &amp; Margin is available to Owner and Manager only.
+        </div>
+      </div></div>
+    );
+  }
 
   return (
     <div className="mobile-page">
@@ -356,17 +367,19 @@ export default function TotalPage() {
                     {metrics.finalEpef != null ? metrics.finalEpef.toFixed(0) : "—"}
                   </div>
                 </div>
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Margin p/m²/week</div>
-                  <div className="mobile-kpi__value" style={{
-                    color: metrics.finalMargin != null && metrics.finalMargin >= 0
-                      ? "var(--primary)" : "#e53e3e",
-                    fontWeight: "bold"
-                  }}>
-                    {metrics.finalMargin != null ? metrics.finalMargin.toFixed(2) : "—"}
+                {showCosts && (
+                  <div className="mobile-kpi">
+                    <div className="mobile-kpi__label">Margin p/m²/week</div>
+                    <div className="mobile-kpi__value" style={{
+                      color: metrics.finalMargin != null && metrics.finalMargin >= 0
+                        ? "var(--primary)" : "#e53e3e",
+                      fontWeight: "bold"
+                    }}>
+                      {metrics.finalMargin != null ? metrics.finalMargin.toFixed(2) : "—"}
+                    </div>
                   </div>
-                </div>
-                {metrics.finalGrossMargin != null && (
+                )}
+                {showCosts && metrics.finalGrossMargin != null && (
                   <div className="mobile-kpi">
                     <div className="mobile-kpi__label">Gross Margin £</div>
                     <div className="mobile-kpi__value">{metrics.finalGrossMargin.toFixed(2)}</div>
@@ -426,10 +439,12 @@ export default function TotalPage() {
                   <div className="mobile-kpi__label">Consumed kg</div>
                   <div className="mobile-kpi__value" style={{ fontWeight: 700 }}>{summary.feed.totalConsumedKg.toFixed(0)}</div>
                 </div>
-                <div className="mobile-kpi">
-                  <div className="mobile-kpi__label">Feed cost GBP</div>
-                  <div className="mobile-kpi__value">{summary.feed.totalFeedCostGbp.toFixed(2)}</div>
-                </div>
+                {showCosts && (
+                  <div className="mobile-kpi">
+                    <div className="mobile-kpi__label">Feed cost GBP</div>
+                    <div className="mobile-kpi__value">{summary.feed.totalFeedCostGbp.toFixed(2)}</div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -475,25 +490,25 @@ export default function TotalPage() {
                       <div className="mobile-kpi__label">Last weight (kg)</div>
                       <div className="mobile-kpi__value">{liveWeightKg > 0 ? liveWeightKg.toFixed(3) : "—"}</div>
                     </div>
-                    {feedCost != null && (
+                    {showCosts && feedCost != null && (
                       <div className="mobile-kpi">
                         <div className="mobile-kpi__label">Feed cost £</div>
                         <div className="mobile-kpi__value">{feedCost.toFixed(2)}</div>
                       </div>
                     )}
-                    {chickCost != null && (
+                    {showCosts && chickCost != null && (
                       <div className="mobile-kpi">
                         <div className="mobile-kpi__label">Chick cost £</div>
                         <div className="mobile-kpi__value">{chickCost.toFixed(2)}</div>
                       </div>
                     )}
-                    {estRevenue != null && (
+                    {showCosts && estRevenue != null && (
                       <div className="mobile-kpi">
                         <div className="mobile-kpi__label">Est. revenue £</div>
                         <div className="mobile-kpi__value">{estRevenue.toFixed(2)}</div>
                       </div>
                     )}
-                    {estMargin != null && (
+                    {showCosts && estMargin != null && (
                       <div className="mobile-kpi">
                         <div className="mobile-kpi__label">Est. margin £</div>
                         <div className="mobile-kpi__value" style={{ fontWeight: 700, color: estMargin >= 0 ? "#15803d" : "#dc2626" }}>
@@ -502,7 +517,7 @@ export default function TotalPage() {
                       </div>
                     )}
                   </div>
-                  {(salePrice === 0 || chickPrice === 0) && (
+                  {showCosts && (salePrice === 0 || chickPrice === 0) && (
                     <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: "#b45309" }}>
                       Enter Sale Price &amp; Chicken Cost in Factory Report to see revenue &amp; margin estimates.
                     </p>
@@ -546,18 +561,24 @@ export default function TotalPage() {
                     <label>Sale Weight (kg) — for FCR</label>
                     <input type="number" step="0.001" value={saleWeightKg} onChange={e => setSaleWeightKg(e.target.value)} placeholder="e.g. 578000" disabled={!canOperate} />
                   </div>
-                  <div>
-                    <label>Accept Weight (kg) — for Margin</label>
-                    <input type="number" step="0.001" value={acceptWeightKg} onChange={e => setAcceptWeightKg(e.target.value)} placeholder="e.g. 560000" disabled={!canOperate} />
-                  </div>
-                  <div>
-                    <label>Chicken Cost (per bird)</label>
-                    <input type="number" step="0.0001" value={chickenPricePerKg} onChange={e => setChickenPricePerKg(e.target.value)} placeholder="e.g. 0.35" disabled={!canOperate} />
-                  </div>
-                  <div>
-                    <label>Sale Price per kg</label>
-                    <input type="number" step="0.0001" value={salePricePerKgAllIn} onChange={e => setSalePricePerKgAllIn(e.target.value)} placeholder="e.g. 1.25" disabled={!canOperate} />
-                  </div>
+                  {showCosts && (
+                    <div>
+                      <label>Accept Weight (kg) — for Margin</label>
+                      <input type="number" step="0.001" value={acceptWeightKg} onChange={e => setAcceptWeightKg(e.target.value)} placeholder="e.g. 560000" disabled={!canOperate} />
+                    </div>
+                  )}
+                  {showCosts && (
+                    <div>
+                      <label>Chicken Cost (per bird)</label>
+                      <input type="number" step="0.0001" value={chickenPricePerKg} onChange={e => setChickenPricePerKg(e.target.value)} placeholder="e.g. 0.35" disabled={!canOperate} />
+                    </div>
+                  )}
+                  {showCosts && (
+                    <div>
+                      <label>Sale Price per kg</label>
+                      <input type="number" step="0.0001" value={salePricePerKgAllIn} onChange={e => setSalePricePerKgAllIn(e.target.value)} placeholder="e.g. 1.25" disabled={!canOperate} />
+                    </div>
+                  )}
                   <div>
                     <label>Total Birds Sold</label>
                     <input type="number" value={finalBirdsSold} onChange={e => setFinalBirdsSold(e.target.value)} disabled={!canOperate} />

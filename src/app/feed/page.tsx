@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentFarmId, getHistoryCropId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
-import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
+import { FarmRole, canOperateUi, isReadOnlyUi, canSeeCosts } from "@/lib/ui-permissions";
 
 type Farm = {
   id: string;
@@ -307,6 +307,7 @@ export default function FeedPage() {
 
   const canOperate = canOperateUi(myRole) && !historyMode;
   const readOnly = isReadOnlyUi(myRole);
+  const showCosts = canSeeCosts(myRole);
   const totalKgPreview = (Number(feedKg || 0)) + (Number(wheatKg || 0));
   const totalCostPreview = useMemo(() => {
     return ((Number(feedKg || 0) / 1000) * Number(feedPricePerTonneGbp || 0)) + 
@@ -368,10 +369,12 @@ export default function FeedPage() {
               <div><label>Wheat kg</label><input type="number" value={wheatKg} onChange={(e) => setWheatKg(e.target.value)} disabled={!canOperate} /></div>
             </div>
 
-            <div className="mobile-grid mobile-grid--2">
-              <div><label>Feed Price / t (Auto)</label><input type="number" value={feedPricePerTonneGbp} onChange={(e) => setFeedPricePerTonneGbp(e.target.value)} disabled={!canOperate} /></div>
-              <div><label>Wheat Price / t (Auto)</label><input type="number" value={wheatPricePerTonneGbp} onChange={(e) => setWheatPricePerTonneGbp(e.target.value)} disabled={!canOperate} /></div>
-            </div>
+            {showCosts && (
+              <div className="mobile-grid mobile-grid--2">
+                <div><label>Feed Price / t (Auto)</label><input type="number" value={feedPricePerTonneGbp} onChange={(e) => setFeedPricePerTonneGbp(e.target.value)} disabled={!canOperate} /></div>
+                <div><label>Wheat Price / t (Auto)</label><input type="number" value={wheatPricePerTonneGbp} onChange={(e) => setWheatPricePerTonneGbp(e.target.value)} disabled={!canOperate} /></div>
+              </div>
+            )}
 
             <div className="mobile-grid mobile-grid--2">
               <div><label>Ticket Number</label><input value={ticketNumber} onChange={(e) => setTicketNumber(e.target.value)} disabled={!canOperate} /></div>
@@ -392,7 +395,7 @@ export default function FeedPage() {
             <div className="mobile-card mobile-card--soft" style={{ marginTop: 8 }}>
               <div className="mobile-record-card__grid">
                 <div className="mobile-record-row"><strong>Total kg</strong><span>{totalKgPreview.toFixed(2)}</span></div>
-                <div className="mobile-record-row"><strong>Est. Cost GBP</strong><span>{totalCostPreview.toFixed(2)}</span></div>
+                {showCosts && <div className="mobile-record-row"><strong>Est. Cost GBP</strong><span>{totalCostPreview.toFixed(2)}</span></div>}
               </div>
             </div>
 
@@ -428,7 +431,7 @@ export default function FeedPage() {
                 <div className="mobile-kpi"><div className="mobile-kpi__label">Feed Delivered</div><div className="mobile-kpi__value">{summary.totals.totalFeedKg.toFixed(0)} kg</div></div>
                 <div className="mobile-kpi"><div className="mobile-kpi__label">Wheat Delivered</div><div className="mobile-kpi__value">{summary.totals.totalWheatKg.toFixed(0)} kg</div></div>
                 <div className="mobile-kpi"><div className="mobile-kpi__label">Total Delivered</div><div className="mobile-kpi__value">{summary.totals.totalDeliveredKg.toFixed(0)} kg</div></div>
-                <div className="mobile-kpi"><div className="mobile-kpi__label">Cost GBP</div><div className="mobile-kpi__value">{summary.totals.totalCostGbp.toFixed(2)}</div></div>
+                {showCosts && <div className="mobile-kpi"><div className="mobile-kpi__label">Cost GBP</div><div className="mobile-kpi__value">{summary.totals.totalCostGbp.toFixed(2)}</div></div>}
               </div>
 
               {(summary.totals.openingFeedStockKg > 0 || summary.totals.openingWheatStockKg > 0) && (
@@ -474,7 +477,7 @@ export default function FeedPage() {
                     <div className="mobile-record-row"><strong>Feed kg</strong><span>{item.feedKg.toFixed(0)}</span></div>
                     <div className="mobile-record-row"><strong>Wheat kg</strong><span>{item.wheatKg.toFixed(0)}</span></div>
                     <div className="mobile-record-row"><strong>Total kg</strong><span>{item.totalKg.toFixed(0)}</span></div>
-                    <div className="mobile-record-row"><strong>Cost GBP</strong><span>{item.totalCostGbp.toFixed(2)}</span></div>
+                    {showCosts && <div className="mobile-record-row"><strong>Cost GBP</strong><span>{item.totalCostGbp.toFixed(2)}</span></div>}
                   </div>
                 </div>
               ))}
@@ -491,7 +494,7 @@ export default function FeedPage() {
                 <div className="mobile-record-row"><strong>Total kg</strong><span>{(record.feedKg + record.wheatKg).toFixed(2)}</span></div>
                 <div className="mobile-record-row"><strong>Ticket</strong><span>{record.ticketNumber}</span></div>
                 <div className="mobile-record-row"><strong>House</strong><span>{record.house?.name || "Crop level"}</span></div>
-                <div className="mobile-record-row"><strong>Cost</strong><span>{getRecordTotalCost(record).toFixed(2)} GBP</span></div>
+                {showCosts && <div className="mobile-record-row"><strong>Cost</strong><span>{getRecordTotalCost(record).toFixed(2)} GBP</span></div>}
               </div>
               {canOperate && (
                 <div className="mobile-actions" style={{ marginTop: 8 }}>

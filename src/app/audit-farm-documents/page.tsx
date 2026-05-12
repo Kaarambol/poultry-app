@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentFarmId } from "@/lib/app-context";
-import { FarmRole, canOperateUi, isReadOnlyUi } from "@/lib/ui-permissions";
+import { FarmRole, canEditDocuments, isReadOnlyUi } from "@/lib/ui-permissions";
 
 type Farm = {
   id: string;
@@ -438,7 +438,7 @@ export default function AuditFarmDocumentsPage() {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  const canOperate = canOperateUi(myRole);
+  const canOperate = canEditDocuments(myRole);
   const readOnly = isReadOnlyUi(myRole);
 
   const stats = useMemo(() => {

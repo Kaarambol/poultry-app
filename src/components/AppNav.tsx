@@ -13,6 +13,7 @@ import {
   setCurrentFarmId,
 } from "@/lib/app-context";
 import { ROUTE_TO_KEY, DEFAULT_COLORS, isDark } from "@/lib/color-defaults";
+import { canAccessTotal, type FarmRole } from "@/lib/ui-permissions";
 
 type Farm = {
   id: string;
@@ -68,6 +69,7 @@ export default function AppNav() {
   const [menuOpen, setMenuOpen] = useState(true);
   const isFirstMount = useRef(true);
 
+  const [myRole, setMyRole] = useState<FarmRole>("");
   const [docAlerts, setDocAlerts] = useState<AlertItem[]>([]);
   const [loggingOut, setLoggingOut] = useState(false);
   const [historyMode, setHistoryMode] = useState(false);
@@ -89,6 +91,14 @@ export default function AppNav() {
     }
     loadFarms();
   }, []);
+
+  useEffect(() => {
+    if (!currentFarmId) { setMyRole(""); return; }
+    fetch(`/api/farms/access/me?farmId=${currentFarmId}`)
+      .then(r => r.json())
+      .then(d => setMyRole(d.role || ""))
+      .catch(() => setMyRole(""));
+  }, [currentFarmId]);
 
   useEffect(() => {
     async function loadActiveCrop() {
@@ -303,7 +313,7 @@ export default function AppNav() {
                 </select>
               </div>
             </div>
-            {renderSection("Main Menu", mainLinks)}
+            {renderSection("Main Menu", mainLinks.filter(l => l.href !== "/total" || canAccessTotal(myRole)))}
             {renderSection("Setup", setupLinks, true)}
             {renderSection("Records", recordsLinks)}
             <div className="app-nav__panel">
