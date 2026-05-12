@@ -108,6 +108,20 @@ export default function DailyPage() {
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
   const [editingId, setEditingId] = useState("");
 
+  type TargetDay = { weightTargetG: number | null; feedTargetG: number | null; waterTargetMl: number | null; temperatureTargetC: number | null };
+  const [targetDays, setTargetDays] = useState<Map<number, TargetDay>>(new Map());
+
+  const dayOfAge = useMemo(() => {
+    if (!cropDetails?.placementDate || !date) return null;
+    const d = Math.floor((new Date(date).getTime() - new Date(cropDetails.placementDate).getTime()) / (1000 * 60 * 60 * 24));
+    return d >= 1 ? d : null;
+  }, [cropDetails, date]);
+
+  const targetHint = useMemo(() => {
+    if (dayOfAge == null || targetDays.size === 0) return null;
+    return targetDays.get(dayOfAge) ?? null;
+  }, [dayOfAge, targetDays]);
+
   const isWeeklyDay = useMemo(() => {
     if (!cropDetails?.placementDate || !date) return false;
     const placementDate = new Date(cropDetails.placementDate);
@@ -221,6 +235,17 @@ export default function DailyPage() {
     loadFarmName(farmId);
     loadMyRole(farmId);
     loadHouses(farmId);
+    // Load target profile for hints
+    fetch(`/api/target-profiles/template?farmId=${farmId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data?.days)) {
+          const map = new Map<number, TargetDay>();
+          for (const d of data.days) map.set(d.dayNumber, d);
+          setTargetDays(map);
+        }
+      })
+      .catch(() => {});
 
     if (viewing) {
       const histCropId = getHistoryCropId();
@@ -735,6 +760,20 @@ export default function DailyPage() {
               <div>
                 <label>Average weight (g)</label>
                 <input type="number" min="0" step="0.01" value={avgWeightG} onChange={(e) => setAvgWeightG(e.target.value)} disabled={!cropId || !canOperate} />
+                {targetHint?.weightTargetG != null && (
+                  <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
+                    Target: {targetHint.weightTargetG}g
+                    {avgWeightG !== "" && (
+                      <span style={{
+                        color: Number(avgWeightG) >= (targetHint.weightTargetG ?? 0) ? "#16a34a" : "#dc2626",
+                        fontWeight: 600,
+                      }}>
+                        {" "}({Number(avgWeightG) >= (targetHint.weightTargetG ?? 0) ? "+" : ""}
+                        {((Number(avgWeightG) / (targetHint.weightTargetG ?? 1) - 1) * 100).toFixed(1)}%)
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -742,11 +781,21 @@ export default function DailyPage() {
               <div>
                 <label>Feed used (kg)</label>
                 <input type="number" min="0" step="0.01" value={feedKg} onChange={(e) => setFeedKg(e.target.value)} disabled={!cropId || !canOperate} />
+                {targetHint?.feedTargetG != null && (
+                  <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
+                    Target: {targetHint.feedTargetG}g/bird
+                  </div>
+                )}
               </div>
 
               <div>
                 <label>Water used (L)</label>
                 <input type="number" min="0" step="0.01" value={waterL} onChange={(e) => setWaterL(e.target.value)} disabled={!cropId || !canOperate} />
+                {targetHint?.waterTargetMl != null && (
+                  <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
+                    Target: {targetHint.waterTargetMl}mL/bird
+                  </div>
+                )}
               </div>
             </div>
 
@@ -756,6 +805,11 @@ export default function DailyPage() {
               <div>
                 <label>Temp min (°C)</label>
                 <input type="number" min="0" step="0.1" value={temperatureMinC} onChange={(e) => setTemperatureMinC(e.target.value)} disabled={!cropId || !canOperate} />
+                {targetHint?.temperatureTargetC != null && (
+                  <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
+                    Target: {targetHint.temperatureTargetC}°C
+                  </div>
+                )}
               </div>
 
               <div>

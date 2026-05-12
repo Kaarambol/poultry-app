@@ -3,6 +3,25 @@ import { prisma } from "@/lib/db";
 
 const MSDAY = 24 * 60 * 60 * 1000;
 
+// Find the last recorded weight for a house on or before a given date
+function getWeightOnOrBefore(
+  daily: Array<{ houseId: string; date: Date; avgWeightG: number | null }>,
+  houseId: string,
+  targetDate: Date
+): number | null {
+  let best: number | null = null;
+  let bestTime = -1;
+  for (const r of daily) {
+    if (r.houseId !== houseId || r.avgWeightG === null) continue;
+    const t = new Date(r.date).getTime();
+    if (t <= targetDate.getTime() && t > bestTime) {
+      bestTime = t;
+      best = r.avgWeightG;
+    }
+  }
+  return best;
+}
+
 function getFeedPriority(productName: string): number {
   const name = (productName || "").toLowerCase();
   if (name.includes("starter")) return 1;
@@ -100,6 +119,8 @@ export async function GET(req: Request) {
       culls: number;
       feedUsedKg: number;
       lastAvgWeightG: number | null;
+      thinDate: Date | null;
+      thin2Date: Date | null;
     };
 
     const houseCalcMap: Record<string, HouseCalc> = {};
@@ -109,6 +130,7 @@ export async function GET(req: Request) {
         houseCalcMap[p.houseId] = {
           birdsPlaced: 0, thinBirds: 0, thin2Birds: 0, clearBirds: 0,
           isCleared: false, mort: 0, culls: 0, feedUsedKg: 0, lastAvgWeightG: null,
+          thinDate: null, thin2Date: null,
         };
       }
       const h = houseCalcMap[p.houseId];
@@ -117,6 +139,15 @@ export async function GET(req: Request) {
       h.thin2Birds  += p.thin2Birds ?? 0;
       h.clearBirds  += p.clearBirds ?? 0;
       if (p.clearDate) h.isCleared = true;
+      // Track earliest thin dates per house
+      if (p.thinBirds && p.thinDate) {
+        const td = new Date(p.thinDate);
+        if (!h.thinDate || td < h.thinDate) h.thinDate = td;
+      }
+      if (p.thin2Birds && p.thin2Date) {
+        const td = new Date(p.thin2Date);
+        if (!h.thin2Date || td < h.thin2Date) h.thin2Date = td;
+      }
     }
 
     for (const r of crop.daily) {
@@ -133,9 +164,6 @@ export async function GET(req: Request) {
       currentBirds: h.isCleared
         ? 0
         : Math.max(0, h.birdsPlaced - h.mort - h.culls - h.thinBirds - h.thin2Birds),
-      birdsForFCR: h.isCleared
-        ? h.clearBirds
-        : Math.max(0, h.birdsPlaced - h.mort - h.culls),
     }));
 
     const housesForWeight = houseList.filter((h) => h.currentBirds > 0 && h.lastAvgWeightG !== null);
@@ -147,12 +175,30 @@ export async function GET(req: Request) {
     const totalFeedUsedKg = houseList.reduce((s, h) => s + h.feedUsedKg, 0);
     const currentLiveBirds = houseList.reduce((s, h) => s + h.currentBirds, 0);
 
-    const housesForFCR = houseList.filter((h) => h.birdsForFCR > 0 && h.lastAvgWeightG !== null);
-    const totalFCRWeightKg = housesForFCR.reduce(
-      (s, h) => s + h.birdsForFCR * (h.lastAvgWeightG! / 1000), 0
-    );
+    // Thin-aware live FCR:
+    // thinned birds counted at their weight on/before thin date,
+    // remaining/cleared birds counted at current weight
+    let totalLiveFCRWeightKg = 0;
+    let hasAnyWeight = false;
+    for (const [houseId, h] of Object.entries(houseCalcMap)) {
+      if (h.thinBirds > 0 && h.thinDate) {
+        const wg = getWeightOnOrBefore(crop.daily, houseId, h.thinDate) ?? h.lastAvgWeightG;
+        if (wg !== null) { totalLiveFCRWeightKg += h.thinBirds * wg / 1000; hasAnyWeight = true; }
+      }
+      if (h.thin2Birds > 0 && h.thin2Date) {
+        const wg = getWeightOnOrBefore(crop.daily, houseId, h.thin2Date) ?? h.lastAvgWeightG;
+        if (wg !== null) { totalLiveFCRWeightKg += h.thin2Birds * wg / 1000; hasAnyWeight = true; }
+      }
+      const remaining = h.isCleared
+        ? h.clearBirds
+        : Math.max(0, h.birdsPlaced - h.mort - h.culls - h.thinBirds - h.thin2Birds);
+      if (remaining > 0 && h.lastAvgWeightG !== null) {
+        totalLiveFCRWeightKg += remaining * h.lastAvgWeightG / 1000;
+        hasAnyWeight = true;
+      }
+    }
     const liveFCR: number | null =
-      totalFCRWeightKg > 0 ? totalFeedUsedKg / totalFCRWeightKg : null;
+      hasAnyWeight && totalLiveFCRWeightKg > 0 ? totalFeedUsedKg / totalLiveFCRWeightKg : null;
 
     // Last clearance date — caps the age counter
     const clearDates = crop.placements

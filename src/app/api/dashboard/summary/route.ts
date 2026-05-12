@@ -106,6 +106,7 @@ export async function GET(req: NextRequest) {
         waterL: number;
         lastLitterScore: number | null;
         lastAmmoniaPpm: number | null;
+        lastRecordDate: string | null;
         weeklySnapshots: WeeklySnap[];
       }
     > = {};
@@ -125,6 +126,7 @@ export async function GET(req: NextRequest) {
           waterL: 0,
           lastLitterScore: null,
           lastAmmoniaPpm: null,
+          lastRecordDate: null as string | null,
           weeklySnapshots: WEEKLY_DAYS.map((d) => ({ day: d, ammoniaPpm: null, co2MaxPpm: null, litterScore: null })),
         };
       }
@@ -147,6 +149,7 @@ export async function GET(req: NextRequest) {
           waterL: 0,
           lastLitterScore: null,
           lastAmmoniaPpm: null,
+          lastRecordDate: null as string | null,
           weeklySnapshots: WEEKLY_DAYS.map((d) => ({ day: d, ammoniaPpm: null, co2MaxPpm: null, litterScore: null })),
         };
       }
@@ -158,6 +161,8 @@ export async function GET(req: NextRequest) {
       item.waterL += record.waterL;
       if (record.litterScore !== null) item.lastLitterScore = record.litterScore;
       if (record.ammoniaPpm !== null) item.lastAmmoniaPpm = record.ammoniaPpm;
+      const recDateStr = new Date(record.date).toISOString().slice(0, 10);
+      if (!item.lastRecordDate || recDateStr > item.lastRecordDate) item.lastRecordDate = recDateStr;
 
       // Weekly snapshots: check if this record falls on day 7,14,21,28,35,42
       const ageDays = Math.floor(

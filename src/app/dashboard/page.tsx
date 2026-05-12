@@ -39,6 +39,7 @@ type DashboardHouse = {
   waterL: number;
   lastLitterScore: number | null;
   lastAmmoniaPpm: number | null;
+  lastRecordDate: string | null;
   weeklySnapshots: WeeklySnap[];
 };
 
@@ -238,6 +239,27 @@ export default function DashboardPage() {
             {msg}
           </div>
         )}
+
+        {activeCrop && dashboard && (() => {
+          const today = new Date().toISOString().slice(0, 10);
+          const missing = dashboard.houses.filter(h => {
+            if (!h.lastRecordDate) return true;
+            const diff = Math.floor((new Date(today).getTime() - new Date(h.lastRecordDate).getTime()) / (1000 * 60 * 60 * 24));
+            return diff >= 2;
+          });
+          if (missing.length === 0) return null;
+          return (
+            <div className="mobile-alert mobile-alert--warning" style={{ marginBottom: 16 }}>
+              <strong>⚠ Missing daily entry:</strong>{" "}
+              {missing.map(h => {
+                const diff = h.lastRecordDate
+                  ? Math.floor((new Date(today).getTime() - new Date(h.lastRecordDate).getTime()) / (1000 * 60 * 60 * 24))
+                  : null;
+                return `${h.houseName} (${diff != null ? `${diff} days ago` : "never"})`;
+              }).join(", ")}
+            </div>
+          );
+        })()}
 
         {activeCrop && dashboard && (
           <>
