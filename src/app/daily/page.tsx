@@ -122,6 +122,27 @@ export default function DailyPage() {
     return targetDays.get(dayOfAge) ?? null;
   }, [dayOfAge, targetDays]);
 
+  // Live birds in the selected house — used to scale feed/water targets to whole house
+  const selectedHouseLiveBirds = useMemo(() => {
+    if (!houseId || !cropDetails) return null;
+    const placed = cropDetails.placements
+      .filter(p => p.house.id === houseId)
+      .reduce((sum, p) => sum + p.birdsPlaced, 0);
+    if (placed === 0) return null;
+    const losses = records
+      .filter(r => r.houseId === houseId)
+      .reduce((sum, r) => sum + r.mort + r.culls, 0);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    let thinned = 0;
+    for (const p of cropDetails.placements) {
+      if (p.house.id !== houseId) continue;
+      if (p.thinBirds && p.thinDate && new Date(p.thinDate) <= today) thinned += p.thinBirds;
+      if (p.thin2Birds && p.thin2Date && new Date(p.thin2Date) <= today) thinned += p.thin2Birds;
+    }
+    return Math.max(0, placed - losses - thinned);
+  }, [houseId, cropDetails, records]);
+
   const isWeeklyDay = useMemo(() => {
     if (!cropDetails?.placementDate || !date) return false;
     const placementDate = new Date(cropDetails.placementDate);
@@ -781,9 +802,10 @@ export default function DailyPage() {
               <div>
                 <label>Feed used (kg)</label>
                 <input type="number" min="0" step="0.01" value={feedKg} onChange={(e) => setFeedKg(e.target.value)} disabled={!cropId || !canOperate} />
-                {targetHint?.feedTargetG != null && (
+                {targetHint?.feedTargetG != null && selectedHouseLiveBirds != null && (
                   <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-                    Target: {targetHint.feedTargetG}g/bird
+                    Target: {(targetHint.feedTargetG * selectedHouseLiveBirds / 1000).toFixed(1)}kg
+                    <span style={{ opacity: 0.6 }}> ({selectedHouseLiveBirds.toLocaleString()} birds)</span>
                   </div>
                 )}
               </div>
@@ -791,9 +813,10 @@ export default function DailyPage() {
               <div>
                 <label>Water used (L)</label>
                 <input type="number" min="0" step="0.01" value={waterL} onChange={(e) => setWaterL(e.target.value)} disabled={!cropId || !canOperate} />
-                {targetHint?.waterTargetMl != null && (
+                {targetHint?.waterTargetMl != null && selectedHouseLiveBirds != null && (
                   <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-                    Target: {targetHint.waterTargetMl}mL/bird
+                    Target: {(targetHint.waterTargetMl * selectedHouseLiveBirds / 1000).toFixed(0)}L
+                    <span style={{ opacity: 0.6 }}> ({selectedHouseLiveBirds.toLocaleString()} birds)</span>
                   </div>
                 )}
               </div>
