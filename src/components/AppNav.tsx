@@ -132,7 +132,11 @@ export default function AppNav() {
       isFirstMount.current = false;
       return;
     }
-    setMenuOpen(false);
+    if (pathname === "/") {
+      setMenuOpen(true);
+    } else {
+      setMenuOpen(false);
+    }
   }, [pathname]);
 
   useEffect(() => {
