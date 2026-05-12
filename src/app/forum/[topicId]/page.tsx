@@ -45,6 +45,9 @@ export default function TopicPage({ params }: { params: Promise<{ topicId: strin
   const [translating, setTranslating] = useState(false);
 
   const [currentUserId, setCurrentUserId] = useState("");
+  const [myName, setMyName] = useState("");
+  const [myEmail, setMyEmail] = useState("");
+  const [nameInput, setNameInput] = useState("");
   const [replyContent, setReplyContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [replyError, setReplyError] = useState("");
@@ -72,6 +75,8 @@ export default function TopicPage({ params }: { params: Promise<{ topicId: strin
     if (rMe?.ok) {
       const me = await rMe.json().catch(() => ({}));
       if (me.id) setCurrentUserId(me.id);
+      if (me.name) { setMyName(me.name); setNameInput(me.name); }
+      if (me.email) setMyEmail(me.email);
     }
   }
 
@@ -105,10 +110,22 @@ export default function TopicPage({ params }: { params: Promise<{ topicId: strin
 
   async function handleReply(e: React.FormEvent) {
     e.preventDefault();
+    const trimmedName = nameInput.trim();
+    if (!trimmedName) { setReplyError("Enter your first name before replying."); return; }
     if (!replyContent.trim()) return;
     setSubmitting(true);
     setReplyError("");
     try {
+      // Save name if changed
+      if (trimmedName !== myName) {
+        const rName = await fetch("/api/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmedName }),
+        });
+        if (!rName.ok) { setReplyError("Failed to save name."); setSubmitting(false); return; }
+        setMyName(trimmedName);
+      }
       const r = await fetch(`/api/forum/topics/${topicId}/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -168,7 +185,7 @@ export default function TopicPage({ params }: { params: Promise<{ topicId: strin
   const isAuthor = topic.authorId === currentUserId;
   const displayTitle = translatedTitle || topic.title;
   const displayContent = translatedContent || topic.content;
-  const authorLabel = (a: Author) => a.name || a.email;
+  const authorLabel = (a: Author) => a.name ? `${a.name} (${a.email})` : a.email;
   const fmt = (d: string) => new Date(d).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
 
   return (
@@ -241,6 +258,23 @@ export default function TopicPage({ params }: { params: Promise<{ topicId: strin
         <div className="mobile-card">
           <h3 style={{ margin: "0 0 12px 0", fontSize: "0.95rem" }}>Write a Reply</h3>
           <form onSubmit={handleReply}>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                Your name <span style={{ color: "#dc2626" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value)}
+                placeholder="Enter your first name..."
+                maxLength={60}
+              />
+              {myEmail && nameInput.trim() && (
+                <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
+                  Will appear as: <strong>{nameInput.trim()} ({myEmail})</strong>
+                </div>
+              )}
+            </div>
             <textarea
               value={replyContent}
               onChange={(e) => setReplyContent(e.target.value)}

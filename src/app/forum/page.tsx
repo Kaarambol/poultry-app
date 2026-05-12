@@ -209,7 +209,7 @@ export default function ForumPage() {
                     )}
                   </div>
                   <div style={{ marginTop: 6, fontSize: "0.8rem", color: "#888" }}>
-                    by {topic.author.name || topic.author.email} &middot;{" "}
+                    by {topic.author.name ? `${topic.author.name} (${topic.author.email})` : topic.author.email} &middot;{" "}
                     {new Date(topic.createdAt).toLocaleDateString("en-GB")} &middot;{" "}
                     {topic._count.posts} {topic._count.posts === 1 ? "reply" : "replies"}
                   </div>
