@@ -738,7 +738,7 @@ p {
   }
 }
 
-.app-nav__link--dark {
+.app-nav__link[data-dark="true"] {
   color: #e2e8f0 !important;
 }
 
