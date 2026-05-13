@@ -112,8 +112,10 @@ export async function GET(req: Request) {
     type HouseCalc = {
       birdsPlaced: number;
       thinBirds: number;
+      thinWeightG: number | null;
       thin2Birds: number;
       clearBirds: number;
+      clearWeightG: number | null;
       isCleared: boolean;
       mort: number;
       culls: number;
@@ -128,7 +130,8 @@ export async function GET(req: Request) {
     for (const p of crop.placements) {
       if (!houseCalcMap[p.houseId]) {
         houseCalcMap[p.houseId] = {
-          birdsPlaced: 0, thinBirds: 0, thin2Birds: 0, clearBirds: 0,
+          birdsPlaced: 0, thinBirds: 0, thinWeightG: null,
+          thin2Birds: 0, clearBirds: 0, clearWeightG: null,
           isCleared: false, mort: 0, culls: 0, feedUsedKg: 0, lastAvgWeightG: null,
           thinDate: null, thin2Date: null,
         };
@@ -138,8 +141,9 @@ export async function GET(req: Request) {
       h.thinBirds   += p.thinBirds  ?? 0;
       h.thin2Birds  += p.thin2Birds ?? 0;
       h.clearBirds  += p.clearBirds ?? 0;
+      if (p.thinWeightG != null)  h.thinWeightG  = (h.thinWeightG  ?? 0) + p.thinWeightG;
+      if (p.clearWeightG != null) h.clearWeightG = (h.clearWeightG ?? 0) + p.clearWeightG;
       if (p.clearDate) h.isCleared = true;
-      // Track earliest thin dates per house
       if (p.thinBirds && p.thinDate) {
         const td = new Date(p.thinDate);
         if (!h.thinDate || td < h.thinDate) h.thinDate = td;
@@ -307,6 +311,31 @@ export async function GET(req: Request) {
         ? (finalGrossMarginGbp * 100) / totalFloorAreaM2 / lengthCropWeeks
         : null;
 
+    // =========================================================
+    // THIN / CLEAR REVENUES from factory weights
+    // revenue = birds × (weightG / 1000) × salePricePerKg
+    // =========================================================
+    const salePrice = crop.salePricePerKgAllIn ?? null;
+    const totalThinBirds  = Object.values(houseCalcMap).reduce((s, h) => s + h.thinBirds,  0);
+    const totalThin2Birds = Object.values(houseCalcMap).reduce((s, h) => s + h.thin2Birds, 0);
+    const totalClearBirds = Object.values(houseCalcMap).reduce((s, h) => s + h.clearBirds, 0);
+    // Aggregate thin/clear weights across houses (average g per bird × total birds)
+    const thinWeightG  = Object.values(houseCalcMap).find(h => h.thinWeightG  != null)?.thinWeightG  ?? null;
+    const clearWeightG = Object.values(houseCalcMap).find(h => h.clearWeightG != null)?.clearWeightG ?? null;
+
+    const thinRevenue: number | null =
+      salePrice && totalThinBirds > 0 && thinWeightG != null
+        ? totalThinBirds * (thinWeightG / 1000) * salePrice
+        : null;
+    const clearRevenue: number | null =
+      salePrice && totalClearBirds > 0 && clearWeightG != null
+        ? totalClearBirds * (clearWeightG / 1000) * salePrice
+        : null;
+    const totalEventRevenue: number | null =
+      (thinRevenue != null || clearRevenue != null)
+        ? (thinRevenue ?? 0) + (clearRevenue ?? 0)
+        : null;
+
     return NextResponse.json({
       crop: {
         id: crop.id,
@@ -357,6 +386,16 @@ export async function GET(req: Request) {
         marginPencePerM2Day: finalMarginPencePerM2Day,
         revenue: finalRevenue,
         chickCost: finalChickCost,
+      },
+      thinning: {
+        thinBirds: totalThinBirds,
+        thinWeightG,
+        thinRevenue,
+        thin2Birds: totalThin2Birds,
+        clearBirds: totalClearBirds,
+        clearWeightG,
+        clearRevenue,
+        totalEventRevenue,
       },
     });
   } catch (error) {

@@ -62,6 +62,16 @@ type FinancialSummary = {
     revenue: number | null;
     chickCost: number | null;
   };
+  thinning: {
+    thinBirds: number;
+    thinWeightG: number | null;
+    thinRevenue: number | null;
+    thin2Birds: number;
+    clearBirds: number;
+    clearWeightG: number | null;
+    clearRevenue: number | null;
+    totalEventRevenue: number | null;
+  };
 };
 
 export default function TotalPage() {
@@ -453,6 +463,7 @@ export default function TotalPage() {
               const p = summary.production;
               const c = summary.crop;
               const f = summary.feed;
+              const t = summary.thinning;
               const salePrice = c.salePricePerKgAllIn ?? 0;
               const chickPrice = c.chickenPricePerKg ?? 0;
               const liveBirds = p.currentLiveBirds;
@@ -463,6 +474,8 @@ export default function TotalPage() {
               const feedCost = f.totalFeedCostGbp > 0 ? f.totalFeedCostGbp : null;
               const estMargin = estRevenue != null && chickCost != null && feedCost != null
                 ? estRevenue - chickCost - feedCost : null;
+              const currency = c.currency || "GBP";
+              const cur = currency === "GBP" ? "£" : currency;
               return (
                 <div className="mobile-card" style={{ borderLeft: "4px solid #16a34a" }}>
                   <h2 style={{ color: "#15803d", marginTop: 0 }}>Live Performance</h2>
@@ -492,31 +505,73 @@ export default function TotalPage() {
                     </div>
                     {showCosts && feedCost != null && (
                       <div className="mobile-kpi">
-                        <div className="mobile-kpi__label">Feed cost £</div>
+                        <div className="mobile-kpi__label">Feed cost {cur}</div>
                         <div className="mobile-kpi__value">{feedCost.toFixed(2)}</div>
                       </div>
                     )}
                     {showCosts && chickCost != null && (
                       <div className="mobile-kpi">
-                        <div className="mobile-kpi__label">Chick cost £</div>
+                        <div className="mobile-kpi__label">Chick cost {cur}</div>
                         <div className="mobile-kpi__value">{chickCost.toFixed(2)}</div>
                       </div>
                     )}
                     {showCosts && estRevenue != null && (
                       <div className="mobile-kpi">
-                        <div className="mobile-kpi__label">Est. revenue £</div>
+                        <div className="mobile-kpi__label">Est. revenue {cur}</div>
                         <div className="mobile-kpi__value">{estRevenue.toFixed(2)}</div>
                       </div>
                     )}
                     {showCosts && estMargin != null && (
                       <div className="mobile-kpi">
-                        <div className="mobile-kpi__label">Est. margin £</div>
+                        <div className="mobile-kpi__label">Est. margin {cur}</div>
                         <div className="mobile-kpi__value" style={{ fontWeight: 700, color: estMargin >= 0 ? "#15803d" : "#dc2626" }}>
                           {estMargin.toFixed(2)}
                         </div>
                       </div>
                     )}
                   </div>
+
+                  {/* Thin / Clear revenues */}
+                  {showCosts && (t.thinRevenue != null || t.clearRevenue != null) && (
+                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #d1fae5" }}>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#15803d", marginBottom: 8 }}>
+                        Revenue from sold birds
+                      </div>
+                      <div className="mobile-kpi-grid">
+                        {t.thinRevenue != null && (
+                          <div className="mobile-kpi">
+                            <div className="mobile-kpi__label">Thin revenue {cur}</div>
+                            <div className="mobile-kpi__value" style={{ color: "#15803d", fontWeight: 700 }}>
+                              {t.thinRevenue.toFixed(2)}
+                            </div>
+                            <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                              {t.thinBirds.toLocaleString()} birds × {((t.thinWeightG ?? 0) / 1000).toFixed(3)} kg
+                            </div>
+                          </div>
+                        )}
+                        {t.clearRevenue != null && (
+                          <div className="mobile-kpi">
+                            <div className="mobile-kpi__label">Clear revenue {cur}</div>
+                            <div className="mobile-kpi__value" style={{ color: "#15803d", fontWeight: 700 }}>
+                              {t.clearRevenue.toFixed(2)}
+                            </div>
+                            <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                              {t.clearBirds.toLocaleString()} birds × {((t.clearWeightG ?? 0) / 1000).toFixed(3)} kg
+                            </div>
+                          </div>
+                        )}
+                        {t.totalEventRevenue != null && t.thinRevenue != null && t.clearRevenue != null && (
+                          <div className="mobile-kpi">
+                            <div className="mobile-kpi__label">Total sold {cur}</div>
+                            <div className="mobile-kpi__value" style={{ color: "#15803d", fontWeight: 700 }}>
+                              {t.totalEventRevenue.toFixed(2)}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {showCosts && (salePrice === 0 || chickPrice === 0) && (
                     <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: "#b45309" }}>
                       Enter Sale Price &amp; Chicken Cost in Factory Report to see revenue &amp; margin estimates.
