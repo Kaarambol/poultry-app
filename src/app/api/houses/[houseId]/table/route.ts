@@ -127,6 +127,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
         co2MaxPpm: true,
         ammoniaPpm: true,
         litterScore: true,
+        hoursDarkness: true,
+        checkTime: true,
         notes: true,
       },
     });

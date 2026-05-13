@@ -32,6 +32,8 @@ type TableRow = {
   co2MaxPpm: number | null;
   ammoniaPpm: number | null;
   litterScore: number | null;
+  hoursDarkness: number;
+  checkTime: string;
   notes: string | null;
 };
 
@@ -348,6 +350,8 @@ export default function HouseTablePage({
                   <th style={thStyle}>CO₂ Min (ppm)</th>
                   <th style={thStyle}>Ammonia (ppm)</th>
                   <th style={thStyle}>Litter Score</th>
+                  <th style={thStyle}>Hours Darkness (h)</th>
+                  <th style={thStyle}>Check Time</th>
                   <th style={thStyle}>Notes</th>
                   {!historyMode && <th style={thStyle}></th>}
                 </tr>
@@ -518,6 +522,12 @@ export default function HouseTablePage({
                             onChange={e => setField("litterScore", e.target.value)} />
                         ) : formatCell(row.litterScore)}
                       </td>
+
+                      {/* Hours Darkness */}
+                      <td>{row.hoursDarkness ?? 6}</td>
+
+                      {/* Check Time */}
+                      <td>{row.checkTime || "07:30"}</td>
 
                       {/* Notes — not editable inline */}
                       <td>{row.notes || "-"}</td>

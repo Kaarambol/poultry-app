@@ -86,6 +86,9 @@ export async function POST(req: NextRequest) {
     const litterScore = parseOptionalInt(body.litterScore);
     const ammoniaPpm = parseOptionalFloat(body.ammoniaPpm);
 
+    const hoursDarkness = body.hoursDarkness !== undefined && body.hoursDarkness !== "" ? Number(body.hoursDarkness) : 6;
+    const checkTime = String(body.checkTime || "07:30").trim() || "07:30";
+
     const notes = String(body.notes || "").trim();
 
     if (
@@ -180,6 +183,8 @@ export async function POST(req: NextRequest) {
         co2MaxPpm,
         litterScore,
         ammoniaPpm,
+        hoursDarkness,
+        checkTime,
         notes: notes || null,
       },
       include: {

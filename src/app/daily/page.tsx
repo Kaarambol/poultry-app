@@ -53,6 +53,8 @@ type DailyRecord = {
   co2MaxPpm: number | null;
   litterScore: number | null;
   ammoniaPpm: number | null;
+  hoursDarkness: number;
+  checkTime: string;
   notes: string | null;
   houseId: string;
   house: {
@@ -100,6 +102,9 @@ export default function DailyPage() {
 
   const [litterScore, setLitterScore] = useState("");
   const [ammoniaPpm, setAmmoniaPpm] = useState("");
+
+  const [hoursDarkness, setHoursDarkness] = useState("6");
+  const [checkTime, setCheckTime] = useState("07:30");
 
   const [notes, setNotes] = useState("");
 
@@ -415,6 +420,8 @@ export default function DailyPage() {
         co2MaxPpm: co2MaxPpm === "" ? null : Number(co2MaxPpm),
         litterScore: litterScore === "" ? null : Number(litterScore),
         ammoniaPpm: ammoniaPpm === "" ? null : Number(ammoniaPpm),
+        hoursDarkness: Number(hoursDarkness || 6),
+        checkTime: checkTime || "07:30",
         notes,
       }),
     });
@@ -451,6 +458,8 @@ export default function DailyPage() {
     setCo2MaxPpm(record.co2MaxPpm !== null ? String(record.co2MaxPpm) : "");
     setLitterScore(record.litterScore !== null ? String(record.litterScore) : "");
     setAmmoniaPpm(record.ammoniaPpm !== null ? String(record.ammoniaPpm) : "");
+    setHoursDarkness(String(record.hoursDarkness ?? 6));
+    setCheckTime(record.checkTime || "07:30");
     setNotes(record.notes || "");
     setMsg("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -495,6 +504,8 @@ export default function DailyPage() {
         co2MaxPpm: co2MaxPpm === "" ? null : Number(co2MaxPpm),
         litterScore: litterScore === "" ? null : Number(litterScore),
         ammoniaPpm: ammoniaPpm === "" ? null : Number(ammoniaPpm),
+        hoursDarkness: Number(hoursDarkness || 6),
+        checkTime: checkTime || "07:30",
         notes,
       }),
     });
@@ -559,6 +570,8 @@ export default function DailyPage() {
     setCo2MaxPpm("");
     setLitterScore("");
     setAmmoniaPpm("");
+    setHoursDarkness("6");
+    setCheckTime("07:30");
     setNotes("");
     setDate(new Date().toISOString().slice(0, 10));
   }
@@ -874,6 +887,30 @@ export default function DailyPage() {
               </div>
             </div>
 
+            <div className="mobile-grid mobile-grid--2">
+              <div>
+                <label>Hours of darkness (h)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="24"
+                  step="0.5"
+                  value={hoursDarkness}
+                  onChange={(e) => setHoursDarkness(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+              <div>
+                <label>Check time</label>
+                <input
+                  type="time"
+                  value={checkTime}
+                  onChange={(e) => setCheckTime(e.target.value)}
+                  disabled={!cropId || !canOperate}
+                />
+              </div>
+            </div>
+
             {showLitterFields && cropDetails && (
               <>
                 <h3 style={{ marginTop: 16, marginBottom: 10, color: "#c0392b" }}>
@@ -1024,6 +1061,8 @@ export default function DailyPage() {
                       {record.ammoniaPpm !== null && (
                         <div className="mobile-record-row"><strong style={{ color: "#c0392b" }}>Ammonia (ppm)</strong><span>{record.ammoniaPpm}</span></div>
                       )}
+                      <div className="mobile-record-row"><strong>Hours darkness</strong><span>{record.hoursDarkness ?? 6}h</span></div>
+                      <div className="mobile-record-row"><strong>Check time</strong><span>{record.checkTime || "07:30"}</span></div>
                       <div className="mobile-record-row"><strong>Notes</strong><span>{record.notes || "-"}</span></div>
                     </div>
 
