@@ -80,7 +80,13 @@ export async function GET(req: NextRequest) {
   const houses = Array.from(houseMap.entries()).map(([id, name]) => ({ id, name }));
 
   // Load target profiles per crop (crop-specific → fallback to farm global template)
-  const targetMaps = new Map<string, Map<number, number>>();
+  type TargetMaps = {
+    weight: Map<number, number>;
+    water:  Map<number, number>;
+    feed:   Map<number, number>;
+    temp:   Map<number, number>;
+  };
+  const targetMaps = new Map<string, TargetMaps>();
   for (const crop of crops) {
     let profile = await prisma.targetProfile.findFirst({
       where: { cropId: crop.id },
@@ -93,13 +99,18 @@ export async function GET(req: NextRequest) {
         orderBy: { updatedAt: "desc" },
       });
     }
-    const map = new Map<number, number>();
+    const maps: TargetMaps = {
+      weight: new Map(), water: new Map(), feed: new Map(), temp: new Map(),
+    };
     if (profile) {
       for (const d of profile.days) {
-        if (d.weightTargetG) map.set(d.dayNumber, d.weightTargetG);
+        if (d.weightTargetG)       maps.weight.set(d.dayNumber, d.weightTargetG);
+        if (d.waterTargetMl)       maps.water.set(d.dayNumber, d.waterTargetMl);
+        if (d.feedTargetG)         maps.feed.set(d.dayNumber, d.feedTargetG);
+        if (d.temperatureTargetC)  maps.temp.set(d.dayNumber, d.temperatureTargetC);
       }
     }
-    targetMaps.set(crop.id, map);
+    targetMaps.set(crop.id, maps);
   }
 
   // ── Multi-house mode: one series per house (single crop, single metric) ──
@@ -110,7 +121,7 @@ export async function GET(req: NextRequest) {
     }
     const crop = crops[0];
     const placementDate = new Date(crop.placementDate);
-    const targetMap = targetMaps.get(crop.id) ?? new Map<number, number>();
+    const cropTargets = targetMaps.get(crop.id) ?? { weight: new Map(), water: new Map(), feed: new Map(), temp: new Map() };
 
     type DayAggM = {
       totalBirds: number; waterL: number; feedKg: number;
@@ -188,7 +199,7 @@ export async function GET(req: NextRequest) {
               if (met === "feed")   val = +((agg.feedKg / agg.totalBirds) * 1000).toFixed(3);
               if (met === "weight" && agg.weightCount > 0) {
                 const avgG = agg.weightSum / agg.weightCount;
-                const targetG = targetMap.get(d);
+                const targetG = cropTargets.weight.get(d - 1);
                 val = targetG && targetG > 0 ? +(avgG / targetG * 100).toFixed(1) : +(avgG).toFixed(0);
               }
             }
@@ -222,7 +233,7 @@ export async function GET(req: NextRequest) {
   for (let ci = 0; ci < crops.length; ci++) {
     const crop          = crops[ci];
     const placementDate = new Date(crop.placementDate);
-    const targetMap     = targetMaps.get(crop.id) ?? new Map<number, number>();
+    const cropTargets   = targetMaps.get(crop.id) ?? { weight: new Map(), water: new Map(), feed: new Map(), temp: new Map() };
 
     const whereHouse = view === "avg" ? {} : { houseId: view };
     const daily = await prisma.dailyRecord.findMany({
@@ -297,7 +308,7 @@ export async function GET(req: NextRequest) {
             if (met === "feed")   val = +((agg.feedKg / agg.totalBirds) * 1000).toFixed(3);
             if (met === "weight" && agg.weightCount > 0) {
               const avgG    = agg.weightSum / agg.weightCount;
-              const targetG = targetMap.get(d);
+              const targetG = cropTargets.weight.get(d - 1); // weight entered on day d is from day d-1
               val = targetG && targetG > 0 ? +(avgG / targetG * 100).toFixed(1) : +(avgG).toFixed(0);
             }
           }
@@ -314,6 +325,32 @@ export async function GET(req: NextRequest) {
           strokeDash: cropDash,
           data,
         });
+
+        // Add target line for this metric if targets exist in profile
+        if (met === "water" && cropTargets.water.size > 0) {
+          const tData = Array.from({ length: 42 }, (_, i) => {
+            const d = i + 1;
+            const t = cropTargets.water.get(d);
+            return { day: d, value: t != null ? +(t).toFixed(1) : null };
+          });
+          series.push({ id: `${crop.id}-water-target`, label: `Water target${cropSuffix}`, color: "#93c5fd", unit: "L/1000", axis: "left", metric: "water", cropId: crop.id, strokeDash: "4 3", data: tData });
+        }
+        if (met === "feed" && cropTargets.feed.size > 0) {
+          const tData = Array.from({ length: 42 }, (_, i) => {
+            const d = i + 1;
+            const t = cropTargets.feed.get(d);
+            return { day: d, value: t != null ? +(t).toFixed(1) : null };
+          });
+          series.push({ id: `${crop.id}-feed-target`, label: `Feed target${cropSuffix}`, color: "#fcd34d", unit: "kg/1000", axis: "left", metric: "feed", cropId: crop.id, strokeDash: "4 3", data: tData });
+        }
+        if (met === "temperature" && cropTargets.temp.size > 0) {
+          const tData = Array.from({ length: 42 }, (_, i) => {
+            const d = i + 1;
+            const t = cropTargets.temp.get(d);
+            return { day: d, value: t != null ? +(t).toFixed(1) : null };
+          });
+          series.push({ id: `${crop.id}-temp-target`, label: `Temp target${cropSuffix}`, color: "#86efac", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: "4 3", data: tData });
+        }
       }
     }
   }
