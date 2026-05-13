@@ -169,7 +169,7 @@ export default function DashboardPage() {
       if (!r.ok) anyError = true;
     }
     setEventWeightSaving(false);
-    setEventWeightMsg(anyError ? "Błąd zapisu." : "Wagi zapisane.");
+    setEventWeightMsg(anyError ? "Error saving." : "Weights saved.");
   }
 
   async function saveHouseWeights() {
@@ -409,21 +409,6 @@ export default function DashboardPage() {
                     <h3 className="mobile-record-card__title">{house.houseName}</h3>
 
                     <div className="mobile-record-card__grid">
-                      <div className="mobile-record-row">
-                        <strong>Live weight (g)</strong>
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            placeholder="g"
-                            value={houseWeightInputs[house.houseId] ?? ""}
-                            onChange={e => setHouseWeightInputs(prev => ({ ...prev, [house.houseId]: e.target.value }))}
-                            style={{ width: 90, padding: "4px 8px", border: "1px solid #ccc", borderRadius: 6, fontSize: "0.9rem" }}
-                            disabled={historyMode}
-                          />
-                        </span>
-                      </div>
                       {house.thinDate && (
                         <div className="mobile-record-row">
                           <strong>Thin weight (g)</strong>
@@ -568,38 +553,15 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Save all live weights */}
-            {dashboard.houses.length > 0 && !historyMode && (
-              <div className="mobile-card" style={{ marginTop: 8 }}>
-                <h2>Save Live Weights</h2>
-                <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "var(--text-soft)" }}>
-                  Enter live weight (g) per house above, then save all at once.
-                </p>
-                {weightMsg && (
-                  <div className={`mobile-alert mobile-alert--${weightMsg.includes("Error") ? "error" : "success"}`} style={{ marginBottom: 8 }}>
-                    {weightMsg}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="mobile-full-button"
-                  onClick={saveHouseWeights}
-                  disabled={weightSaving}
-                >
-                  {weightSaving ? "Saving..." : "Save all live weights"}
-                </button>
-              </div>
-            )}
-
             {/* Save thin/clear weights */}
             {dashboard.houses.some(h => h.thinDate || h.clearDate) && !historyMode && (
               <div className="mobile-card" style={{ marginTop: 8 }}>
                 <h2>Save Thin / Clear Weights</h2>
                 <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "var(--text-soft)" }}>
-                  Wpisz wagę z raportu fabryki. Zostanie umieszczona w tabeli dokładnie w dniu thin lub clear — bez przesunięcia.
+                  Enter factory report weights above. They will be placed in the table on the exact thin or clear date — no day shift.
                 </p>
                 {eventWeightMsg && (
-                  <div className={`mobile-alert mobile-alert--${eventWeightMsg.includes("Błąd") ? "error" : "success"}`} style={{ marginBottom: 8 }}>
+                  <div className={`mobile-alert mobile-alert--${eventWeightMsg.includes("Error") ? "error" : "success"}`} style={{ marginBottom: 8 }}>
                     {eventWeightMsg}
                   </div>
                 )}
@@ -609,7 +571,7 @@ export default function DashboardPage() {
                   onClick={saveEventWeights}
                   disabled={eventWeightSaving}
                 >
-                  {eventWeightSaving ? "Zapisywanie..." : "Save thin / clear weights"}
+                  {eventWeightSaving ? "Saving..." : "Save thin / clear weights"}
                 </button>
               </div>
             )}
