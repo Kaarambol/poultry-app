@@ -75,6 +75,14 @@ export default function AppNav() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [historyMode, setHistoryMode] = useState(false);
   const [historyCropLabel, setHistoryCropLabel] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/superadmin/me")
+      .then(r => r.json())
+      .then(d => setIsSuperAdmin(d.isSuperAdmin === true))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function loadFarms() {
@@ -343,6 +351,17 @@ export default function AppNav() {
               )}
             </div>
             {renderSection("Records", recordsLinks)}
+            {isSuperAdmin && (
+              <div className="app-nav__panel">
+                <div className="app-nav__field-label">SuperAdmin</div>
+                <div className="app-nav__links app-nav__links--centered">
+                  <Link href="/superadmin/users" className={`app-nav__link${pathname.startsWith("/superadmin") ? " app-nav__link--active" : ""}`}
+                    style={{ background: "#7c3aed", color: "#fff", fontWeight: 700, justifyContent: "center" }}>
+                    Panel SuperAdmin
+                  </Link>
+                </div>
+              </div>
+            )}
             <div className="app-nav__panel">
               <div className="app-nav__field-label">Session</div>
               <div className="app-nav__links app-nav__links--centered">

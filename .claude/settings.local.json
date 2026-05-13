@@ -19,7 +19,15 @@
       "Bash(node -e \"const fs=require\\(''fs''\\); console.log\\(''node ok''\\)\")",
       "Bash(wait)",
       "Bash(npm list:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(prisma/migrations/20260513000001_add_darkness_checktime/migration.sql:*)",
+      "Bash(pg_isready -h localhost -p 5432)",
+      "Bash(psql -U poultry -h localhost -p 5432 -d poultry -c \"SELECT 1;\")",
+      "Bash(cmd /c \"pg_isready -h localhost -p 5432 2>&1 || echo FAILED\")",
+      "Bash(cmd /c \"psql -U poultry -h localhost -d poultry -c \"\"SELECT column_name FROM information_schema.columns WHERE table_name=''DailyRecord'';\"\" 2>&1\")",
+      "Bash(cmd /c \"dir \\\\\"C:\\\\\\\\Program Files\\\\\\\\PostgreSQL\\\\\" 2>&1\")",
+      "Bash(cmd /c \"where psql 2>&1 & where pg_isready 2>&1 & dir C:\\\\PostgreSQL 2>&1 & dir C:\\\\pgsql 2>&1\")",
+      "Bash(PGPASSWORD=poultry npx prisma migrate deploy 2>&1)"
     ]
   }
 }
