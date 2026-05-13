@@ -67,6 +67,7 @@ export default function AppNav() {
   const [currentFarmId, setCurrentFarmIdState] = useState("");
   const [currentCrop, setCurrentCrop] = useState<Crop | null>(null);
   const [menuOpen, setMenuOpen] = useState(true);
+  const [setupOpen, setSetupOpen] = useState(false);
   const isFirstMount = useRef(true);
 
   const [myRole, setMyRole] = useState<FarmRole>("");
@@ -314,7 +315,33 @@ export default function AppNav() {
               </div>
             </div>
             {renderSection("Main Menu", mainLinks.filter(l => l.href !== "/total" || canAccessTotal(myRole)))}
-            {renderSection("Setup", setupLinks, true)}
+            <div className="app-nav__panel">
+              <button
+                type="button"
+                className="app-nav__setup-toggle"
+                onClick={() => setSetupOpen((v) => !v)}
+              >
+                <span>Setup</span>
+                <span className="app-nav__setup-arrow">{setupOpen ? "▲" : "▼"}</span>
+              </button>
+              {setupOpen && (
+                <div className="app-nav__links app-nav__links--centered">
+                  {setupLinks.map((link) => {
+                    const active = pathname === link.href;
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className={`app-nav__link${active ? " app-nav__link--active" : ""}`}
+                        style={{ justifyContent: "center", textAlign: "center", flex: "0 1 140px" }}
+                      >
+                        {link.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             {renderSection("Records", recordsLinks)}
             <div className="app-nav__panel">
               <div className="app-nav__field-label">Session</div>

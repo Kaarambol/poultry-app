@@ -749,6 +749,33 @@ p {
   }
 }
 
+.app-nav__setup-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #f1f5f9;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.app-nav__setup-toggle:hover {
+  background: #e2e8f0;
+}
+
+.app-nav__setup-arrow {
+  font-size: 10px;
+  color: var(--text-soft);
+}
+
 .app-nav__link[data-dark="true"] {
   color: #e2e8f0 !important;
 }
