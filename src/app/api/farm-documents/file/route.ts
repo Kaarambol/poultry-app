@@ -37,11 +37,20 @@ export async function GET(req: Request) {
 
     const headers = new Headers();
 
-    if (result.blob.contentType) {
-      headers.set("Content-Type", result.blob.contentType);
-    } else {
-      headers.set("Content-Type", "application/octet-stream");
-    }
+    // Detect MIME type from URL extension if blob doesn't provide it
+    const extMap: Record<string, string> = {
+      pdf:  "application/pdf",
+      png:  "image/png",
+      jpg:  "image/jpeg",
+      jpeg: "image/jpeg",
+      gif:  "image/gif",
+      webp: "image/webp",
+      svg:  "image/svg+xml",
+      txt:  "text/plain",
+    };
+    const ext = fileUrl.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+    const detectedType = extMap[ext] ?? result.blob.contentType ?? "application/octet-stream";
+    headers.set("Content-Type", detectedType);
 
     headers.set("Cache-Control", "private, no-store");
 

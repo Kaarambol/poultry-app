@@ -90,6 +90,24 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleDateString() : "-";
 }
 
+// Returns a URL that opens the document for viewing in the browser.
+// PDF/images → our proxy (inline). Word/Excel/PPT → Microsoft Office Online.
+function getViewUrl(fileUrl: string, mimeType: string | null, originalFileName: string | null): string {
+  const name = (originalFileName || fileUrl).toLowerCase();
+  const mime = (mimeType || "").toLowerCase();
+  const isOffice =
+    name.endsWith(".docx") || name.endsWith(".doc") ||
+    name.endsWith(".xlsx") || name.endsWith(".xls") ||
+    name.endsWith(".pptx") || name.endsWith(".ppt") ||
+    mime.includes("wordprocessingml") || mime.includes("spreadsheetml") ||
+    mime.includes("presentationml") || mime.includes("msword") ||
+    mime.includes("ms-excel") || mime.includes("ms-powerpoint");
+  if (isOffice) {
+    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
+  }
+  return `/api/farm-documents/file?url=${encodeURIComponent(fileUrl)}`;
+}
+
 function formatDocumentTypeLabel(value: string | null | undefined) {
   if (!value) return "-";
   return DOCUMENT_TYPE_LABELS[value] || value;
@@ -904,7 +922,7 @@ export default function AuditFarmDocumentsPage() {
                         </div>
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                           {latest.fileUrl && (
-                            <a href={`/api/farm-documents/file?url=${encodeURIComponent(latest.fileUrl)}`} target="_blank" rel="noreferrer"
+                            <a href={getViewUrl(latest.fileUrl, latest.mimeType, latest.originalFileName)} target="_blank" rel="noreferrer"
                               className="mobile-button mobile-button--secondary" style={{ padding: "4px 10px", fontSize: "0.78rem", textDecoration: "none" }}>
                               View
                             </a>
@@ -962,7 +980,7 @@ export default function AuditFarmDocumentsPage() {
                                 </div>
                                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                                   {doc.fileUrl && (
-                                    <a href={`/api/farm-documents/file?url=${encodeURIComponent(doc.fileUrl)}`} target="_blank" rel="noreferrer"
+                                    <a href={getViewUrl(doc.fileUrl, doc.mimeType, doc.originalFileName)} target="_blank" rel="noreferrer"
                                       className="mobile-button mobile-button--secondary" style={{ padding: "3px 8px", fontSize: "0.75rem", textDecoration: "none" }}>
                                       View
                                     </a>
@@ -1064,9 +1082,7 @@ export default function AuditFarmDocumentsPage() {
                           <span>
                             {doc.fileUrl ? (
                               <a
-                                href={`/api/farm-documents/file?url=${encodeURIComponent(
-                                  doc.fileUrl || ""
-                                )}`}
+                                href={getViewUrl(doc.fileUrl, doc.mimeType, doc.originalFileName)}
                                 target="_blank"
                                 rel="noreferrer"
                               >
@@ -1086,7 +1102,7 @@ export default function AuditFarmDocumentsPage() {
                       <div className="mobile-actions" style={{ marginTop: 12 }}>
                         {doc.fileUrl && (
                           <a
-                            href={`/api/farm-documents/file?url=${encodeURIComponent(doc.fileUrl)}`}
+                            href={getViewUrl(doc.fileUrl, doc.mimeType, doc.originalFileName)}
                             target="_blank"
                             rel="noreferrer"
                             className="mobile-button mobile-button--secondary"
