@@ -297,6 +297,27 @@ export async function GET(req: NextRequest, context: RouteContext) {
       previousBirdsAlive = currentBirdsAlive;
     }
 
+    const toDay = (date: Date | null) => {
+      if (!date) return null;
+      const diff = Math.floor(
+        (new Date(date).getTime() - new Date(housePlacementDate).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return diff >= 1 ? diff : null;
+    };
+
+    // Build map: dayNumber → factory weight (from placement thinWeightG / clearWeightG)
+    const factoryWeightMap = new Map<number, number>();
+    for (const p of crop.placements) {
+      if (p.thinDate && p.thinWeightG != null) {
+        const d = toDay(p.thinDate);
+        if (d != null) factoryWeightMap.set(d, p.thinWeightG);
+      }
+      if (p.clearDate && p.clearWeightG != null) {
+        const d = toDay(p.clearDate);
+        if (d != null) factoryWeightMap.set(d, p.clearWeightG);
+      }
+    }
+
     let carriedAlive = birdsPlaced;
 
     const chartData = Array.from({ length: 45 }, (_, index) => {
@@ -371,27 +392,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
         notes: actual?.notes ?? null,
       };
     });
-
-    const toDay = (date: Date | null) => {
-      if (!date) return null;
-      const diff = Math.floor(
-        (new Date(date).getTime() - new Date(housePlacementDate).getTime()) / (1000 * 60 * 60 * 24)
-      );
-      return diff >= 1 ? diff : null;
-    };
-
-    // Build map: dayNumber → factory weight (from placement thinWeightG / clearWeightG)
-    const factoryWeightMap = new Map<number, number>();
-    for (const p of crop.placements) {
-      if (p.thinDate && p.thinWeightG != null) {
-        const d = toDay(p.thinDate);
-        if (d != null) factoryWeightMap.set(d, p.thinWeightG);
-      }
-      if (p.clearDate && p.clearWeightG != null) {
-        const d = toDay(p.clearDate);
-        if (d != null) factoryWeightMap.set(d, p.clearWeightG);
-      }
-    }
 
     const thinDays = Array.from(new Set(
       crop.placements.map(p => toDay(p.thinDate)).filter((d): d is number => d !== null)
