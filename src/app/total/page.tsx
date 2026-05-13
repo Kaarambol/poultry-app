@@ -468,29 +468,42 @@ export default function TotalPage() {
               const chickPrice = c.chickenPricePerKg ?? 0;
               const liveBirds = p.currentLiveBirds;
               const liveWeightKg = p.lastAvgWeightKg ?? 0;
-              const estRevenue = salePrice > 0 && liveWeightKg > 0
-                ? liveBirds * liveWeightKg * salePrice : null;
-              const chickCost = chickPrice > 0 ? p.birdsPlaced * chickPrice : null;
-              const feedCost = f.totalFeedCostGbp > 0 ? f.totalFeedCostGbp : null;
-              const estMargin = estRevenue != null && chickCost != null && feedCost != null
-                ? estRevenue - chickCost - feedCost : null;
               const currency = c.currency || "GBP";
               const cur = currency === "GBP" ? "£" : currency;
+
+              // Revenue already realised from sold birds
+              const thinRev  = t.thinRevenue  ?? 0;
+              const clearRev = t.clearRevenue ?? 0;
+              const soldRev  = thinRev + clearRev;
+
+              // Estimated revenue from birds still on farm
+              const estRemainingRev = salePrice > 0 && liveWeightKg > 0 && liveBirds > 0
+                ? liveBirds * liveWeightKg * salePrice : null;
+
+              // Total estimated revenue = already sold + remaining
+              const totalEstRev = estRemainingRev != null
+                ? soldRev + estRemainingRev
+                : soldRev > 0 ? soldRev : null;
+
+              // Costs
+              const chickCost = chickPrice > 0 ? p.birdsPlaced * chickPrice : null;
+              const feedCost  = f.totalFeedCostGbp > 0 ? f.totalFeedCostGbp : null;
+
+              // Est. margin = total revenue - all costs
+              const estMargin = totalEstRev != null && chickCost != null && feedCost != null
+                ? totalEstRev - chickCost - feedCost : null;
+
               return (
                 <div className="mobile-card" style={{ borderLeft: "4px solid #16a34a" }}>
                   <h2 style={{ color: "#15803d", marginTop: 0 }}>Live Performance</h2>
                   <p style={{ margin: "0 0 12px", fontSize: "0.75rem", color: "var(--text-soft)" }}>
                     Based on current daily records · Day {p.ageDays}
                   </p>
+
+                  {/* Production KPIs */}
                   <div className="mobile-kpi-grid">
                     <div className="mobile-kpi">
-                      <div className="mobile-kpi__label">Live FCR</div>
-                      <div className="mobile-kpi__value" style={{ color: p.liveFCR != null && p.liveFCR < 1.8 ? "#15803d" : p.liveFCR != null && p.liveFCR > 2.1 ? "#dc2626" : undefined }}>
-                        {p.liveFCR != null ? p.liveFCR.toFixed(3) : "—"}
-                      </div>
-                    </div>
-                    <div className="mobile-kpi">
-                      <div className="mobile-kpi__label">Live birds</div>
+                      <div className="mobile-kpi__label">Live birds on farm</div>
                       <div className="mobile-kpi__value">{liveBirds.toLocaleString()}</div>
                     </div>
                     <div className="mobile-kpi">
@@ -503,79 +516,121 @@ export default function TotalPage() {
                       <div className="mobile-kpi__label">Last weight (kg)</div>
                       <div className="mobile-kpi__value">{liveWeightKg > 0 ? liveWeightKg.toFixed(3) : "—"}</div>
                     </div>
-                    {showCosts && feedCost != null && (
-                      <div className="mobile-kpi">
-                        <div className="mobile-kpi__label">Feed cost {cur}</div>
-                        <div className="mobile-kpi__value">{feedCost.toFixed(2)}</div>
-                      </div>
-                    )}
-                    {showCosts && chickCost != null && (
-                      <div className="mobile-kpi">
-                        <div className="mobile-kpi__label">Chick cost {cur}</div>
-                        <div className="mobile-kpi__value">{chickCost.toFixed(2)}</div>
-                      </div>
-                    )}
-                    {showCosts && estRevenue != null && (
-                      <div className="mobile-kpi">
-                        <div className="mobile-kpi__label">Est. revenue {cur}</div>
-                        <div className="mobile-kpi__value">{estRevenue.toFixed(2)}</div>
-                      </div>
-                    )}
-                    {showCosts && estMargin != null && (
-                      <div className="mobile-kpi">
-                        <div className="mobile-kpi__label">Est. margin {cur}</div>
-                        <div className="mobile-kpi__value" style={{ fontWeight: 700, color: estMargin >= 0 ? "#15803d" : "#dc2626" }}>
-                          {estMargin.toFixed(2)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Thin / Clear revenues */}
-                  {showCosts && (t.thinRevenue != null || t.clearRevenue != null) && (
-                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #d1fae5" }}>
-                      <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#15803d", marginBottom: 8 }}>
-                        Revenue from sold birds
-                      </div>
-                      <div className="mobile-kpi-grid">
-                        {t.thinRevenue != null && (
-                          <div className="mobile-kpi">
-                            <div className="mobile-kpi__label">Thin revenue {cur}</div>
-                            <div className="mobile-kpi__value" style={{ color: "#15803d", fontWeight: 700 }}>
-                              {t.thinRevenue.toFixed(2)}
-                            </div>
-                            <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
-                              {t.thinBirds.toLocaleString()} birds × {((t.thinWeightG ?? 0) / 1000).toFixed(3)} kg
-                            </div>
-                          </div>
-                        )}
-                        {t.clearRevenue != null && (
-                          <div className="mobile-kpi">
-                            <div className="mobile-kpi__label">Clear revenue {cur}</div>
-                            <div className="mobile-kpi__value" style={{ color: "#15803d", fontWeight: 700 }}>
-                              {t.clearRevenue.toFixed(2)}
-                            </div>
-                            <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
-                              {t.clearBirds.toLocaleString()} birds × {((t.clearWeightG ?? 0) / 1000).toFixed(3)} kg
-                            </div>
-                          </div>
-                        )}
-                        {t.totalEventRevenue != null && t.thinRevenue != null && t.clearRevenue != null && (
-                          <div className="mobile-kpi">
-                            <div className="mobile-kpi__label">Total sold {cur}</div>
-                            <div className="mobile-kpi__value" style={{ color: "#15803d", fontWeight: 700 }}>
-                              {t.totalEventRevenue.toFixed(2)}
-                            </div>
-                          </div>
-                        )}
+                    <div className="mobile-kpi">
+                      <div className="mobile-kpi__label">Live FCR</div>
+                      <div className="mobile-kpi__value" style={{ color: p.liveFCR != null && p.liveFCR < 1.8 ? "#15803d" : p.liveFCR != null && p.liveFCR > 2.1 ? "#dc2626" : undefined }}>
+                        {p.liveFCR != null ? p.liveFCR.toFixed(3) : "—"}
                       </div>
                     </div>
-                  )}
+                  </div>
 
-                  {showCosts && (salePrice === 0 || chickPrice === 0) && (
-                    <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: "#b45309" }}>
-                      Enter Sale Price &amp; Chicken Cost in Factory Report to see revenue &amp; margin estimates.
-                    </p>
+                  {showCosts && (
+                    <>
+                      {/* Revenue breakdown */}
+                      <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #d1fae5" }}>
+                        <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#15803d", marginBottom: 8 }}>
+                          Revenue
+                        </div>
+                        <div className="mobile-kpi-grid">
+                          {t.thinRevenue != null && (
+                            <div className="mobile-kpi">
+                              <div className="mobile-kpi__label">Thin sold {cur}</div>
+                              <div className="mobile-kpi__value" style={{ color: "#15803d", fontWeight: 700 }}>
+                                {t.thinRevenue.toFixed(2)}
+                              </div>
+                              <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                                {t.thinBirds.toLocaleString()} birds × {((t.thinWeightG ?? 0) / 1000).toFixed(3)} kg × {salePrice.toFixed(4)} {cur}/kg
+                              </div>
+                            </div>
+                          )}
+                          {t.clearRevenue != null && (
+                            <div className="mobile-kpi">
+                              <div className="mobile-kpi__label">Clear sold {cur}</div>
+                              <div className="mobile-kpi__value" style={{ color: "#15803d", fontWeight: 700 }}>
+                                {t.clearRevenue.toFixed(2)}
+                              </div>
+                              <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                                {t.clearBirds.toLocaleString()} birds × {((t.clearWeightG ?? 0) / 1000).toFixed(3)} kg × {salePrice.toFixed(4)} {cur}/kg
+                              </div>
+                            </div>
+                          )}
+                          {estRemainingRev != null && (
+                            <div className="mobile-kpi">
+                              <div className="mobile-kpi__label">Est. remaining {cur}</div>
+                              <div className="mobile-kpi__value">
+                                {estRemainingRev.toFixed(2)}
+                              </div>
+                              <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                                {liveBirds.toLocaleString()} birds × {liveWeightKg.toFixed(3)} kg × {salePrice.toFixed(4)} {cur}/kg
+                              </div>
+                            </div>
+                          )}
+                          {totalEstRev != null && (
+                            <div className="mobile-kpi">
+                              <div className="mobile-kpi__label">Total est. revenue {cur}</div>
+                              <div className="mobile-kpi__value" style={{ fontWeight: 700, color: "#15803d" }}>
+                                {totalEstRev.toFixed(2)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Costs */}
+                      <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #d1fae5" }}>
+                        <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#64748b", marginBottom: 8 }}>
+                          Costs
+                        </div>
+                        <div className="mobile-kpi-grid">
+                          {chickCost != null && (
+                            <div className="mobile-kpi">
+                              <div className="mobile-kpi__label">Chick cost {cur}</div>
+                              <div className="mobile-kpi__value">{chickCost.toFixed(2)}</div>
+                              <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                                {p.birdsPlaced.toLocaleString()} birds × {chickPrice.toFixed(4)} {cur}/bird
+                              </div>
+                            </div>
+                          )}
+                          {feedCost != null && (
+                            <div className="mobile-kpi">
+                              <div className="mobile-kpi__label">Feed cost {cur}</div>
+                              <div className="mobile-kpi__value">{feedCost.toFixed(2)}</div>
+                            </div>
+                          )}
+                          {chickCost != null && feedCost != null && (
+                            <div className="mobile-kpi">
+                              <div className="mobile-kpi__label">Total costs {cur}</div>
+                              <div className="mobile-kpi__value" style={{ fontWeight: 700 }}>
+                                {(chickCost + feedCost).toFixed(2)}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Est. margin */}
+                      {estMargin != null && (
+                        <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #d1fae5" }}>
+                          <div className="mobile-kpi-grid">
+                            <div className="mobile-kpi">
+                              <div className="mobile-kpi__label">Est. margin {cur}</div>
+                              <div className="mobile-kpi__value" style={{ fontWeight: 700, fontSize: "1.3rem", color: estMargin >= 0 ? "#15803d" : "#dc2626" }}>
+                                {estMargin.toFixed(2)}
+                              </div>
+                              <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                                revenue − chick cost − feed cost
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {salePrice === 0 && (
+                        <p style={{ margin: "12px 0 0", fontSize: "0.72rem", color: "#b45309" }}>
+                          Enter Sale Price &amp; Chicken Cost in Factory Report below to see revenue &amp; margin estimates.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               );
