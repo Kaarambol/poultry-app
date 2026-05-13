@@ -365,7 +365,7 @@ export default function HistoryChartPage() {
             <div style={{ width: "100%", height: 520 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 10, right: hasRight ? 56 : 12, bottom: 16, left: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" vertical={false} />
+                  <CartesianGrid strokeDasharray="2 4" stroke="#e2e8f0" vertical={true} />
                   <XAxis dataKey="day" tick={{ fontSize: 10 }}
                     label={{ value: "Day of age", position: "insideBottomRight", offset: -4, fontSize: 10 }} />
 
