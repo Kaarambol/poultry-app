@@ -90,22 +90,40 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleDateString() : "-";
 }
 
-// Returns a URL that opens the document for viewing in the browser.
-// PDF/images → our proxy (inline). Word/Excel/PPT → Microsoft Office Online.
-function getViewUrl(fileUrl: string, mimeType: string | null, originalFileName: string | null): string {
-  const name = (originalFileName || fileUrl).toLowerCase();
+function getProxyUrl(fileUrl: string): string {
+  return `/api/farm-documents/file?url=${encodeURIComponent(fileUrl)}`;
+}
+
+function getDownloadUrl(fileUrl: string): string {
+  return `/api/farm-documents/file?url=${encodeURIComponent(fileUrl)}&download=1`;
+}
+
+function isOfficeFile(mimeType: string | null, originalFileName: string | null): boolean {
+  const name = (originalFileName || "").toLowerCase();
   const mime = (mimeType || "").toLowerCase();
-  const isOffice =
+  return (
     name.endsWith(".docx") || name.endsWith(".doc") ||
     name.endsWith(".xlsx") || name.endsWith(".xls") ||
     name.endsWith(".pptx") || name.endsWith(".ppt") ||
     mime.includes("wordprocessingml") || mime.includes("spreadsheetml") ||
     mime.includes("presentationml") || mime.includes("msword") ||
-    mime.includes("ms-excel") || mime.includes("ms-powerpoint");
-  if (isOffice) {
-    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
-  }
-  return `/api/farm-documents/file?url=${encodeURIComponent(fileUrl)}`;
+    mime.includes("ms-excel") || mime.includes("ms-powerpoint")
+  );
+}
+
+function isImageFile(mimeType: string | null, originalFileName: string | null): boolean {
+  const name = (originalFileName || "").toLowerCase();
+  const mime = (mimeType || "").toLowerCase();
+  return (
+    mime.startsWith("image/") ||
+    name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") ||
+    name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".svg")
+  );
+}
+
+// kept for backward compatibility — now only used for non-modal links if needed
+function getViewUrl(fileUrl: string, mimeType: string | null, originalFileName: string | null): string {
+  return getProxyUrl(fileUrl);
 }
 
 function formatDocumentTypeLabel(value: string | null | undefined) {
@@ -192,6 +210,8 @@ export default function AuditFarmDocumentsPage() {
   const [searchResults, setSearchResults] = useState<FarmDocument[]>([]);
   const [searchExecuted, setSearchExecuted] = useState(false);
   const [allDocuments, setAllDocuments] = useState<FarmDocument[]>([]);
+
+  const [previewDoc, setPreviewDoc] = useState<FarmDocument | null>(null);
 
   const alertsRef = useRef<HTMLDivElement | null>(null);
   const formRef = useRef<HTMLDivElement | null>(null);
@@ -484,6 +504,74 @@ export default function AuditFarmDocumentsPage() {
 
   return (
     <div className="mobile-page">
+
+      {/* ── Document Preview Modal ── */}
+      {previewDoc && previewDoc.fileUrl && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", flexDirection: "column" }}
+          onClick={() => setPreviewDoc(null)}
+        >
+          <div
+            style={{ background: "#1e293b", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", flexShrink: 0 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <span style={{ color: "#f1f5f9", fontWeight: 700, fontSize: "0.9rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70vw" }}>
+              {previewDoc.originalFileName || previewDoc.title}
+            </span>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <a
+                href={getDownloadUrl(previewDoc.fileUrl)}
+                style={{ color: "#93c5fd", fontSize: "0.8rem", textDecoration: "none", padding: "4px 10px", border: "1px solid #93c5fd", borderRadius: 6 }}
+              >
+                Download
+              </a>
+              <button
+                type="button"
+                onClick={() => setPreviewDoc(null)}
+                style={{ background: "#dc2626", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", fontWeight: 700, cursor: "pointer" }}
+              >
+                ✕ Close
+              </button>
+            </div>
+          </div>
+
+          <div style={{ flex: 1, overflow: "hidden" }} onClick={e => e.stopPropagation()}>
+            {isOfficeFile(previewDoc.mimeType, previewDoc.originalFileName) ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "#f1f5f9", gap: 16, padding: 32, textAlign: "center" }}>
+                <div style={{ fontSize: "3rem" }}>📄</div>
+                <div style={{ fontSize: "1rem", fontWeight: 600 }}>
+                  {previewDoc.originalFileName || previewDoc.title}
+                </div>
+                <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
+                  Word/Excel files cannot be previewed directly in the browser.
+                </div>
+                <a
+                  href={getDownloadUrl(previewDoc.fileUrl)}
+                  style={{ background: "#2563eb", color: "#fff", textDecoration: "none", padding: "10px 24px", borderRadius: 8, fontWeight: 700, fontSize: "0.95rem" }}
+                >
+                  Download to open
+                </a>
+              </div>
+            ) : isImageFile(previewDoc.mimeType, previewDoc.originalFileName) ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", overflow: "auto", padding: 16 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={getProxyUrl(previewDoc.fileUrl)}
+                  alt={previewDoc.originalFileName || previewDoc.title}
+                  style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 4 }}
+                />
+              </div>
+            ) : (
+              <iframe
+                src={getProxyUrl(previewDoc.fileUrl)}
+                style={{ width: "100%", height: "100%", border: "none", background: "#fff" }}
+                title={previewDoc.originalFileName || previewDoc.title}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="page-shell">
         <div className="page-intro">
           <div className="page-intro__meta-card">
@@ -922,10 +1010,10 @@ export default function AuditFarmDocumentsPage() {
                         </div>
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                           {latest.fileUrl && (
-                            <a href={getViewUrl(latest.fileUrl, latest.mimeType, latest.originalFileName)} target="_blank" rel="noreferrer"
-                              className="mobile-button mobile-button--secondary" style={{ padding: "4px 10px", fontSize: "0.78rem", textDecoration: "none" }}>
+                            <button type="button" onClick={() => setPreviewDoc(latest)}
+                              className="mobile-button mobile-button--secondary" style={{ padding: "4px 10px", fontSize: "0.78rem" }}>
                               View
-                            </a>
+                            </button>
                           )}
                           {canOperate && (
                             <>
@@ -980,10 +1068,10 @@ export default function AuditFarmDocumentsPage() {
                                 </div>
                                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                                   {doc.fileUrl && (
-                                    <a href={getViewUrl(doc.fileUrl, doc.mimeType, doc.originalFileName)} target="_blank" rel="noreferrer"
-                                      className="mobile-button mobile-button--secondary" style={{ padding: "3px 8px", fontSize: "0.75rem", textDecoration: "none" }}>
+                                    <button type="button" onClick={() => setPreviewDoc(doc)}
+                                      className="mobile-button mobile-button--secondary" style={{ padding: "3px 8px", fontSize: "0.75rem" }}>
                                       View
-                                    </a>
+                                    </button>
                                   )}
                                   {canOperate && (
                                     <>
@@ -1081,13 +1169,10 @@ export default function AuditFarmDocumentsPage() {
                           <strong>File</strong>
                           <span>
                             {doc.fileUrl ? (
-                              <a
-                                href={getViewUrl(doc.fileUrl, doc.mimeType, doc.originalFileName)}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
+                              <button type="button" onClick={() => setPreviewDoc(doc)}
+                                style={{ background: "none", border: "none", color: "#2563eb", cursor: "pointer", padding: 0, textDecoration: "underline", fontSize: "inherit" }}>
                                 {doc.originalFileName || "Open file"}
-                              </a>
+                              </button>
                             ) : (
                               "-"
                             )}
@@ -1101,15 +1186,10 @@ export default function AuditFarmDocumentsPage() {
 
                       <div className="mobile-actions" style={{ marginTop: 12 }}>
                         {doc.fileUrl && (
-                          <a
-                            href={getViewUrl(doc.fileUrl, doc.mimeType, doc.originalFileName)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mobile-button mobile-button--secondary"
-                            style={{ textDecoration: "none" }}
-                          >
+                          <button type="button" onClick={() => setPreviewDoc(doc)}
+                            className="mobile-button mobile-button--secondary">
                             Preview
-                          </a>
+                          </button>
                         )}
                         {canOperate && (
                           <>
