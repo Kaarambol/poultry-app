@@ -341,7 +341,18 @@ export default function HomePage() {
               return candidates.length > 0 ? candidates[candidates.length - 1] : null;
             };
 
-            const calcThinDensity = (targetDate: string | null, thinBirdsForEvent: number) => {
+            // Weighted average thin/clear weight from factory report (thinWeightG/clearWeightG per batch)
+            const houseThin1Birds = batches.reduce((s: number, b: any) => s + Number(b.thinBirds || 0), 0);
+            const houseThin2Birds = batches.reduce((s: number, b: any) => s + Number(b.thin2Birds || 0), 0);
+
+            const thinWeightGSum  = batches.reduce((s: number, b: any) => b.thinWeightG  != null && b.thinBirds  ? s + Number(b.thinWeightG)  * Number(b.thinBirds)  : s, 0);
+            const clearWeightGSum = batches.reduce((s: number, b: any) => b.clearWeightG != null && b.clearBirds ? s + Number(b.clearWeightG) * Number(b.clearBirds) : s, 0);
+            const thinBirdsWithW  = batches.reduce((s: number, b: any) => b.thinWeightG  != null && b.thinBirds  ? s + Number(b.thinBirds)  : s, 0);
+            const clearBirdsWithW = batches.reduce((s: number, b: any) => b.clearWeightG != null && b.clearBirds ? s + Number(b.clearBirds) : s, 0);
+            const avgThinWeightG  = thinBirdsWithW  > 0 ? thinWeightGSum  / thinBirdsWithW  : null;
+            const avgClearWeightG = clearBirdsWithW > 0 ? clearWeightGSum / clearBirdsWithW : null;
+
+            const calcThinDensity = (targetDate: string | null, thinBirdsForEvent: number, overrideWeightG: number | null) => {
               if (!targetDate) return "N/A";
               const rec = recordOnOrBefore(targetDate);
               if (!rec) return "N/A";
@@ -350,15 +361,24 @@ export default function HomePage() {
               const preThinBirds  = recDateStr === targetDateStr
                 ? Number(rec.birdsAlive || 0) + thinBirdsForEvent
                 : Number(rec.birdsAlive || 0);
-              return calcDensity({ ...rec, birdsAlive: preThinBirds }) || "N/A";
+              const weightG = overrideWeightG ?? Number(rec.avgWeightG || 0);
+              if (weightG === 0 || preThinBirds === 0 || area === 0) return "N/A";
+              return ((preThinBirds * weightG) / 1000 / area).toFixed(2);
             };
 
-            const houseThin1Birds = batches.reduce((s: number, b: any) => s + Number(b.thinBirds || 0), 0);
-            const houseThin2Birds = batches.reduce((s: number, b: any) => s + Number(b.thin2Birds || 0), 0);
-
-            const thinningDensity  = thinDate  ? calcThinDensity(thinDate,  houseThin1Birds) : "N/A";
-            const thin2Density     = thin2Date ? calcThinDensity(thin2Date, houseThin2Birds) : null;
-            const clearanceDensity = clearDate ? (calcDensity(recordOnOrBefore(clearDate)) || "N/A") : "N/A";
+            const thinningDensity  = thinDate  ? calcThinDensity(thinDate,  houseThin1Birds, avgThinWeightG)  : "N/A";
+            const thin2Density     = thin2Date ? calcThinDensity(thin2Date, houseThin2Birds, null)            : null;
+            const clearanceDensity = clearDate
+              ? avgClearWeightG != null
+                ? (() => {
+                    const rec = recordOnOrBefore(clearDate);
+                    if (!rec || area === 0) return "N/A";
+                    const birds = Number(rec.birdsAlive || 0);
+                    if (birds === 0) return "N/A";
+                    return ((birds * avgClearWeightG) / 1000 / area).toFixed(2);
+                  })()
+                : (calcDensity(recordOnOrBefore(clearDate)) || "N/A")
+              : "N/A";
 
             const flockNumbers = batches.map((b: any) => b.flockNumber).filter(Boolean).join(", ") || "-";
 
