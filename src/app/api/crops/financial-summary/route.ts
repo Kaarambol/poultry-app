@@ -143,7 +143,7 @@ export async function GET(req: Request) {
       h.clearBirds  += p.clearBirds ?? 0;
       if (p.thinWeightG != null)  h.thinWeightG  = (h.thinWeightG  ?? 0) + p.thinWeightG;
       if (p.clearWeightG != null) h.clearWeightG = (h.clearWeightG ?? 0) + p.clearWeightG;
-      if (p.clearDate) h.isCleared = true;
+      if (p.clearDate && new Date(p.clearDate) <= new Date()) h.isCleared = true;
       if (p.thinBirds && p.thinDate) {
         const td = new Date(p.thinDate);
         if (!h.thinDate || td < h.thinDate) h.thinDate = td;
@@ -179,30 +179,14 @@ export async function GET(req: Request) {
     const totalFeedUsedKg = houseList.reduce((s, h) => s + h.feedUsedKg, 0);
     const currentLiveBirds = houseList.reduce((s, h) => s + h.currentBirds, 0);
 
-    // Thin-aware live FCR:
-    // thinned birds counted at their weight on/before thin date,
-    // remaining/cleared birds counted at current weight
-    let totalLiveFCRWeightKg = 0;
-    let hasAnyWeight = false;
-    for (const [houseId, h] of Object.entries(houseCalcMap)) {
-      if (h.thinBirds > 0 && h.thinDate) {
-        const wg = getWeightOnOrBefore(crop.daily, houseId, h.thinDate) ?? h.lastAvgWeightG;
-        if (wg !== null) { totalLiveFCRWeightKg += h.thinBirds * wg / 1000; hasAnyWeight = true; }
-      }
-      if (h.thin2Birds > 0 && h.thin2Date) {
-        const wg = getWeightOnOrBefore(crop.daily, houseId, h.thin2Date) ?? h.lastAvgWeightG;
-        if (wg !== null) { totalLiveFCRWeightKg += h.thin2Birds * wg / 1000; hasAnyWeight = true; }
-      }
-      const remaining = h.isCleared
-        ? h.clearBirds
-        : Math.max(0, h.birdsPlaced - h.mort - h.culls - h.thinBirds - h.thin2Birds);
-      if (remaining > 0 && h.lastAvgWeightG !== null) {
-        totalLiveFCRWeightKg += remaining * h.lastAvgWeightG / 1000;
-        hasAnyWeight = true;
-      }
-    }
+    // x = Σ(house.currentBirds × house.lastAvgWeightG) across all houses with weight data
+    // live weight (kg) = x / 1000
+    // live FCR = totalFeedUsedKg / liveWeightKg
+    // liveAvgWeightKg = x / currentLiveBirds / 1000
+    const totalLiveWeightG = housesForWeight.reduce((s, h) => s + h.currentBirds * h.lastAvgWeightG!, 0);
+    const totalLiveWeightKg = totalLiveWeightG / 1000;
     const liveFCR: number | null =
-      hasAnyWeight && totalLiveFCRWeightKg > 0 ? totalFeedUsedKg / totalLiveFCRWeightKg : null;
+      totalLiveWeightKg > 0 ? totalFeedUsedKg / totalLiveWeightKg : null;
 
     // Last clearance date — caps the age counter
     const clearDates = crop.placements
