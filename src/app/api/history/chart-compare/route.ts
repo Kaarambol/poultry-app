@@ -86,28 +86,41 @@ export async function GET(req: NextRequest) {
     feed:   Map<number, number>;
     temp:   Map<number, number>;
   };
+  // Load global template once as fallback for any missing per-crop targets
+  const globalTemplate = await prisma.targetProfile.findFirst({
+    where: { farmId, scope: "GLOBAL_TEMPLATE" },
+    include: { days: { orderBy: { dayNumber: "asc" } } },
+    orderBy: { updatedAt: "desc" },
+  });
+  const globalMaps: TargetMaps = { weight: new Map(), water: new Map(), feed: new Map(), temp: new Map() };
+  if (globalTemplate) {
+    for (const d of globalTemplate.days) {
+      if (d.weightTargetG)      globalMaps.weight.set(d.dayNumber, d.weightTargetG);
+      if (d.waterTargetMl)      globalMaps.water.set(d.dayNumber, d.waterTargetMl);
+      if (d.feedTargetG)        globalMaps.feed.set(d.dayNumber, d.feedTargetG);
+      if (d.temperatureTargetC) globalMaps.temp.set(d.dayNumber, d.temperatureTargetC);
+    }
+  }
+
   const targetMaps = new Map<string, TargetMaps>();
   for (const crop of crops) {
-    let profile = await prisma.targetProfile.findFirst({
+    const cropProfile = await prisma.targetProfile.findFirst({
       where: { cropId: crop.id },
       include: { days: { orderBy: { dayNumber: "asc" } } },
     });
-    if (!profile || profile.days.length === 0) {
-      profile = await prisma.targetProfile.findFirst({
-        where: { farmId, scope: "GLOBAL_TEMPLATE" },
-        include: { days: { orderBy: { dayNumber: "asc" } } },
-        orderBy: { updatedAt: "desc" },
-      });
-    }
+    // Start with global template values, override with crop-specific where set
     const maps: TargetMaps = {
-      weight: new Map(), water: new Map(), feed: new Map(), temp: new Map(),
+      weight: new Map(globalMaps.weight),
+      water:  new Map(globalMaps.water),
+      feed:   new Map(globalMaps.feed),
+      temp:   new Map(globalMaps.temp),
     };
-    if (profile) {
-      for (const d of profile.days) {
-        if (d.weightTargetG)       maps.weight.set(d.dayNumber, d.weightTargetG);
-        if (d.waterTargetMl)       maps.water.set(d.dayNumber, d.waterTargetMl);
-        if (d.feedTargetG)         maps.feed.set(d.dayNumber, d.feedTargetG);
-        if (d.temperatureTargetC)  maps.temp.set(d.dayNumber, d.temperatureTargetC);
+    if (cropProfile) {
+      for (const d of cropProfile.days) {
+        if (d.weightTargetG)      maps.weight.set(d.dayNumber, d.weightTargetG);
+        if (d.waterTargetMl)      maps.water.set(d.dayNumber, d.waterTargetMl);
+        if (d.feedTargetG)        maps.feed.set(d.dayNumber, d.feedTargetG);
+        if (d.temperatureTargetC) maps.temp.set(d.dayNumber, d.temperatureTargetC);
       }
     }
     targetMaps.set(crop.id, maps);
@@ -210,6 +223,32 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Add single target series for multi-house mode (one target, same for all houses)
+    for (const met of metrics) {
+      if (met === "temperature" && cropTargets.temp.size > 0) {
+        const tData = Array.from({ length: 42 }, (_, i) => {
+          const d = i + 1;
+          const t = cropTargets.temp.get(d);
+          return { day: d, value: t != null ? +(t).toFixed(1) : null };
+        });
+        multiSeries.push({ id: "target-temp", label: "Temp target", color: "#86efac", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: "4 3", data: tData });
+      } else if (met === "water" && cropTargets.water.size > 0) {
+        const tData = Array.from({ length: 42 }, (_, i) => {
+          const d = i + 1;
+          const t = cropTargets.water.get(d);
+          return { day: d, value: t != null ? +(t).toFixed(1) : null };
+        });
+        multiSeries.push({ id: "target-water", label: "Water target", color: "#93c5fd", unit: "L/1000", axis: "left", metric: "water", cropId: crop.id, strokeDash: "4 3", data: tData });
+      } else if (met === "feed" && cropTargets.feed.size > 0) {
+        const tData = Array.from({ length: 42 }, (_, i) => {
+          const d = i + 1;
+          const t = cropTargets.feed.get(d);
+          return { day: d, value: t != null ? +(t).toFixed(1) : null };
+        });
+        multiSeries.push({ id: "target-feed", label: "Feed target", color: "#fcd34d", unit: "kg/1000", axis: "left", metric: "feed", cropId: crop.id, strokeDash: "4 3", data: tData });
+      }
+    }
+
     return NextResponse.json({
       series: multiSeries,
       crops: crops.map(c => ({ id: c.id, label: `Crop ${c.cropNumber}`, placementDate: c.placementDate, status: c.status })),
@@ -298,6 +337,15 @@ export async function GET(req: NextRequest) {
         }
         series.push({ id: `${crop.id}-temp-min`, label: `Temp min${cropSuffix}`, color: "#2563eb", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: cropDash, data: dataMin });
         series.push({ id: `${crop.id}-temp-max`, label: `Temp max${cropSuffix}`, color: "#dc2626", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: cropDash ? "2 2" : "4 2", data: dataMax });
+        // Temperature target line
+        if (cropTargets.temp.size > 0) {
+          const tData = Array.from({ length: 42 }, (_, i) => {
+            const d = i + 1;
+            const t = cropTargets.temp.get(d);
+            return { day: d, value: t != null ? +(t).toFixed(1) : null };
+          });
+          series.push({ id: `${crop.id}-temp-target`, label: `Temp target${cropSuffix}`, color: "#86efac", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: "4 3", data: tData });
+        }
       } else {
         const data: Array<{ day: number; value: number | null }> = [];
         for (let d = 1; d <= 42; d++) {
@@ -326,7 +374,7 @@ export async function GET(req: NextRequest) {
           data,
         });
 
-        // Add target line for this metric if targets exist in profile
+        // Add target line for water / feed
         if (met === "water" && cropTargets.water.size > 0) {
           const tData = Array.from({ length: 42 }, (_, i) => {
             const d = i + 1;
@@ -342,14 +390,6 @@ export async function GET(req: NextRequest) {
             return { day: d, value: t != null ? +(t).toFixed(1) : null };
           });
           series.push({ id: `${crop.id}-feed-target`, label: `Feed target${cropSuffix}`, color: "#fcd34d", unit: "kg/1000", axis: "left", metric: "feed", cropId: crop.id, strokeDash: "4 3", data: tData });
-        }
-        if (met === "temperature" && cropTargets.temp.size > 0) {
-          const tData = Array.from({ length: 42 }, (_, i) => {
-            const d = i + 1;
-            const t = cropTargets.temp.get(d);
-            return { day: d, value: t != null ? +(t).toFixed(1) : null };
-          });
-          series.push({ id: `${crop.id}-temp-target`, label: `Temp target${cropSuffix}`, color: "#86efac", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: "4 3", data: tData });
         }
       }
     }
