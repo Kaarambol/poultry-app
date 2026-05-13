@@ -455,7 +455,7 @@ export default function TotalPage() {
               const f = summary.feed;
               const salePrice = c.salePricePerKgAllIn ?? 0;
               const chickPrice = c.chickenPricePerKg ?? 0;
-              const liveBirds = p.currentLiveBirds > 0 ? p.currentLiveBirds : p.birdsAlive;
+              const liveBirds = p.currentLiveBirds;
               const liveWeightKg = p.lastAvgWeightKg ?? 0;
               const estRevenue = salePrice > 0 && liveWeightKg > 0
                 ? liveBirds * liveWeightKg * salePrice : null;
