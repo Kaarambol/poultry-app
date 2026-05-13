@@ -409,7 +409,7 @@ export default function DashboardPage() {
                     <h3 className="mobile-record-card__title">{house.houseName}</h3>
 
                     <div className="mobile-record-card__grid">
-                      {house.thinDate && (
+                      {house.placementId && (
                         <div className="mobile-record-row">
                           <strong>Thin weight (g)</strong>
                           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -426,7 +426,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                       )}
-                      {house.clearDate && (
+                      {house.placementId && (
                         <div className="mobile-record-row">
                           <strong>Clear weight (g)</strong>
                           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -554,7 +554,7 @@ export default function DashboardPage() {
             )}
 
             {/* Save thin/clear weights */}
-            {dashboard.houses.some(h => h.thinDate || h.clearDate) && !historyMode && (
+            {dashboard.houses.some(h => h.placementId) && !historyMode && (
               <div className="mobile-card" style={{ marginTop: 8 }}>
                 <h2>Save Thin / Clear Weights</h2>
                 <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "var(--text-soft)" }}>

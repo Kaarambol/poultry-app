@@ -336,20 +336,23 @@ export async function GET(req: NextRequest, context: RouteContext) {
         feedPerBird,
         waterPerBird,
         weightPercent: (() => {
+          if (dayNumber === 1) {
+            const t1 = targetMap.get(1);
+            return t1?.weightTargetG && t1.weightTargetG > 0
+              ? (44 / t1.weightTargetG) * 100
+              : null;
+          }
+          // Use factory report weight (thin/clear) on the event day
+          const factoryWeightG = factoryWeightMap.get(dayNumber);
+          if (factoryWeightG != null && target?.weightTargetG && target.weightTargetG > 0) {
+            return (factoryWeightG / target.weightTargetG) * 100;
+          }
+          // Fallback: shifted daily record weight (next day's record)
           const nextActual = actualByDay.get(dayNumber + 1);
-          const shiftedWeightPercent = (() => {
-            if (dayNumber === 1) {
-              const t1 = targetMap.get(1);
-              return t1?.weightTargetG && t1.weightTargetG > 0
-                ? (44 / t1.weightTargetG) * 100
-                : null;
-            }
-            if (nextActual?.avgWeightG != null && target?.weightTargetG && target.weightTargetG > 0) {
-              return (nextActual.avgWeightG / target.weightTargetG) * 100;
-            }
-            return null;
-          })();
-          return shiftedWeightPercent;
+          if (nextActual?.avgWeightG != null && target?.weightTargetG && target.weightTargetG > 0) {
+            return (nextActual.avgWeightG / target.weightTargetG) * 100;
+          }
+          return null;
         })(),
         temperatureMinC: actual?.temperatureMinC ?? null,
         temperatureMaxC: actual?.temperatureMaxC ?? null,
@@ -376,6 +379,19 @@ export async function GET(req: NextRequest, context: RouteContext) {
       );
       return diff >= 1 ? diff : null;
     };
+
+    // Build map: dayNumber → factory weight (from placement thinWeightG / clearWeightG)
+    const factoryWeightMap = new Map<number, number>();
+    for (const p of crop.placements) {
+      if (p.thinDate && p.thinWeightG != null) {
+        const d = toDay(p.thinDate);
+        if (d != null) factoryWeightMap.set(d, p.thinWeightG);
+      }
+      if (p.clearDate && p.clearWeightG != null) {
+        const d = toDay(p.clearDate);
+        if (d != null) factoryWeightMap.set(d, p.clearWeightG);
+      }
+    }
 
     const thinDays = Array.from(new Set(
       crop.placements.map(p => toDay(p.thinDate)).filter((d): d is number => d !== null)
