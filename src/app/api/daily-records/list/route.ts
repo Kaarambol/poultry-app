@@ -65,16 +65,6 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Try to read new columns via raw SQL; fall back to defaults if columns don't exist yet
-    let extrasMap: Record<string, { hoursDarkness: number; checkTime: string }> = {};
-    try {
-      const extras = await prisma.$queryRawUnsafe<Array<{ id: string; hoursDarkness: number; checkTime: string }>>(
-        `SELECT id, COALESCE("hoursDarkness", 6) AS "hoursDarkness", COALESCE("checkTime", '07:30') AS "checkTime" FROM "DailyRecord" WHERE "cropId" = $1`,
-        cropId
-      );
-      for (const e of extras) extrasMap[e.id] = { hoursDarkness: Number(e.hoursDarkness), checkTime: e.checkTime };
-    } catch { /* columns not yet migrated — use defaults */ }
-
     return NextResponse.json(
       records.map((record) => ({
         id: record.id,
@@ -96,8 +86,8 @@ export async function GET(req: NextRequest) {
         co2MaxPpm: record.co2MaxPpm,
         litterScore: record.litterScore,
         ammoniaPpm: record.ammoniaPpm,
-        hoursDarkness: extrasMap[record.id]?.hoursDarkness ?? 6,
-        checkTime: extrasMap[record.id]?.checkTime ?? "07:30",
+        hoursDarkness: record.hoursDarkness,
+        checkTime: record.checkTime,
         notes: record.notes,
         houseId: record.houseId,
         house: record.house,

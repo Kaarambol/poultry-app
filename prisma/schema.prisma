@@ -353,6 +353,9 @@ model DailyRecord {
   litterScore Int?
   ammoniaPpm  Float?
 
+  hoursDarkness Float  @default(6)
+  checkTime     String @default("07:30")
+
   notes String?
 
   crop  Crop  @relation(fields: [cropId], references: [id], onDelete: Cascade)
