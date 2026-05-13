@@ -3,7 +3,10 @@ import { prisma } from "@/lib/db";
 
 const ADMIN_PIN = "5991";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ topicId: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ topicId: string }> }) {
+  const uid = req.cookies.get("uid")?.value;
+  if (!uid) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+
   try {
     const { topicId } = await params;
     const topic = await prisma.forumTopic.findUnique({

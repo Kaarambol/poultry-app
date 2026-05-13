@@ -2,6 +2,11 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const uid = request.cookies.get("uid")?.value;
+  if (!uid) {
+    return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+  }
+
   const body = (await request.json()) as HandleUploadBody;
 
   try {

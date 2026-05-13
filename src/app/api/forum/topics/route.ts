@@ -3,7 +3,10 @@ import { prisma } from "@/lib/db";
 
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const uid = req.cookies.get("uid")?.value;
+  if (!uid) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+
   try {
     const now = new Date();
     const sixMonthsAgo = new Date(now.getTime() - SIX_MONTHS_MS);
