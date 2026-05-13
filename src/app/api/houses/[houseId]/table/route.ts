@@ -127,8 +127,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
         co2MaxPpm: true,
         ammoniaPpm: true,
         litterScore: true,
-        hoursDarkness: true,
-        checkTime: true,
         notes: true,
       },
     });
@@ -196,6 +194,16 @@ export async function GET(req: NextRequest, context: RouteContext) {
       };
     });
 
+    // Read new columns via raw SQL with fallback to defaults
+    let extrasMap: Record<string, { hoursDarkness: number; checkTime: string }> = {};
+    try {
+      const extras = await prisma.$queryRawUnsafe<Array<{ id: string; hoursDarkness: number; checkTime: string }>>(
+        `SELECT id, COALESCE("hoursDarkness", 6) AS "hoursDarkness", COALESCE("checkTime", '07:30') AS "checkTime" FROM "DailyRecord" WHERE "cropId" = $1 AND "houseId" = $2`,
+        crop.id, houseId
+      );
+      for (const e of extras) extrasMap[e.id] = { hoursDarkness: Number(e.hoursDarkness), checkTime: e.checkTime };
+    } catch { /* columns not yet migrated — use defaults */ }
+
     const finalRows = tableRows.map((row, i) => {
   const nextRawWeight = i < rows.length - 1 ? rows[i + 1].avgWeightG : null;
   const displayWeight = nextRawWeight;
@@ -203,7 +211,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
   const displayPct = displayWeight !== null && tgt?.weightTargetG
     ? Math.round(displayWeight / tgt.weightTargetG * 100)
     : null;
-  return { ...row, avgWeightG: displayWeight, weightPct: displayPct };
+  return {
+    ...row,
+    avgWeightG: displayWeight,
+    weightPct: displayPct,
+    hoursDarkness: extrasMap[row.id]?.hoursDarkness ?? 6,
+    checkTime: extrasMap[row.id]?.checkTime ?? "07:30",
+  };
 });
 
     const toDateStr = (d: Date | null) => d ? new Date(d).toISOString().slice(0, 10) : null;

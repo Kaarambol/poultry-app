@@ -183,14 +183,19 @@ export async function POST(req: NextRequest) {
         co2MaxPpm,
         litterScore,
         ammoniaPpm,
-        hoursDarkness,
-        checkTime,
         notes: notes || null,
       },
       include: {
         house: true,
       },
     });
+
+    // Ensure new columns exist and save values (graceful — works before and after migration)
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "DailyRecord" ADD COLUMN IF NOT EXISTS "hoursDarkness" DOUBLE PRECISION NOT NULL DEFAULT 6`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "DailyRecord" ADD COLUMN IF NOT EXISTS "checkTime" TEXT NOT NULL DEFAULT '07:30'`);
+      await prisma.$executeRawUnsafe(`UPDATE "DailyRecord" SET "hoursDarkness" = $1, "checkTime" = $2 WHERE id = $3`, hoursDarkness, checkTime, updated.id);
+    } catch { /* columns not yet available, skip */ }
 
     await writeChangeLog({
       farmId: baseRecord.crop.farmId,
