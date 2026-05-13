@@ -304,14 +304,16 @@ model CropHousePlacement {
   birdsPlaced    Int
   parentAgeWeeks Int?
 
-  thinDate  DateTime?
-  thinBirds Int?
+  thinDate    DateTime?
+  thinBirds   Int?
+  thinWeightG Float?
 
   thin2Date  DateTime?
   thin2Birds Int?
 
-  clearDate  DateTime?
-  clearBirds Int?
+  clearDate    DateTime?
+  clearBirds   Int?
+  clearWeightG Float?
 
   isActive Boolean @default(true)
   notes    String?

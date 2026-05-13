@@ -29,7 +29,12 @@ type WeeklySnap = {
 type DashboardHouse = {
   houseId: string;
   houseName: string;
+  placementId: string | null;
   birdsPlaced: number;
+  thinDate: string | null;
+  thinWeightG: number | null;
+  clearDate: string | null;
+  clearWeightG: number | null;
   mort: number;
   culls: number;
   totalLosses: number;
@@ -76,6 +81,10 @@ export default function DashboardPage() {
   const [houseWeightInputs, setHouseWeightInputs] = useState<Record<string, string>>({});
   const [weightSaving, setWeightSaving] = useState(false);
   const [weightMsg, setWeightMsg] = useState("");
+  const [thinWeightInputs, setThinWeightInputs] = useState<Record<string, string>>({});
+  const [clearWeightInputs, setClearWeightInputs] = useState<Record<string, string>>({});
+  const [eventWeightSaving, setEventWeightSaving] = useState(false);
+  const [eventWeightMsg, setEventWeightMsg] = useState("");
   const [historyMode, setHistoryMode] = useState(false);
 
   async function loadFarmName(farmId: string) {
@@ -125,6 +134,42 @@ export default function DashboardPage() {
     }
 
     setDashboard(dashboardData);
+    // Pre-fill thin/clear weight inputs from saved values
+    const thinInit: Record<string, string> = {};
+    const clearInit: Record<string, string> = {};
+    for (const h of dashboardData.houses ?? []) {
+      if (h.thinWeightG != null) thinInit[h.houseId] = String(h.thinWeightG);
+      if (h.clearWeightG != null) clearInit[h.houseId] = String(h.clearWeightG);
+    }
+    setThinWeightInputs(thinInit);
+    setClearWeightInputs(clearInit);
+  }
+
+  async function saveEventWeights() {
+    if (!activeCrop || !dashboard) return;
+    setEventWeightSaving(true);
+    setEventWeightMsg("");
+    let anyError = false;
+    for (const house of dashboard.houses) {
+      if (!house.placementId) continue;
+      const thinVal = thinWeightInputs[house.houseId];
+      const clearVal = clearWeightInputs[house.houseId];
+      const hasThin = house.thinDate && thinVal !== undefined;
+      const hasClear = house.clearDate && clearVal !== undefined;
+      if (!hasThin && !hasClear) continue;
+      const r = await fetch(`/api/crops/${activeCrop.id}/placement-weights`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placementId: house.placementId,
+          ...(hasThin ? { thinWeightG: thinVal !== "" ? thinVal : null } : {}),
+          ...(hasClear ? { clearWeightG: clearVal !== "" ? clearVal : null } : {}),
+        }),
+      });
+      if (!r.ok) anyError = true;
+    }
+    setEventWeightSaving(false);
+    setEventWeightMsg(anyError ? "Błąd zapisu." : "Wagi zapisane.");
   }
 
   async function saveHouseWeights() {
@@ -379,6 +424,40 @@ export default function DashboardPage() {
                           />
                         </span>
                       </div>
+                      {house.thinDate && (
+                        <div className="mobile-record-row">
+                          <strong>Thin weight (g)</strong>
+                          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="g"
+                              value={thinWeightInputs[house.houseId] ?? ""}
+                              onChange={e => setThinWeightInputs(prev => ({ ...prev, [house.houseId]: e.target.value }))}
+                              style={{ width: 90, padding: "4px 8px", border: "1px solid #fbbf24", borderRadius: 6, fontSize: "0.9rem" }}
+                              disabled={historyMode}
+                            />
+                          </span>
+                        </div>
+                      )}
+                      {house.clearDate && (
+                        <div className="mobile-record-row">
+                          <strong>Clear weight (g)</strong>
+                          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="g"
+                              value={clearWeightInputs[house.houseId] ?? ""}
+                              onChange={e => setClearWeightInputs(prev => ({ ...prev, [house.houseId]: e.target.value }))}
+                              style={{ width: 90, padding: "4px 8px", border: "1px solid #34d399", borderRadius: 6, fontSize: "0.9rem" }}
+                              disabled={historyMode}
+                            />
+                          </span>
+                        </div>
+                      )}
                       <div className="mobile-record-row">
                         <strong>Birds placed</strong>
                         <span>{formatNumber(house.birdsPlaced)}</span>
@@ -508,6 +587,29 @@ export default function DashboardPage() {
                   disabled={weightSaving}
                 >
                   {weightSaving ? "Saving..." : "Save all live weights"}
+                </button>
+              </div>
+            )}
+
+            {/* Save thin/clear weights */}
+            {dashboard.houses.some(h => h.thinDate || h.clearDate) && !historyMode && (
+              <div className="mobile-card" style={{ marginTop: 8 }}>
+                <h2>Save Thin / Clear Weights</h2>
+                <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "var(--text-soft)" }}>
+                  Wpisz wagę z raportu fabryki. Zostanie umieszczona w tabeli dokładnie w dniu thin lub clear — bez przesunięcia.
+                </p>
+                {eventWeightMsg && (
+                  <div className={`mobile-alert mobile-alert--${eventWeightMsg.includes("Błąd") ? "error" : "success"}`} style={{ marginBottom: 8 }}>
+                    {eventWeightMsg}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="mobile-full-button"
+                  onClick={saveEventWeights}
+                  disabled={eventWeightSaving}
+                >
+                  {eventWeightSaving ? "Zapisywanie..." : "Save thin / clear weights"}
                 </button>
               </div>
             )}

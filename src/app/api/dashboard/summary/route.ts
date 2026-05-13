@@ -96,7 +96,12 @@ export async function GET(req: NextRequest) {
       {
         houseId: string;
         houseName: string;
+        placementId: string | null;
         birdsPlaced: number;
+        thinDate: string | null;
+        thinWeightG: number | null;
+        clearDate: string | null;
+        clearWeightG: number | null;
         mort: number;
         culls: number;
         totalLosses: number;
@@ -113,10 +118,16 @@ export async function GET(req: NextRequest) {
 
     for (const placement of placements) {
       if (!houseMap[placement.houseId]) {
+        const toDateStr = (d: Date | null) => d ? new Date(d).toISOString().slice(0, 10) : null;
         houseMap[placement.houseId] = {
           houseId: placement.houseId,
           houseName: placement.house?.name || "Unknown house",
+          placementId: placement.id,
           birdsPlaced: 0,
+          thinDate: toDateStr(placement.thinDate),
+          thinWeightG: placement.thinWeightG,
+          clearDate: toDateStr(placement.clearDate),
+          clearWeightG: placement.clearWeightG,
           mort: 0,
           culls: 0,
           totalLosses: 0,
@@ -139,7 +150,12 @@ export async function GET(req: NextRequest) {
         houseMap[record.houseId] = {
           houseId: record.houseId,
           houseName: record.house?.name || "Unknown house",
+          placementId: null,
           birdsPlaced: 0,
+          thinDate: null,
+          thinWeightG: null,
+          clearDate: null,
+          clearWeightG: null,
           mort: 0,
           culls: 0,
           totalLosses: 0,

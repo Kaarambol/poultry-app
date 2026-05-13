@@ -64,10 +64,12 @@ export async function GET(req: NextRequest, context: RouteContext) {
         birdsPlaced: number;
         thinDate: Date | null;
         thinBirds: number | null;
+        thinWeightG: number | null;
         thin2Date: Date | null;
         thin2Birds: number | null;
         clearDate: Date | null;
         clearBirds: number | null;
+        clearWeightG: number | null;
         notes: string | null;
       }
     >();
@@ -77,30 +79,33 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
       if (!existing) {
         grouped.set(p.houseId, {
-          placementId: p.id, // store reference to first batch for this house
+          placementId: p.id,
           houseId: p.houseId,
           houseName: p.house.name,
           birdsPlaced: p.birdsPlaced,
           thinDate: p.thinDate,
           thinBirds: p.thinBirds,
+          thinWeightG: p.thinWeightG,
           thin2Date: p.thin2Date,
           thin2Birds: p.thin2Birds,
           clearDate: p.clearDate,
           clearBirds: p.clearBirds,
+          clearWeightG: p.clearWeightG,
           notes: p.notes,
         });
       } else {
         existing.birdsPlaced += p.birdsPlaced;
 
-        // if first batch has no thin/clear but a later one does, use first found value
         if (!existing.thinDate && p.thinDate) existing.thinDate = p.thinDate;
         if (existing.thinBirds === null && p.thinBirds !== null) existing.thinBirds = p.thinBirds;
+        if (existing.thinWeightG === null && p.thinWeightG !== null) existing.thinWeightG = p.thinWeightG;
 
         if (!existing.thin2Date && p.thin2Date) existing.thin2Date = p.thin2Date;
         if (existing.thin2Birds === null && p.thin2Birds !== null) existing.thin2Birds = p.thin2Birds;
 
         if (!existing.clearDate && p.clearDate) existing.clearDate = p.clearDate;
         if (existing.clearBirds === null && p.clearBirds !== null) existing.clearBirds = p.clearBirds;
+        if (existing.clearWeightG === null && p.clearWeightG !== null) existing.clearWeightG = p.clearWeightG;
 
         if (!existing.notes && p.notes) existing.notes = p.notes;
       }
@@ -120,10 +125,12 @@ export async function GET(req: NextRequest, context: RouteContext) {
         birdsPlaced: p.birdsPlaced,
         thinDate: p.thinDate,
         thinBirds: p.thinBirds,
+        thinWeightG: p.thinWeightG,
         thin2Date: p.thin2Date,
         thin2Birds: p.thin2Birds,
         clearDate: p.clearDate,
         clearBirds: p.clearBirds,
+        clearWeightG: p.clearWeightG,
         notes: p.notes,
       })),
     });
@@ -195,10 +202,16 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     const thinDate = parseOptionalDate(body.thinDate);
     const thinBirds = parseOptionalInt(body.thinBirds);
+    const thinWeightG = body.thinWeightG !== undefined && body.thinWeightG !== "" && body.thinWeightG !== null
+      ? (Number.isFinite(Number(body.thinWeightG)) ? Number(body.thinWeightG) : undefined)
+      : undefined;
     const thin2Date = parseOptionalDate(body.thin2Date);
     const thin2Birds = parseOptionalInt(body.thin2Birds);
     const clearDate = parseOptionalDate(body.clearDate);
     const clearBirds = parseOptionalInt(body.clearBirds);
+    const clearWeightG = body.clearWeightG !== undefined && body.clearWeightG !== "" && body.clearWeightG !== null
+      ? (Number.isFinite(Number(body.clearWeightG)) ? Number(body.clearWeightG) : undefined)
+      : undefined;
     const notes = String(body.notes || "").trim() || null;
 
     const nums = [thinBirds, thin2Birds, clearBirds].filter(
@@ -251,10 +264,12 @@ export async function POST(req: NextRequest, context: RouteContext) {
       data: {
         thinDate,
         thinBirds,
+        ...(thinWeightG !== undefined ? { thinWeightG } : {}),
         thin2Date,
         thin2Birds,
         clearDate,
         clearBirds,
+        ...(clearWeightG !== undefined ? { clearWeightG } : {}),
         notes,
       },
       include: {

@@ -74,7 +74,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
         placementDate: true,
         placements: {
           where: cropIdParam ? { houseId } : { houseId, isActive: true },
-          select: { thinDate: true, thin2Date: true, clearDate: true, thinBirds: true, thin2Birds: true, birdsPlaced: true },
+          select: { thinDate: true, thin2Date: true, clearDate: true, thinBirds: true, thin2Birds: true, birdsPlaced: true, thinWeightG: true, clearWeightG: true },
         },
         targetProfile: {
           select: {
@@ -153,6 +153,9 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const thinDateStr  = crop.placements.map(p => toStr(p.thinDate)).filter(Boolean).sort()[0]  ?? null;
     const thin2DateStr = crop.placements.map(p => toStr(p.thin2Date)).filter(Boolean).sort()[0] ?? null;
     const clearDateStr = crop.placements.map(p => toStr(p.clearDate)).filter(Boolean).sort()[0] ?? null;
+    // Thin/clear weights entered from factory report — placed directly on that date row, no shift
+    const thinWeightG  = crop.placements.find(p => p.thinWeightG  != null)?.thinWeightG  ?? null;
+    const clearWeightG = crop.placements.find(p => p.clearWeightG != null)?.clearWeightG ?? null;
 
     // Running cumulative total losses (mort + all culls types)
     let cumTotal = 0;
@@ -197,14 +200,22 @@ export async function GET(req: NextRequest, context: RouteContext) {
     });
 
     const finalRows = tableRows.map((row, i) => {
-  const nextRawWeight = i < rows.length - 1 ? rows[i + 1].avgWeightG : null;
-  const displayWeight = nextRawWeight;
-  const tgt = targetDayMap[row.ageDays];
-  const displayPct = displayWeight !== null && tgt?.weightTargetG
-    ? Math.round(displayWeight / tgt.weightTargetG * 100)
-    : null;
-  return { ...row, avgWeightG: displayWeight, weightPct: displayPct };
-});
+      const rowDateStr = new Date(row.date).toISOString().slice(0, 10);
+      // On thin date: use thinWeightG directly (no shift). On clear date: use clearWeightG. Otherwise: shift by +1.
+      let displayWeight: number | null;
+      if (thinDateStr && rowDateStr === thinDateStr && thinWeightG != null) {
+        displayWeight = thinWeightG;
+      } else if (clearDateStr && rowDateStr === clearDateStr && clearWeightG != null) {
+        displayWeight = clearWeightG;
+      } else {
+        displayWeight = i < rows.length - 1 ? rows[i + 1].avgWeightG : null;
+      }
+      const tgt = targetDayMap[row.ageDays];
+      const displayPct = displayWeight !== null && tgt?.weightTargetG
+        ? Math.round(displayWeight / tgt.weightTargetG * 100)
+        : null;
+      return { ...row, avgWeightG: displayWeight, weightPct: displayPct };
+    });
 
     const toDateStr = (d: Date | null) => d ? new Date(d).toISOString().slice(0, 10) : null;
 
