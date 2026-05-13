@@ -315,22 +315,46 @@ export async function GET(req: Request) {
     // THIN / CLEAR REVENUES from factory weights
     // revenue = birds × (weightG / 1000) × salePricePerKg
     // =========================================================
+    // =========================================================
+    // THIN / CLEAR REVENUES — weighted by birds per house
+    // revenue = Σ(house.thinBirds × house.thinWeightG / 1000) × salePrice
+    // avgWeightG = total_kg * 1000 / total_birds  (for display)
+    // =========================================================
     const salePrice = crop.salePricePerKgAllIn ?? null;
     const totalThinBirds  = Object.values(houseCalcMap).reduce((s, h) => s + h.thinBirds,  0);
     const totalThin2Birds = Object.values(houseCalcMap).reduce((s, h) => s + h.thin2Birds, 0);
     const totalClearBirds = Object.values(houseCalcMap).reduce((s, h) => s + h.clearBirds, 0);
-    // Aggregate thin/clear weights across houses (average g per bird × total birds)
-    const thinWeightG  = Object.values(houseCalcMap).find(h => h.thinWeightG  != null)?.thinWeightG  ?? null;
-    const clearWeightG = Object.values(houseCalcMap).find(h => h.clearWeightG != null)?.clearWeightG ?? null;
+
+    // Weighted total kg for thin: only houses where thinWeightG is entered
+    let thinTotalKg: number | null = null;
+    let thinBirdsWithWeight = 0;
+    for (const h of Object.values(houseCalcMap)) {
+      if (h.thinBirds > 0 && h.thinWeightG != null) {
+        thinTotalKg = (thinTotalKg ?? 0) + h.thinBirds * (h.thinWeightG / 1000);
+        thinBirdsWithWeight += h.thinBirds;
+      }
+    }
+    const thinWeightG = thinTotalKg != null && thinBirdsWithWeight > 0
+      ? (thinTotalKg / thinBirdsWithWeight) * 1000  // weighted avg g/bird for display
+      : null;
+
+    // Weighted total kg for clear
+    let clearTotalKg: number | null = null;
+    let clearBirdsWithWeight = 0;
+    for (const h of Object.values(houseCalcMap)) {
+      if (h.clearBirds > 0 && h.clearWeightG != null) {
+        clearTotalKg = (clearTotalKg ?? 0) + h.clearBirds * (h.clearWeightG / 1000);
+        clearBirdsWithWeight += h.clearBirds;
+      }
+    }
+    const clearWeightG = clearTotalKg != null && clearBirdsWithWeight > 0
+      ? (clearTotalKg / clearBirdsWithWeight) * 1000  // weighted avg g/bird for display
+      : null;
 
     const thinRevenue: number | null =
-      salePrice && totalThinBirds > 0 && thinWeightG != null
-        ? totalThinBirds * (thinWeightG / 1000) * salePrice
-        : null;
+      salePrice && thinTotalKg != null ? thinTotalKg * salePrice : null;
     const clearRevenue: number | null =
-      salePrice && totalClearBirds > 0 && clearWeightG != null
-        ? totalClearBirds * (clearWeightG / 1000) * salePrice
-        : null;
+      salePrice && clearTotalKg != null ? clearTotalKg * salePrice : null;
     const totalEventRevenue: number | null =
       (thinRevenue != null || clearRevenue != null)
         ? (thinRevenue ?? 0) + (clearRevenue ?? 0)
