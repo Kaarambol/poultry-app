@@ -278,6 +278,17 @@ export default function HouseTablePage({
     border: "1px solid #d1d5db",
   };
 
+  // Column colour groups
+  // Target columns: very pale blue-grey, dark text
+  const thTarget: React.CSSProperties = { ...thStyle, background: "#e8edf2", color: "#1e293b" };
+  const tdTarget: React.CSSProperties = { background: "#f4f7fa", color: "#1e293b" };
+  // Actual measurement columns: very pale yellow
+  const thActual: React.CSSProperties = { ...thStyle, background: "#fef9c3", color: "#1e293b" };
+  const tdActual: React.CSSProperties = { background: "#fefce8", color: "#1e293b" };
+  // Performance / ratio columns: very pale red
+  const thPerf: React.CSSProperties = { ...thStyle, background: "#ffd6d6", color: "#1e293b" };
+  const tdPerf: React.CSSProperties = { background: "#fff1f2", color: "#1e293b" };
+
 
   return (
     <div className="mobile-page" style={{ maxWidth: "100%", margin: "20px 0", padding: "0 8px 28px" }}>
@@ -332,22 +343,22 @@ export default function HouseTablePage({
                   <th style={thStyle}>Cumulative Mortality</th>
                   <th style={thStyle}>Culls Small</th>
                   <th style={thStyle}>Culls Leg</th>
-                  <th style={thStyle}>Avg Weight (g)</th>
-                  <th style={thStyle}>Weight %</th>
-                  <th style={thStyle}>Weight Target (g)</th>
-                  <th style={thStyle}>Water Target (ml)</th>
-                  <th style={thStyle}>Water per 1000</th>
-                  <th style={thStyle}>Feed Target (g)</th>
-                  <th style={thStyle}>Feed per 1000</th>
-                  <th style={thStyle}>Water Consumption (L)</th>
-                  <th style={thStyle}>Feed (kg)</th>
-                  <th style={thStyle}>Temp Max (°C)</th>
-                  <th style={thStyle}>Temp Min (°C)</th>
-                  <th style={thStyle}>Temp Target (°C)</th>
-                  <th style={thStyle}>Humidity Max (%)</th>
-                  <th style={thStyle}>Humidity Min (%)</th>
-                  <th style={thStyle}>CO₂ Max (ppm)</th>
-                  <th style={thStyle}>CO₂ Min (ppm)</th>
+                  <th style={thActual}>Avg Weight (g)</th>
+                  <th style={thPerf}>Weight %</th>
+                  <th style={thTarget}>Weight Target (g)</th>
+                  <th style={thTarget}>Water Target (ml)</th>
+                  <th style={thPerf}>Water per 1000</th>
+                  <th style={thTarget}>Feed Target (g)</th>
+                  <th style={thPerf}>Feed per 1000</th>
+                  <th style={thActual}>Water Consumption (L)</th>
+                  <th style={thActual}>Feed (kg)</th>
+                  <th style={thActual}>Temp Max (°C)</th>
+                  <th style={thActual}>Temp Min (°C)</th>
+                  <th style={thTarget}>Temp Target (°C)</th>
+                  <th style={thActual}>Humidity Max (%)</th>
+                  <th style={thActual}>Humidity Min (%)</th>
+                  <th style={thActual}>CO₂ Max (ppm)</th>
+                  <th style={thActual}>CO₂ Min (ppm)</th>
                   <th style={thStyle}>Ammonia (ppm)</th>
                   <th style={thStyle}>Litter Score</th>
                   <th style={thStyle}>Hours Darkness (h)</th>
@@ -370,6 +381,11 @@ export default function HouseTablePage({
 
                   const isEditing = editingId === row.id;
                   const ev        = editValues;
+                  // Only apply column colours on normal rows; thin/clear rows keep their red tint
+                  const isEvent = isThin || isThin2 || isClear;
+                  const ca = isEvent ? {} : tdActual;
+                  const ct = isEvent ? {} : tdTarget;
+                  const cp = isEvent ? {} : tdPerf;
 
                   return (
                     <tr key={row.id} style={rowStyle}>
@@ -414,93 +430,93 @@ export default function HouseTablePage({
                         ) : row.cullsLeg}
                       </td>
 
-                      {/* Avg Weight g */}
-                      <td>
+                      {/* Avg Weight g — actual (yellow) */}
+                      <td style={ca}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" min="0" value={ev.avgWeightG}
                             onChange={e => setField("avgWeightG", e.target.value)} />
                         ) : formatCell(row.avgWeightG)}
                       </td>
 
-                      {/* Wt % — computed */}
-                      <td>{row.weightPct !== null ? `${row.weightPct}%` : "-"}</td>
+                      {/* Wt % — performance (red) */}
+                      <td style={cp}>{row.weightPct !== null ? `${row.weightPct}%` : "-"}</td>
 
-                      {/* Wt Target — from profile, not editable */}
-                      <td>{formatCell(row.weightTargetG)}</td>
+                      {/* Wt Target — target (blue-grey) */}
+                      <td style={ct}>{formatCell(row.weightTargetG)}</td>
 
-                      {/* H₂O Target — from profile, not editable */}
-                      <td>{formatCell(row.waterTargetMl)}</td>
+                      {/* H₂O Target — target (blue-grey) */}
+                      <td style={ct}>{formatCell(row.waterTargetMl)}</td>
 
-                      {/* H₂O /1000 — computed */}
-                      <td>{formatCell(row.waterPer1000)}</td>
+                      {/* H₂O /1000 — performance (red) */}
+                      <td style={cp}>{formatCell(row.waterPer1000)}</td>
 
-                      {/* Feed Target — from profile, not editable */}
-                      <td>{formatCell(row.feedTargetG)}</td>
+                      {/* Feed Target — target (blue-grey) */}
+                      <td style={ct}>{formatCell(row.feedTargetG)}</td>
 
-                      {/* Feed /1000 — computed */}
-                      <td>{formatCell(row.feedPer1000)}</td>
+                      {/* Feed /1000 — performance (red) */}
+                      <td style={cp}>{formatCell(row.feedPer1000)}</td>
 
-                      {/* H₂O L */}
-                      <td>
+                      {/* H₂O L — actual (yellow) */}
+                      <td style={ca}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" min="0" step="0.1" value={ev.waterL}
                             onChange={e => setField("waterL", e.target.value)} />
                         ) : formatCell(row.waterL)}
                       </td>
 
-                      {/* Feed kg */}
-                      <td>
+                      {/* Feed kg — actual (yellow) */}
+                      <td style={ca}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" min="0" step="0.1" value={ev.feedKg}
                             onChange={e => setField("feedKg", e.target.value)} />
                         ) : formatCell(row.feedKg)}
                       </td>
 
-                      {/* Tmp Max */}
-                      <td>
+                      {/* Tmp Max — actual (yellow) */}
+                      <td style={ca}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" step="0.1" value={ev.temperatureMaxC}
                             onChange={e => setField("temperatureMaxC", e.target.value)} />
                         ) : formatCell(row.temperatureMaxC)}
                       </td>
 
-                      {/* Tmp Min */}
-                      <td>
+                      {/* Tmp Min — actual (yellow) */}
+                      <td style={ca}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" step="0.1" value={ev.temperatureMinC}
                             onChange={e => setField("temperatureMinC", e.target.value)} />
                         ) : formatCell(row.temperatureMinC)}
                       </td>
 
-                      {/* Tmp Target — from profile, not editable */}
-                      <td>{formatCell(row.temperatureTargetC)}</td>
+                      {/* Tmp Target — target (blue-grey) */}
+                      <td style={ct}>{formatCell(row.temperatureTargetC)}</td>
 
-                      {/* Hum Max */}
-                      <td>
+                      {/* Hum Max — actual (yellow) */}
+                      <td style={ca}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" min="0" max="100" step="0.1" value={ev.humidityMaxPct}
                             onChange={e => setField("humidityMaxPct", e.target.value)} />
                         ) : formatCell(row.humidityMaxPct)}
                       </td>
 
-                      {/* Hum Min */}
-                      <td>
+                      {/* Hum Min — actual (yellow) */}
+                      <td style={ca}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" min="0" max="100" step="0.1" value={ev.humidityMinPct}
                             onChange={e => setField("humidityMinPct", e.target.value)} />
                         ) : formatCell(row.humidityMinPct)}
                       </td>
 
-                      {/* CO₂ Max */}
-                      <td>
+                      {/* CO₂ Max — actual (yellow) */}
+                      <td style={ca}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" min="0" value={ev.co2MaxPpm}
                             onChange={e => setField("co2MaxPpm", e.target.value)} />
                         ) : formatCell(row.co2MaxPpm)}
                       </td>
 
-                      {/* CO₂ Min */}
-                      <td>
+                      {/* CO₂ Min — actual (yellow) */}
+                      <td style={ca}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" min="0" value={ev.co2MinPpm}
                             onChange={e => setField("co2MinPpm", e.target.value)} />
