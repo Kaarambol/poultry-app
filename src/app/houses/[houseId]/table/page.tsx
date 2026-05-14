@@ -524,7 +524,7 @@ export default function HouseTablePage({
                       </td>
 
                       {/* NH₃ ppm */}
-                      <td>
+                      <td style={!isEditing && row.ammoniaPpm !== null ? { background: "#ffe4e4" } : undefined}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" min="0" step="0.1" value={ev.ammoniaPpm}
                             onChange={e => setField("ammoniaPpm", e.target.value)} />
@@ -532,7 +532,7 @@ export default function HouseTablePage({
                       </td>
 
                       {/* Litter score */}
-                      <td>
+                      <td style={!isEditing && row.litterScore !== null ? { background: "#ffe4e4" } : undefined}>
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" min="0" max="5" step="1" value={ev.litterScore}
                             onChange={e => setField("litterScore", e.target.value)} />
