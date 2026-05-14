@@ -41,7 +41,6 @@ export async function GET(req: NextRequest) {
     });
 
     const totalLosses = allRecords.reduce((sum, r) => sum + (r.mort || 0) + (r.culls || 0), 0);
-    const birdsAlive  = birdsPlaced - totalLosses;
 
     const startDate   = new Date(crop.placementDate);
     // Age consistent with dashboard: placement day = day 0; read from last daily record if available
@@ -49,6 +48,19 @@ export async function GET(req: NextRequest) {
     const ageRefDate  = lastRecord ? new Date(lastRecord.date) : new Date();
     const ageDaysToday = Math.floor((ageRefDate.getTime() - startDate.getTime()) / 86400000);
     const last7        = allRecords.slice(-7);
+
+    // Thin/thin2 birds removed on or before the report date
+    const reportDateMs = ageRefDate.getTime();
+    let thinBirdsTotal = 0;
+    for (const p of crop.placements) {
+      if (p.thinBirds && p.thinDate && new Date(p.thinDate).getTime() <= reportDateMs) {
+        thinBirdsTotal += p.thinBirds;
+      }
+      if (p.thin2Birds && p.thin2Date && new Date(p.thin2Date).getTime() <= reportDateMs) {
+        thinBirdsTotal += p.thin2Birds;
+      }
+    }
+    const birdsAlive = birdsPlaced - totalLosses - thinBirdsTotal;
 
     // ── Build Excel ───────────────────────────────────────────────────────────
     const wb = new ExcelJS.Workbook();
@@ -84,6 +96,7 @@ export async function GET(req: NextRequest) {
       ["Crop Number",         crop.cropNumber],
       ["Arrival Date",        startDate.toLocaleDateString("en-GB")],
       ["Birds Placed",        birdsPlaced],
+      ...(thinBirdsTotal > 0 ? [["Birds Thinned", thinBirdsTotal] as [string, number]] : []),
       ["Current Birds Alive", birdsAlive],
       ["Current Age",         `${ageDaysToday} days`],
       ["Report Generated",    reportDate],
