@@ -343,9 +343,9 @@ export default function HouseTablePage({
                   <th style={thStyle}>Cumulative Mortality</th>
                   <th style={thStyle}>Culls Small</th>
                   <th style={thStyle}>Culls Leg</th>
+                  <th style={thTarget}>Weight Target (g)</th>
                   <th style={thActual}>Avg Weight (g)</th>
                   <th style={thPerf}>Weight %</th>
-                  <th style={thTarget}>Weight Target (g)</th>
                   <th style={thTarget}>Water Target (ml)</th>
                   <th style={thPerf}>Water per 1000</th>
                   <th style={thTarget}>Feed Target (g)</th>
@@ -430,6 +430,9 @@ export default function HouseTablePage({
                         ) : row.cullsLeg}
                       </td>
 
+                      {/* Wt Target — target (blue-grey) — MOVED before Avg Weight */}
+                      <td style={ct}>{formatCell(row.weightTargetG)}</td>
+
                       {/* Avg Weight g — actual (yellow) */}
                       <td style={ca}>
                         {isEditing && ev ? (
@@ -441,20 +444,17 @@ export default function HouseTablePage({
                       {/* Wt % — performance (red) */}
                       <td style={cp}>{row.weightPct !== null ? `${row.weightPct}%` : "-"}</td>
 
-                      {/* Wt Target — target (blue-grey) */}
-                      <td style={ct}>{formatCell(row.weightTargetG)}</td>
-
                       {/* H₂O Target — target (blue-grey) */}
                       <td style={ct}>{formatCell(row.waterTargetMl)}</td>
 
                       {/* H₂O /1000 — performance (red) */}
-                      <td style={cp}>{formatCell(row.waterPer1000)}</td>
+                      <td style={cp}>{row.waterPer1000 != null ? Number(row.waterPer1000).toFixed(1) : "-"}</td>
 
                       {/* Feed Target — target (blue-grey) */}
                       <td style={ct}>{formatCell(row.feedTargetG)}</td>
 
                       {/* Feed /1000 — performance (red) */}
-                      <td style={cp}>{formatCell(row.feedPer1000)}</td>
+                      <td style={cp}>{row.feedPer1000 != null ? Number(row.feedPer1000).toFixed(1) : "-"}</td>
 
                       {/* H₂O L — actual (yellow) */}
                       <td style={ca}>
@@ -477,7 +477,7 @@ export default function HouseTablePage({
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" step="0.1" value={ev.temperatureMaxC}
                             onChange={e => setField("temperatureMaxC", e.target.value)} />
-                        ) : formatCell(row.temperatureMaxC)}
+                        ) : row.temperatureMaxC != null ? Number(row.temperatureMaxC).toFixed(1) : "-"}
                       </td>
 
                       {/* Tmp Min — actual (yellow) */}
@@ -485,11 +485,11 @@ export default function HouseTablePage({
                         {isEditing && ev ? (
                           <input style={NUM_INPUT_STYLE} type="number" step="0.1" value={ev.temperatureMinC}
                             onChange={e => setField("temperatureMinC", e.target.value)} />
-                        ) : formatCell(row.temperatureMinC)}
+                        ) : row.temperatureMinC != null ? Number(row.temperatureMinC).toFixed(1) : "-"}
                       </td>
 
                       {/* Tmp Target — target (blue-grey) */}
-                      <td style={ct}>{formatCell(row.temperatureTargetC)}</td>
+                      <td style={ct}>{row.temperatureTargetC != null ? Number(row.temperatureTargetC).toFixed(1) : "-"}</td>
 
                       {/* Hum Max — actual (yellow) */}
                       <td style={ca}>
