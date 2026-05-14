@@ -601,6 +601,8 @@ p {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 5px;
 }
 
 .mobile-record-row strong {
