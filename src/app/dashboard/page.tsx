@@ -507,7 +507,7 @@ export default function DashboardPage() {
                             <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
                               <td style={{ padding: "4px 6px", color: "#64748b" }}>NH₃ ppm</td>
                               {house.weeklySnapshots.map((s) => (
-                                <td key={s.day} style={{ padding: "4px 6px", textAlign: "center", color: "#1e293b", background: s.ammoniaPpm !== null ? "#ffe4e4" : undefined }}>
+                                <td key={s.day} style={{ padding: "4px 6px", textAlign: "center", color: "#1e293b" }}>
                                   {s.ammoniaPpm !== null ? s.ammoniaPpm : "—"}
                                 </td>
                               ))}
@@ -523,7 +523,7 @@ export default function DashboardPage() {
                             <tr>
                               <td style={{ padding: "4px 6px", color: "#64748b" }}>Litter</td>
                               {house.weeklySnapshots.map((s) => (
-                                <td key={s.day} style={{ padding: "4px 6px", textAlign: "center", color: "#1e293b", background: s.litterScore !== null ? "#ffe4e4" : undefined }}>
+                                <td key={s.day} style={{ padding: "4px 6px", textAlign: "center", color: "#1e293b" }}>
                                   {s.litterScore !== null ? s.litterScore : "—"}
                                 </td>
                               ))}
