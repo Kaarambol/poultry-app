@@ -214,6 +214,10 @@ export async function GET(req: Request) {
     const placementMs = new Date(crop.placementDate).getTime();
     let avgAgeWeightedSum = 0;
     let avgAgeTotalBirds = 0;
+    let avgAgeThinSum = 0;
+    let avgAgeThinBirds = 0;
+    let avgAgeClearSum = 0;
+    let avgAgeClearBirds = 0;
 
     // Thin / thin2 events — iterate placements
     for (const p of crop.placements) {
@@ -221,32 +225,38 @@ export async function GET(req: Request) {
         const thinAge = Math.round((new Date(p.thinDate).getTime() - placementMs) / MSDAY);
         avgAgeWeightedSum += p.thinBirds * thinAge;
         avgAgeTotalBirds  += p.thinBirds;
+        avgAgeThinSum     += p.thinBirds * thinAge;
+        avgAgeThinBirds   += p.thinBirds;
       }
       if (p.thin2Birds && p.thin2Birds > 0 && p.thin2Date) {
         const thin2Age = Math.round((new Date(p.thin2Date).getTime() - placementMs) / MSDAY);
         avgAgeWeightedSum += p.thin2Birds * thin2Age;
         avgAgeTotalBirds  += p.thin2Birds;
+        avgAgeThinSum     += p.thin2Birds * thin2Age;
+        avgAgeThinBirds   += p.thin2Birds;
       }
     }
 
     // Clear events — per house (use houseCalcMap which has totals per house)
     for (const [houseId, hCalc] of Object.entries(houseCalcMap)) {
       if (!hCalc.isCleared) continue;
-      // Find the clear date for this house
       const clearP = crop.placements.find(p => p.houseId === houseId && p.clearDate);
       if (!clearP?.clearDate) continue;
       const clearAge = Math.round((new Date(clearP.clearDate).getTime() - placementMs) / MSDAY);
-      // If clearBirds recorded use it, otherwise compute remaining live birds
       const effectiveClearBirds = hCalc.clearBirds > 0
         ? hCalc.clearBirds
         : Math.max(0, hCalc.birdsPlaced - hCalc.mort - hCalc.culls - hCalc.thinBirds - hCalc.thin2Birds);
       if (effectiveClearBirds > 0) {
-        avgAgeWeightedSum += effectiveClearBirds * clearAge;
-        avgAgeTotalBirds  += effectiveClearBirds;
+        avgAgeWeightedSum  += effectiveClearBirds * clearAge;
+        avgAgeTotalBirds   += effectiveClearBirds;
+        avgAgeClearSum     += effectiveClearBirds * clearAge;
+        avgAgeClearBirds   += effectiveClearBirds;
       }
     }
 
     const avgAge: number | null = avgAgeTotalBirds > 0 ? avgAgeWeightedSum / avgAgeTotalBirds : null;
+    const avgAgeThin: number | null  = avgAgeThinBirds  > 0 ? avgAgeThinSum  / avgAgeThinBirds  : null;
+    const avgAgeClear: number | null = avgAgeClearBirds > 0 ? avgAgeClearSum / avgAgeClearBirds : null;
 
     // =========================================================
     // FINAL metrics — calculated from factory report data
@@ -399,10 +409,13 @@ export async function GET(req: Request) {
         thinBirds: totalThinBirds,
         thinWeightG,
         thinRevenue,
+        avgAgeThin,
         thin2Birds: totalThin2Birds,
         clearBirds: totalClearBirds,
         clearWeightG,
         clearRevenue,
+        avgAgeClear,
+        avgAgeOverall: avgAge,
         totalEventRevenue,
       },
     });

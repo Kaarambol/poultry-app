@@ -66,10 +66,13 @@ type FinancialSummary = {
     thinBirds: number;
     thinWeightG: number | null;
     thinRevenue: number | null;
+    avgAgeThin: number | null;
     thin2Birds: number;
     clearBirds: number;
     clearWeightG: number | null;
     clearRevenue: number | null;
+    avgAgeClear: number | null;
+    avgAgeOverall: number | null;
     totalEventRevenue: number | null;
   };
 };
@@ -575,6 +578,44 @@ export default function TotalPage() {
                           )}
                         </div>
                       </div>
+
+                      {/* Average Age */}
+                      {(t.avgAgeThin != null || t.avgAgeClear != null || t.avgAgeOverall != null) && (
+                        <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #d1fae5" }}>
+                          <div style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#2563eb", marginBottom: 8 }}>
+                            Average Age at Sale
+                          </div>
+                          <div className="mobile-kpi-grid">
+                            {t.avgAgeThin != null && (
+                              <div className="mobile-kpi">
+                                <div className="mobile-kpi__label">Avg age — thin</div>
+                                <div className="mobile-kpi__value">{t.avgAgeThin.toFixed(1)} days</div>
+                                <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                                  {t.thinBirds.toLocaleString()} birds
+                                </div>
+                              </div>
+                            )}
+                            {t.avgAgeClear != null && (
+                              <div className="mobile-kpi">
+                                <div className="mobile-kpi__label">Avg age — clear</div>
+                                <div className="mobile-kpi__value">{t.avgAgeClear.toFixed(1)} days</div>
+                                <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                                  {t.clearBirds.toLocaleString()} birds
+                                </div>
+                              </div>
+                            )}
+                            {t.avgAgeOverall != null && (
+                              <div className="mobile-kpi">
+                                <div className="mobile-kpi__label">Avg age — overall</div>
+                                <div className="mobile-kpi__value" style={{ fontWeight: 700 }}>{t.avgAgeOverall.toFixed(1)} days</div>
+                                <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                                  thin + clear weighted
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Costs */}
                       <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #d1fae5" }}>
