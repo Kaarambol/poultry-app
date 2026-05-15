@@ -339,13 +339,17 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
       // actual per-bird values — directly comparable to per-bird targets
       const birdsAlive = actual?.birdsAliveCurrentDay ?? carriedAlive;
+      // On thin/thin2 days feed and water were consumed by ALL birds including those removed.
+      // Use pre-thin count (post-mortality) = birdsAliveCurrentDay + thinned this day.
+      const thinRemovedToday = thinEventsMap.get(dayNumber) || 0;
+      const birdsForPerBird = birdsAlive + thinRemovedToday;
       const feedPerBird =
-        actual?.feedKg != null && birdsAlive > 0
-          ? (actual.feedKg * 1000) / birdsAlive
+        actual?.feedKg != null && birdsForPerBird > 0
+          ? (actual.feedKg * 1000) / birdsForPerBird
           : null;
       const waterPerBird =
-        actual?.waterL != null && birdsAlive > 0
-          ? (actual.waterL * 1000) / birdsAlive
+        actual?.waterL != null && birdsForPerBird > 0
+          ? (actual.waterL * 1000) / birdsForPerBird
           : null;
 
       return {
