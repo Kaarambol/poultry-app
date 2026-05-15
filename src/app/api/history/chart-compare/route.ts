@@ -182,7 +182,7 @@ export async function GET(req: NextRequest) {
         where: { cropId: crop.id, houseId },
         orderBy: { date: "asc" },
         select: {
-          date: true, houseId: true, birdsTotal: true,
+          date: true, houseId: true, mort: true, culls: true,
           feedKg: true, waterL: true, avgWeightG: true,
           temperatureMinC: true, temperatureMaxC: true,
         },
@@ -195,18 +195,33 @@ export async function GET(req: NextRequest) {
       // thin events for this house: day → birds removed
       const thinMap = buildThinMap(crop.placements, placementDate, houseId);
 
+      // Compute running birds per day exactly like the table:
+      // birds = birdsPlaced - cumMort - cumCulls - thin(only after thin day, not on thin day)
+      let cumLosses = 0;
+      const birdsByDay = new Map<number, number>();
+      for (const rec of daily) {
+        const day = Math.floor(
+          (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        if (day < 1) continue;
+        cumLosses += (rec.mort || 0) + (rec.culls || 0);
+        let birds = houseBirds - cumLosses;
+        // subtract thin only after thin date (same as table: rowDateStr > thinDateStr)
+        let cumThinAfter = 0;
+        for (const [td, tb] of thinMap) { if (td < day) cumThinAfter += tb; }
+        birds = Math.max(0, birds - cumThinAfter);
+        // On thin day: feed/water consumed before thin → use pre-thin count (add thinToday back)
+        const thinToday = thinMap.get(day) ?? 0;
+        birdsByDay.set(day, birds + thinToday);
+      }
+
       const byDay = new Map<number, DayAggM>();
       for (const rec of daily) {
         const day = Math.floor(
           (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
         );
         if (day < 1 || day > 60) continue;
-        // Fallback bird count: placed minus cumulative thin removed before this day
-        const thinBeforeToday = cumulativeThin(thinMap, day - 1);
-        const fallback = Math.max(0, houseBirds - thinBeforeToday);
-        // On thin day itself: feed/water consumed by pre-thin birds → add thin removed today
-        const thinToday = thinMap.get(day) ?? 0;
-        const birds = (rec.birdsTotal > 0 ? rec.birdsTotal + thinToday : fallback + thinToday);
+        const birds = birdsByDay.get(day) ?? 0;
         const ex = byDay.get(day);
         if (ex) {
           ex.totalBirds += birds; ex.waterL += rec.waterL; ex.feedKg += rec.feedKg;
@@ -310,9 +325,9 @@ export async function GET(req: NextRequest) {
     const whereHouse = view === "avg" ? {} : { houseId: view };
     const daily = await prisma.dailyRecord.findMany({
       where: { cropId: crop.id, ...whereHouse },
-      orderBy: { date: "asc" },
+      orderBy: [{ houseId: "asc" }, { date: "asc" }],
       select: {
-        date: true, houseId: true, birdsTotal: true,
+        date: true, houseId: true, mort: true, culls: true,
         feedKg: true, waterL: true, avgWeightG: true,
         temperatureMinC: true, temperatureMaxC: true,
       },
@@ -322,14 +337,11 @@ export async function GET(req: NextRequest) {
     for (const p of crop.placements) {
       placementBirds.set(p.houseId, (placementBirds.get(p.houseId) ?? 0) + p.birdsPlaced);
     }
-    const totalBirdsPlaced = crop.placements.reduce((s, p) => s + p.birdsPlaced, 0);
 
-    // thin events per house for this crop (needed for per-house fallback correction)
+    // thin events per house
     const thinMapByHouse = new Map<string, Map<number, number>>();
     for (const p of crop.placements) {
       if (!thinMapByHouse.has(p.houseId)) thinMapByHouse.set(p.houseId, new Map());
-    }
-    for (const p of crop.placements) {
       const m = thinMapByHouse.get(p.houseId)!;
       const addThin = (date: Date | null | undefined, birds: number | null | undefined) => {
         if (!date || !birds) return;
@@ -338,6 +350,26 @@ export async function GET(req: NextRequest) {
       };
       addThin(p.thinDate, p.thinBirds);
       addThin(p.thin2Date, p.thin2Birds);
+    }
+
+    // Compute running birds per house per day (same formula as table)
+    const cumLossesByHouse = new Map<string, number>();
+    const birdsByHouseDay = new Map<string, number>(); // key: `${houseId}:${day}`
+    for (const rec of daily) {
+      const day = Math.floor(
+        (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (day < 1) continue;
+      const prev = cumLossesByHouse.get(rec.houseId) ?? 0;
+      const cum = prev + (rec.mort || 0) + (rec.culls || 0);
+      cumLossesByHouse.set(rec.houseId, cum);
+      const housePlaced = placementBirds.get(rec.houseId) ?? 0;
+      const houseThinMap = thinMapByHouse.get(rec.houseId) ?? new Map<number, number>();
+      let cumThinAfter = 0;
+      for (const [td, tb] of houseThinMap) { if (td < day) cumThinAfter += tb; }
+      const thinToday = houseThinMap.get(day) ?? 0;
+      const birds = Math.max(0, housePlaced - cum - cumThinAfter) + thinToday;
+      birdsByHouseDay.set(`${rec.houseId}:${day}`, birds);
     }
 
     type DayAgg = {
@@ -352,13 +384,7 @@ export async function GET(req: NextRequest) {
         (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
       );
       if (day < 1 || day > 60) continue;
-      const houseThinMap = thinMapByHouse.get(rec.houseId) ?? new Map<number, number>();
-      const thinBeforeToday = cumulativeThin(houseThinMap, day - 1);
-      const thinToday = houseThinMap.get(day) ?? 0;
-      const housePlaced = placementBirds.get(rec.houseId) ?? totalBirdsPlaced;
-      const fallback = Math.max(0, housePlaced - thinBeforeToday);
-      // feed/water consumed by pre-thin birds on thin day, post-thin on other days
-      const birds = (rec.birdsTotal > 0 ? rec.birdsTotal + thinToday : fallback + thinToday);
+      const birds = birdsByHouseDay.get(`${rec.houseId}:${day}`) ?? 0;
       const ex = byDay.get(day);
       if (ex) {
         ex.totalBirds += birds; ex.waterL += rec.waterL; ex.feedKg += rec.feedKg;
