@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
     targetMaps.set(crop.id, maps);
   }
 
-  // Helper: build Map<day, thinBirds> for a given set of placements
+  // Helper: build Map<day, birdsRemovedOnThatDay> for a given set of placements
   const buildThinMap = (placements: typeof crops[0]["placements"], placementDate: Date, houseId?: string) => {
     const m = new Map<number, number>();
     const filtered = houseId ? placements.filter(p => p.houseId === houseId) : placements;
@@ -140,6 +140,15 @@ export async function GET(req: NextRequest) {
       addThin(p.thin2Date, p.thin2Birds);
     }
     return m;
+  };
+
+  // Helper: cumulative thin birds removed up to and including a given day
+  const cumulativeThin = (thinMap: Map<number, number>, day: number) => {
+    let total = 0;
+    for (const [d, birds] of thinMap) {
+      if (d <= day) total += birds;
+    }
+    return total;
   };
 
   // ── Multi-house mode: one series per house (single crop, single metric) ──
@@ -192,8 +201,12 @@ export async function GET(req: NextRequest) {
           (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
         );
         if (day < 1 || day > 60) continue;
-        // On thin day: add back thinned birds so denominator = pre-thin count
-        const birds = (rec.birdsTotal > 0 ? rec.birdsTotal : houseBirds) + (thinMap.get(day) ?? 0);
+        // Fallback bird count: placed minus cumulative thin removed before this day
+        const thinBeforeToday = cumulativeThin(thinMap, day - 1);
+        const fallback = Math.max(0, houseBirds - thinBeforeToday);
+        // On thin day itself: feed/water consumed by pre-thin birds → add thin removed today
+        const thinToday = thinMap.get(day) ?? 0;
+        const birds = (rec.birdsTotal > 0 ? rec.birdsTotal + thinToday : fallback + thinToday);
         const ex = byDay.get(day);
         if (ex) {
           ex.totalBirds += birds; ex.waterL += rec.waterL; ex.feedKg += rec.feedKg;
@@ -311,8 +324,21 @@ export async function GET(req: NextRequest) {
     }
     const totalBirdsPlaced = crop.placements.reduce((s, p) => s + p.birdsPlaced, 0);
 
-    // thin events per house for this crop
-    const thinMapStd = buildThinMap(crop.placements, placementDate);
+    // thin events per house for this crop (needed for per-house fallback correction)
+    const thinMapByHouse = new Map<string, Map<number, number>>();
+    for (const p of crop.placements) {
+      if (!thinMapByHouse.has(p.houseId)) thinMapByHouse.set(p.houseId, new Map());
+    }
+    for (const p of crop.placements) {
+      const m = thinMapByHouse.get(p.houseId)!;
+      const addThin = (date: Date | null | undefined, birds: number | null | undefined) => {
+        if (!date || !birds) return;
+        const d = Math.floor((new Date(date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (d >= 1) m.set(d, (m.get(d) ?? 0) + birds);
+      };
+      addThin(p.thinDate, p.thinBirds);
+      addThin(p.thin2Date, p.thin2Birds);
+    }
 
     type DayAgg = {
       totalBirds: number; waterL: number; feedKg: number;
@@ -326,9 +352,13 @@ export async function GET(req: NextRequest) {
         (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
       );
       if (day < 1 || day > 60) continue;
-      // On thin day: add back thinned birds so denominator = pre-thin count
-      const baseBirds = rec.birdsTotal > 0 ? rec.birdsTotal : (placementBirds.get(rec.houseId) ?? totalBirdsPlaced);
-      const birds = baseBirds + (thinMapStd.get(day) ?? 0);
+      const houseThinMap = thinMapByHouse.get(rec.houseId) ?? new Map<number, number>();
+      const thinBeforeToday = cumulativeThin(houseThinMap, day - 1);
+      const thinToday = houseThinMap.get(day) ?? 0;
+      const housePlaced = placementBirds.get(rec.houseId) ?? totalBirdsPlaced;
+      const fallback = Math.max(0, housePlaced - thinBeforeToday);
+      // feed/water consumed by pre-thin birds on thin day, post-thin on other days
+      const birds = (rec.birdsTotal > 0 ? rec.birdsTotal + thinToday : fallback + thinToday);
       const ex = byDay.get(day);
       if (ex) {
         ex.totalBirds += birds; ex.waterL += rec.waterL; ex.feedKg += rec.feedKg;
