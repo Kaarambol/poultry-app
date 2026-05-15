@@ -126,6 +126,22 @@ export async function GET(req: NextRequest) {
     targetMaps.set(crop.id, maps);
   }
 
+  // Helper: build Map<day, thinBirds> for a given set of placements
+  const buildThinMap = (placements: typeof crops[0]["placements"], placementDate: Date, houseId?: string) => {
+    const m = new Map<number, number>();
+    const filtered = houseId ? placements.filter(p => p.houseId === houseId) : placements;
+    for (const p of filtered) {
+      const addThin = (date: Date | null | undefined, birds: number | null | undefined) => {
+        if (!date || !birds) return;
+        const d = Math.floor((new Date(date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (d >= 1) m.set(d, (m.get(d) ?? 0) + birds);
+      };
+      addThin(p.thinDate,  p.thinBirds);
+      addThin(p.thin2Date, p.thin2Birds);
+    }
+    return m;
+  };
+
   // ── Multi-house mode: one series per house (single crop, single metric) ──
   if (view === "multi") {
     const houseIds = (searchParams.get("houseIds") ?? "").split(",").map(s => s.trim()).filter(Boolean);
@@ -167,13 +183,17 @@ export async function GET(req: NextRequest) {
         .filter(p => p.houseId === houseId)
         .reduce((s, p) => s + p.birdsPlaced, 0);
 
+      // thin events for this house: day → birds removed
+      const thinMap = buildThinMap(crop.placements, placementDate, houseId);
+
       const byDay = new Map<number, DayAggM>();
       for (const rec of daily) {
         const day = Math.floor(
           (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
         );
         if (day < 1 || day > 60) continue;
-        const birds = rec.birdsTotal > 0 ? rec.birdsTotal : houseBirds;
+        // On thin day: add back thinned birds so denominator = pre-thin count
+        const birds = (rec.birdsTotal > 0 ? rec.birdsTotal : houseBirds) + (thinMap.get(day) ?? 0);
         const ex = byDay.get(day);
         if (ex) {
           ex.totalBirds += birds; ex.waterL += rec.waterL; ex.feedKg += rec.feedKg;
@@ -291,6 +311,9 @@ export async function GET(req: NextRequest) {
     }
     const totalBirdsPlaced = crop.placements.reduce((s, p) => s + p.birdsPlaced, 0);
 
+    // thin events per house for this crop
+    const thinMapStd = buildThinMap(crop.placements, placementDate);
+
     type DayAgg = {
       totalBirds: number; waterL: number; feedKg: number;
       weightSum: number; weightCount: number;
@@ -303,7 +326,9 @@ export async function GET(req: NextRequest) {
         (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
       );
       if (day < 1 || day > 60) continue;
-      const birds = rec.birdsTotal > 0 ? rec.birdsTotal : (placementBirds.get(rec.houseId) ?? totalBirdsPlaced);
+      // On thin day: add back thinned birds so denominator = pre-thin count
+      const baseBirds = rec.birdsTotal > 0 ? rec.birdsTotal : (placementBirds.get(rec.houseId) ?? totalBirdsPlaced);
+      const birds = baseBirds + (thinMapStd.get(day) ?? 0);
       const ex = byDay.get(day);
       if (ex) {
         ex.totalBirds += birds; ex.waterL += rec.waterL; ex.feedKg += rec.feedKg;
