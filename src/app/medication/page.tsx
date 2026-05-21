@@ -83,6 +83,12 @@ export default function MedicationPage() {
   const [folders, setFolders] = useState<CropFolder[]>([]);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [viewingRecord, setViewingRecord] = useState<MedicationRecord | null>(null);
+  const [editingRecord, setEditingRecord] = useState<MedicationRecord | null>(null);
+  const [editFormKey, setEditFormKey] = useState(0);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editReportFile, setEditReportFile] = useState<File | null>(null);
+  const [editPrescriptionFile, setEditPrescriptionFile] = useState<File | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState<"error" | "success" | "info">("info");
 
@@ -242,67 +248,239 @@ export default function MedicationPage() {
     loadAllRecords(currentFarmId);
   }
 
+  function startEdit(record: MedicationRecord) {
+    setEditingRecord({ ...record });
+    setEditReportFile(null);
+    setEditPrescriptionFile(null);
+    setEditFormKey(k => k + 1);
+  }
+
+  function updateEditField(field: keyof MedicationRecord, value: string | number | null) {
+    setEditingRecord(prev => prev ? { ...prev, [field]: value } : prev);
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingRecord) return;
+    setEditSaving(true);
+    const fd = new FormData();
+    fd.append("id",                  editingRecord.id);
+    fd.append("startDate",           editingRecord.startDate?.slice(0, 10) ?? "");
+    fd.append("medicineName",        editingRecord.medicineName);
+    fd.append("supplier",            editingRecord.supplier ?? "");
+    fd.append("batchNo",             editingRecord.batchNo ?? "");
+    fd.append("expireDate",          editingRecord.expireDate?.slice(0, 10) ?? "");
+    fd.append("quantityPurchased",   editingRecord.quantityPurchased ?? "");
+    fd.append("quantityUsed",        editingRecord.quantityUsed ?? "");
+    fd.append("animalIdentity",      editingRecord.animalIdentity ?? "");
+    fd.append("housesTreated",       editingRecord.housesTreated ?? "");
+    fd.append("birdsTreated",        editingRecord.birdsTreated != null ? String(editingRecord.birdsTreated) : "");
+    fd.append("finishDate",          editingRecord.finishDate?.slice(0, 10) ?? "");
+    fd.append("withdrawalPeriod",    editingRecord.withdrawalPeriod ?? "");
+    fd.append("safeSlaughterDate",   editingRecord.safeSlaughterDate?.slice(0, 10) ?? "");
+    fd.append("administratorName",   editingRecord.administratorName ?? "");
+    fd.append("reasonForTreatment",  editingRecord.reasonForTreatment ?? "");
+    fd.append("methodOfTreatment",   editingRecord.methodOfTreatment ?? "");
+    fd.append("dose",                editingRecord.dose ?? "");
+    fd.append("totalMgPcu",          editingRecord.totalMgPcu ?? "");
+    if (editReportFile)       fd.append("reportFile",       editReportFile);
+    if (editPrescriptionFile) fd.append("prescriptionFile", editPrescriptionFile);
+
+    const r = await fetch("/api/medications/update", { method: "PATCH", body: fd });
+    const data = await r.json();
+    setEditSaving(false);
+    if (!r.ok) {
+      setMsgType("error");
+      setMsg(data.error || "Error saving.");
+      return;
+    }
+    setMsgType("success");
+    setMsg("Record updated.");
+    setEditingRecord(null);
+    setViewingRecord(null);
+    loadAllRecords(currentFarmId);
+  }
+
+  async function deleteRecord(id: string) {
+    const r = await fetch(`/api/medications/delete?id=${id}`, { method: "DELETE" });
+    if (r.ok) {
+      setMsgType("success");
+      setMsg("Record deleted.");
+      setDeleteConfirmId(null);
+      setViewingRecord(null);
+      loadAllRecords(currentFarmId);
+    } else {
+      const data = await r.json();
+      setMsgType("error");
+      setMsg(data.error || "Error deleting.");
+    }
+  }
+
   const canOperate = canOperateUi(myRole) && !historyMode;
 
   return (
     <div className="mobile-page">
 
-      {/* VIEW MODAL */}
+      {/* VIEW / EDIT MODAL */}
       {viewingRecord && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "20px 12px", overflowY: "auto" }}
-          onClick={() => setViewingRecord(null)}>
+          onClick={() => { setViewingRecord(null); setEditingRecord(null); setDeleteConfirmId(null); }}>
           <div style={{ background: "#fff", borderRadius: 12, padding: 20, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto" }}
             onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>{viewingRecord.medicineName}</h2>
-              <button onClick={() => setViewingRecord(null)} style={{ background: "none", border: "none", fontSize: "1.4rem", cursor: "pointer", color: "#64748b" }}>✕</button>
+              <h2 style={{ margin: 0, fontSize: "1.1rem" }}>
+                {editingRecord ? "Edit Record" : viewingRecord.medicineName}
+              </h2>
+              <button onClick={() => { setViewingRecord(null); setEditingRecord(null); setDeleteConfirmId(null); }}
+                style={{ background: "none", border: "none", fontSize: "1.4rem", cursor: "pointer", color: "#64748b" }}>✕</button>
             </div>
-            {[
-              ["Start Date", fmtDate(viewingRecord.startDate)],
-              ["Finish Date", fmtDate(viewingRecord.finishDate)],
-              ["Supplier", viewingRecord.supplier],
-              ["Batch No", viewingRecord.batchNo],
-              ["Expiry Date", fmtDate(viewingRecord.expireDate)],
-              ["Quantity Purchased", viewingRecord.quantityPurchased],
-              ["Quantity Used", viewingRecord.quantityUsed],
-              ["Animal Identity", viewingRecord.animalIdentity],
-              ["Houses Treated", viewingRecord.housesTreated],
-              ["Birds Treated", viewingRecord.birdsTreated != null ? String(viewingRecord.birdsTreated) : null],
-              ["Withdrawal Period", viewingRecord.withdrawalPeriod],
-              ["Safe Slaughter Date", fmtDate(viewingRecord.safeSlaughterDate)],
-              ["Administrator Name", viewingRecord.administratorName],
-              ["Reason for Treatment", viewingRecord.reasonForTreatment],
-              ["Method of Treatment", viewingRecord.methodOfTreatment],
-              ["Dose mg/g", viewingRecord.dose],
-              ["Total mg/PCU", viewingRecord.totalMgPcu],
-            ].map(([label, value]) => value ? (
-              <div key={label as string} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #f1f5f9", gap: 8 }}>
-                <span style={{ fontSize: "0.82rem", color: "#64748b", flexShrink: 0 }}>{label}</span>
-                <span style={{ fontSize: "0.85rem", fontWeight: 500, textAlign: "right" }}>{value}</span>
-              </div>
-            ) : null)}
-            {(viewingRecord.report || viewingRecord.prescription) && (
-              <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {viewingRecord.report && (
-                  <a href={`/api/farm-documents/file?url=${encodeURIComponent(viewingRecord.report)}`} target="_blank" rel="noreferrer"
-                    style={{ display: "inline-block", padding: "8px 16px", background: "#1B3A5C", color: "#fff", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
-                    View Report
-                  </a>
-                )}
-                {viewingRecord.prescription && (
-                  <a href={`/api/farm-documents/file?url=${encodeURIComponent(viewingRecord.prescription)}`} target="_blank" rel="noreferrer"
-                    style={{ display: "inline-block", padding: "8px 16px", background: "#1B3A5C", color: "#fff", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
-                    View Prescription
-                  </a>
-                )}
+
+            {/* DELETE CONFIRM */}
+            {deleteConfirmId && !editingRecord && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                <p style={{ margin: "0 0 12px", fontWeight: 600, color: "#b91c1c" }}>Delete this record?</p>
+                <p style={{ margin: "0 0 12px", fontSize: "0.85rem" }}>This action cannot be undone.</p>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button className="mobile-button" style={{ background: "#dc2626", color: "#fff" }}
+                    onClick={() => deleteRecord(deleteConfirmId)}>
+                    Yes, Delete
+                  </button>
+                  <button className="mobile-button mobile-button--secondary" onClick={() => setDeleteConfirmId(null)}>
+                    Cancel
+                  </button>
+                </div>
               </div>
             )}
-            <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
-              <a href={`/medication/print?id=${viewingRecord.id}`} target="_blank"
-                style={{ display: "inline-block", padding: "8px 16px", background: "#f1f5f9", color: "#1e293b", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
-                Print
-              </a>
-            </div>
+
+            {/* EDIT FORM */}
+            {editingRecord ? (
+              <form onSubmit={saveEdit} key={editFormKey}>
+                <div className="mobile-grid mobile-grid--2">
+                  <div><label>Start Date *</label><input type="date" value={editingRecord.startDate?.slice(0,10) ?? ""} onChange={e => updateEditField("startDate", e.target.value)} required /></div>
+                  <div><label>Medicine Name *</label><input value={editingRecord.medicineName} onChange={e => updateEditField("medicineName", e.target.value)} required /></div>
+                </div>
+                <div className="mobile-grid mobile-grid--2">
+                  <div><label>Supplier</label><input value={editingRecord.supplier ?? ""} onChange={e => updateEditField("supplier", e.target.value)} /></div>
+                  <div><label>Batch No</label><input value={editingRecord.batchNo ?? ""} onChange={e => updateEditField("batchNo", e.target.value)} /></div>
+                </div>
+                <div className="mobile-grid mobile-grid--2">
+                  <div><label>Expiry Date</label><input type="date" value={editingRecord.expireDate?.slice(0,10) ?? ""} onChange={e => updateEditField("expireDate", e.target.value)} /></div>
+                  <div><label>Finish Date</label><input type="date" value={editingRecord.finishDate?.slice(0,10) ?? ""} onChange={e => updateEditField("finishDate", e.target.value)} /></div>
+                </div>
+                <div className="mobile-grid mobile-grid--2">
+                  <div><label>Quantity Purchased</label><input value={editingRecord.quantityPurchased ?? ""} onChange={e => updateEditField("quantityPurchased", e.target.value)} /></div>
+                  <div><label>Quantity Used</label><input value={editingRecord.quantityUsed ?? ""} onChange={e => updateEditField("quantityUsed", e.target.value)} /></div>
+                </div>
+                <div className="mobile-grid mobile-grid--2">
+                  <div><label>Animal Identity</label><input value={editingRecord.animalIdentity ?? ""} onChange={e => updateEditField("animalIdentity", e.target.value)} /></div>
+                  <div><label>Houses Treated</label><input value={editingRecord.housesTreated ?? ""} onChange={e => updateEditField("housesTreated", e.target.value)} /></div>
+                </div>
+                <div className="mobile-grid mobile-grid--2">
+                  <div><label>Birds Treated</label><input type="number" value={editingRecord.birdsTreated ?? ""} onChange={e => updateEditField("birdsTreated", e.target.value === "" ? null : Number(e.target.value))} /></div>
+                  <div><label>Withdrawal Period</label><input value={editingRecord.withdrawalPeriod ?? ""} onChange={e => updateEditField("withdrawalPeriod", e.target.value)} /></div>
+                </div>
+                <div className="mobile-grid mobile-grid--2">
+                  <div><label>Safe Slaughter Date</label><input type="date" value={editingRecord.safeSlaughterDate?.slice(0,10) ?? ""} onChange={e => updateEditField("safeSlaughterDate", e.target.value)} /></div>
+                  <div><label>Administrator Name</label><input value={editingRecord.administratorName ?? ""} onChange={e => updateEditField("administratorName", e.target.value)} /></div>
+                </div>
+                <div className="mobile-grid mobile-grid--2">
+                  <div><label>Reason for Treatment</label><input value={editingRecord.reasonForTreatment ?? ""} onChange={e => updateEditField("reasonForTreatment", e.target.value)} /></div>
+                  <div><label>Method of Treatment</label><input value={editingRecord.methodOfTreatment ?? ""} onChange={e => updateEditField("methodOfTreatment", e.target.value)} /></div>
+                </div>
+                <div className="mobile-grid mobile-grid--2">
+                  <div><label>Dose mg/g</label><input value={editingRecord.dose ?? ""} onChange={e => updateEditField("dose", e.target.value)} /></div>
+                  <div><label>Total mg/PCU</label><input value={editingRecord.totalMgPcu ?? ""} onChange={e => updateEditField("totalMgPcu", e.target.value)} /></div>
+                </div>
+                <div className="mobile-grid mobile-grid--2" key={editFormKey}>
+                  <div>
+                    <label>Report (replace file)</label>
+                    <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={e => setEditReportFile(e.target.files?.[0] ?? null)} />
+                    {editReportFile && <div style={{ fontSize: "0.8rem", color: "#16a34a", marginTop: 4 }}>✓ {editReportFile.name}</div>}
+                    {!editReportFile && editingRecord.report && <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 4 }}>Current file kept</div>}
+                  </div>
+                  <div>
+                    <label>Prescription (replace file)</label>
+                    <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={e => setEditPrescriptionFile(e.target.files?.[0] ?? null)} />
+                    {editPrescriptionFile && <div style={{ fontSize: "0.8rem", color: "#16a34a", marginTop: 4 }}>✓ {editPrescriptionFile.name}</div>}
+                    {!editPrescriptionFile && editingRecord.prescription && <div style={{ fontSize: "0.8rem", color: "#64748b", marginTop: 4 }}>Current file kept</div>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                  <button className="mobile-button" type="submit" disabled={editSaving}
+                    style={{ background: "#1B3A5C", color: "#fff", flex: 1 }}>
+                    {editSaving ? "Saving..." : "Save Changes"}
+                  </button>
+                  <button className="mobile-button mobile-button--secondary" type="button"
+                    onClick={() => setEditingRecord(null)} style={{ flex: 1 }}>
+                    Cancel Edit
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                {/* VIEW MODE */}
+                {[
+                  ["Start Date", fmtDate(viewingRecord.startDate)],
+                  ["Finish Date", fmtDate(viewingRecord.finishDate)],
+                  ["Supplier", viewingRecord.supplier],
+                  ["Batch No", viewingRecord.batchNo],
+                  ["Expiry Date", fmtDate(viewingRecord.expireDate)],
+                  ["Quantity Purchased", viewingRecord.quantityPurchased],
+                  ["Quantity Used", viewingRecord.quantityUsed],
+                  ["Animal Identity", viewingRecord.animalIdentity],
+                  ["Houses Treated", viewingRecord.housesTreated],
+                  ["Birds Treated", viewingRecord.birdsTreated != null ? String(viewingRecord.birdsTreated) : null],
+                  ["Withdrawal Period", viewingRecord.withdrawalPeriod],
+                  ["Safe Slaughter Date", fmtDate(viewingRecord.safeSlaughterDate)],
+                  ["Administrator Name", viewingRecord.administratorName],
+                  ["Reason for Treatment", viewingRecord.reasonForTreatment],
+                  ["Method of Treatment", viewingRecord.methodOfTreatment],
+                  ["Dose mg/g", viewingRecord.dose],
+                  ["Total mg/PCU", viewingRecord.totalMgPcu],
+                ].map(([label, value]) => value ? (
+                  <div key={label as string} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #f1f5f9", gap: 8 }}>
+                    <span style={{ fontSize: "0.82rem", color: "#64748b", flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 500, textAlign: "right" }}>{value}</span>
+                  </div>
+                ) : null)}
+                {(viewingRecord.report || viewingRecord.prescription) && (
+                  <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {viewingRecord.report && (
+                      <a href={`/api/farm-documents/file?url=${encodeURIComponent(viewingRecord.report)}`} target="_blank" rel="noreferrer"
+                        style={{ display: "inline-block", padding: "8px 16px", background: "#1B3A5C", color: "#fff", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
+                        View Report
+                      </a>
+                    )}
+                    {viewingRecord.prescription && (
+                      <a href={`/api/farm-documents/file?url=${encodeURIComponent(viewingRecord.prescription)}`} target="_blank" rel="noreferrer"
+                        style={{ display: "inline-block", padding: "8px 16px", background: "#1B3A5C", color: "#fff", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
+                        View Prescription
+                      </a>
+                    )}
+                  </div>
+                )}
+                <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <a href={`/medication/print?id=${viewingRecord.id}`} target="_blank"
+                    style={{ display: "inline-block", padding: "8px 16px", background: "#f1f5f9", color: "#1e293b", borderRadius: 8, fontSize: "0.85rem", textDecoration: "none", fontWeight: 600 }}>
+                    Print
+                  </a>
+                  {canOperate && (
+                    <>
+                      <button className="mobile-button" style={{ background: "#1B3A5C", color: "#fff" }}
+                        onClick={() => startEdit(viewingRecord)}>
+                        Edit
+                      </button>
+                      <button className="mobile-button" style={{ background: "#dc2626", color: "#fff" }}
+                        onClick={() => setDeleteConfirmId(viewingRecord.id)}>
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
