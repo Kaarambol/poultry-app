@@ -287,19 +287,19 @@ export default function CropComparePage() {
                   {/* Thinning & Clearance */}
                   <SectionHeader label="Thinning / Clearance" />
                   {(c1.ageThinDays !== null || c2.ageThinDays !== null) && (
-                    <Row label="Age at thin 1"   v1={fmt(c1.ageThinDays)}  v2={fmt(c2.ageThinDays)}  unit="days" />
+                    <Row label="Avg age thin 1"  v1={fmt(c1.ageThinDays)}  v2={fmt(c2.ageThinDays)}  unit="days" />
                   )}
                   {(c1.birdsSoldThin > 0 || c2.birdsSoldThin > 0) && (
                     <Row label="Birds sold thin 1" v1={fmt(c1.birdsSoldThin)} v2={fmt(c2.birdsSoldThin)} />
                   )}
                   {(c1.ageThin2Days !== null || c2.ageThin2Days !== null) && (
-                    <Row label="Age at thin 2"   v1={fmt(c1.ageThin2Days)} v2={fmt(c2.ageThin2Days)} unit="days" />
+                    <Row label="Avg age thin 2"  v1={fmt(c1.ageThin2Days)} v2={fmt(c2.ageThin2Days)} unit="days" />
                   )}
                   {(c1.birdsSoldThin2 > 0 || c2.birdsSoldThin2 > 0) && (
                     <Row label="Birds sold thin 2" v1={fmt(c1.birdsSoldThin2)} v2={fmt(c2.birdsSoldThin2)} />
                   )}
                   {(c1.ageClearDays !== null || c2.ageClearDays !== null) && (
-                    <Row label="Age at clearance" v1={fmt(c1.ageClearDays)} v2={fmt(c2.ageClearDays)} unit="days" highlight />
+                    <Row label="Avg age clear"   v1={fmt(c1.ageClearDays)} v2={fmt(c2.ageClearDays)} unit="days" highlight />
                   )}
                   {(c1.birdsSoldClear > 0 || c2.birdsSoldClear > 0) && (
                     <Row label="Birds sold clear" v1={fmt(c1.birdsSoldClear)} v2={fmt(c2.birdsSoldClear)} />
