@@ -312,7 +312,7 @@ export default function HouseTablePage({
               Back to Dashboard
             </Link>
             <Link
-              href={`/houses/${houseId}/charts`}
+              href={searchParams.get("cropId") ? `/houses/${houseId}/charts?cropId=${searchParams.get("cropId")}` : `/houses/${houseId}/charts`}
               className="mobile-button mobile-button--secondary"
             >
               Open Charts

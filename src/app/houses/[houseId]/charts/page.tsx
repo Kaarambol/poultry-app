@@ -256,9 +256,17 @@ export default function HouseChartsPage({
         </div>
 
         <div className="mobile-card" style={{ marginBottom: 16 }}>
-          <Link href="/dashboard" className="mobile-button mobile-button--secondary">
-            Back to Dashboard
-          </Link>
+          <div className="mobile-actions">
+            <Link href="/dashboard" className="mobile-button mobile-button--secondary">
+              Back to Dashboard
+            </Link>
+            <Link
+              href={searchParams.get("cropId") ? `/houses/${houseId}/table?cropId=${searchParams.get("cropId")}` : `/houses/${houseId}/table`}
+              className="mobile-button mobile-button--secondary"
+            >
+              Open Table
+            </Link>
+          </div>
           <div style={{ marginTop: 10, fontSize: '0.8rem', color: '#555' }}>
             <strong>Birds Placed:</strong> {birdsPlaced.toLocaleString()}
             {thinDays.length > 0 && (
