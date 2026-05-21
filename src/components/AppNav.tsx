@@ -322,7 +322,7 @@ export default function AppNav() {
                 </select>
               </div>
             </div>
-            {renderSection("Main Menu", mainLinks.filter(l => l.href !== "/total" || canAccessTotal(myRole)))}
+            {renderSection("Main Menu", mainLinks.filter(l => l.href !== "/total" || !myRole || canAccessTotal(myRole)))}
             <div className="app-nav__panel">
               <button
                 type="button"
