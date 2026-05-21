@@ -45,6 +45,11 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString("en-GB");
 }
 
+function fmtDateInput(d: string | null) {
+  if (!d) return "";
+  return new Date(d).toISOString().slice(0, 10);
+}
+
 export default function MedicationPage() {
   const [currentFarmId, setCurrentFarmIdState] = useState("");
   const [farmName, setFarmName] = useState("");
@@ -61,10 +66,7 @@ export default function MedicationPage() {
   const [startDate, setStartDate] = useState("");
   const [medicineName, setMedicineName] = useState("");
   const [supplier, setSupplier] = useState("");
-  const [batchNo, setBatchNo] = useState("");
-  const [expireDate, setExpireDate] = useState("");
-  const [quantityPurchased, setQuantityPurchased] = useState("");
-  const [quantityUsed, setQuantityUsed] = useState("");
+  const [batches, setBatches] = useState([{ batchNo: "", expireDate: "", quantityPurchased: "", quantityUsed: "" }]);
   const [animalIdentity, setAnimalIdentity] = useState("Broiler");
   const [housesTreated, setHousesTreated] = useState("");
   const [birdsTreated, setBirdsTreated] = useState("");
@@ -84,6 +86,7 @@ export default function MedicationPage() {
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [viewingRecord, setViewingRecord] = useState<MedicationRecord | null>(null);
   const [editingRecord, setEditingRecord] = useState<MedicationRecord | null>(null);
+  const [editBatches, setEditBatches] = useState([{ batchNo: "", expireDate: "", quantityPurchased: "", quantityUsed: "" }]);
   const [editFormKey, setEditFormKey] = useState(0);
   const [editSaving, setEditSaving] = useState(false);
   const [editReportFile, setEditReportFile] = useState<File | null>(null);
@@ -192,8 +195,8 @@ export default function MedicationPage() {
   }
 
   function clearForm() {
-    setStartDate(""); setMedicineName(""); setSupplier(""); setBatchNo("");
-    setExpireDate(""); setQuantityPurchased(""); setQuantityUsed("");
+    setStartDate(""); setMedicineName(""); setSupplier("");
+    setBatches([{ batchNo: "", expireDate: "", quantityPurchased: "", quantityUsed: "" }]);
     setAnimalIdentity("Broiler"); setHousesTreated(""); setBirdsTreated("");
     setFinishDate(""); setWithdrawalPeriod(""); setSafeSlaughterDate("");
     setAdministratorName(""); setReasonForTreatment(""); setMethodOfTreatment("");
@@ -210,14 +213,16 @@ export default function MedicationPage() {
       return;
     }
     const fd = new FormData();
+    const join = (key: "batchNo" | "expireDate" | "quantityPurchased" | "quantityUsed") =>
+      batches.map(b => b[key]).filter(Boolean).join(" / ");
     fd.append("farmId",             currentFarmId);
     fd.append("startDate",          startDate);
     fd.append("medicineName",       medicineName);
     fd.append("supplier",           supplier);
-    fd.append("batchNo",            batchNo);
-    fd.append("expireDate",         expireDate);
-    fd.append("quantityPurchased",  quantityPurchased);
-    fd.append("quantityUsed",       quantityUsed);
+    fd.append("batchNo",            join("batchNo"));
+    fd.append("expireDate",         batches[0]?.expireDate ?? "");
+    fd.append("quantityPurchased",  join("quantityPurchased"));
+    fd.append("quantityUsed",       join("quantityUsed"));
     fd.append("animalIdentity",     animalIdentity);
     fd.append("housesTreated",      housesTreated);
     fd.append("birdsTreated",       birdsTreated);
@@ -249,7 +254,21 @@ export default function MedicationPage() {
   }
 
   function startEdit(record: MedicationRecord) {
-    setEditingRecord({ ...record });
+    // Parse stored " / " separated values back into rows
+    const splitField = (v: string | null) => (v ?? "").split(" / ").map(s => s.trim());
+    const batchNos   = splitField(record.batchNo);
+    const expDates   = splitField(record.expireDate ? fmtDateInput(record.expireDate) : null);
+    const qtPurch    = splitField(record.quantityPurchased);
+    const qtUsed     = splitField(record.quantityUsed);
+    const count = Math.max(1, batchNos.length, expDates.length, qtPurch.length, qtUsed.length);
+    const editBatches = Array.from({ length: count }, (_, i) => ({
+      batchNo:           batchNos[i]  ?? "",
+      expireDate:        expDates[i]  ?? "",
+      quantityPurchased: qtPurch[i]   ?? "",
+      quantityUsed:      qtUsed[i]    ?? "",
+    }));
+    setEditingRecord({ ...record, batchNo: record.batchNo, expireDate: record.expireDate });
+    setEditBatches(editBatches);
     setEditReportFile(null);
     setEditPrescriptionFile(null);
     setEditFormKey(k => k + 1);
@@ -268,10 +287,12 @@ export default function MedicationPage() {
     fd.append("startDate",           editingRecord.startDate?.slice(0, 10) ?? "");
     fd.append("medicineName",        editingRecord.medicineName);
     fd.append("supplier",            editingRecord.supplier ?? "");
-    fd.append("batchNo",             editingRecord.batchNo ?? "");
-    fd.append("expireDate",          editingRecord.expireDate?.slice(0, 10) ?? "");
-    fd.append("quantityPurchased",   editingRecord.quantityPurchased ?? "");
-    fd.append("quantityUsed",        editingRecord.quantityUsed ?? "");
+    const ejoin = (key: "batchNo" | "expireDate" | "quantityPurchased" | "quantityUsed") =>
+      editBatches.map(b => b[key]).filter(Boolean).join(" / ");
+    fd.append("batchNo",             ejoin("batchNo"));
+    fd.append("expireDate",          editBatches[0]?.expireDate ?? "");
+    fd.append("quantityPurchased",   ejoin("quantityPurchased"));
+    fd.append("quantityUsed",        ejoin("quantityUsed"));
     fd.append("animalIdentity",      editingRecord.animalIdentity ?? "");
     fd.append("housesTreated",       editingRecord.housesTreated ?? "");
     fd.append("birdsTreated",        editingRecord.birdsTreated != null ? String(editingRecord.birdsTreated) : "");
@@ -363,15 +384,34 @@ export default function MedicationPage() {
                 </div>
                 <div className="mobile-grid mobile-grid--2">
                   <div><label>Supplier</label><input value={editingRecord.supplier ?? ""} onChange={e => updateEditField("supplier", e.target.value)} /></div>
-                  <div><label>Batch No</label><input value={editingRecord.batchNo ?? ""} onChange={e => updateEditField("batchNo", e.target.value)} /></div>
-                </div>
-                <div className="mobile-grid mobile-grid--2">
-                  <div><label>Expiry Date</label><input type="date" value={editingRecord.expireDate?.slice(0,10) ?? ""} onChange={e => updateEditField("expireDate", e.target.value)} /></div>
                   <div><label>Finish Date</label><input type="date" value={editingRecord.finishDate?.slice(0,10) ?? ""} onChange={e => updateEditField("finishDate", e.target.value)} /></div>
                 </div>
-                <div className="mobile-grid mobile-grid--2">
-                  <div><label>Quantity Purchased</label><input value={editingRecord.quantityPurchased ?? ""} onChange={e => updateEditField("quantityPurchased", e.target.value)} /></div>
-                  <div><label>Quantity Used</label><input value={editingRecord.quantityUsed ?? ""} onChange={e => updateEditField("quantityUsed", e.target.value)} /></div>
+
+                {/* Batch rows */}
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 4, alignItems: "center" }}>
+                    <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Batch No</span>
+                    <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Expiry Date</span>
+                    <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Qty Purchased</span>
+                    <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Qty Used</span>
+                    <span />
+                  </div>
+                  {editBatches.map((b, i) => (
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                      <input value={b.batchNo} onChange={e => setEditBatches(prev => prev.map((r, j) => j === i ? { ...r, batchNo: e.target.value } : r))} style={{ margin: 0 }} />
+                      <input type="date" value={b.expireDate} onChange={e => setEditBatches(prev => prev.map((r, j) => j === i ? { ...r, expireDate: e.target.value } : r))} style={{ margin: 0 }} />
+                      <input value={b.quantityPurchased} onChange={e => setEditBatches(prev => prev.map((r, j) => j === i ? { ...r, quantityPurchased: e.target.value } : r))} style={{ margin: 0 }} />
+                      <input value={b.quantityUsed} onChange={e => setEditBatches(prev => prev.map((r, j) => j === i ? { ...r, quantityUsed: e.target.value } : r))} style={{ margin: 0 }} />
+                      {editBatches.length > 1 ? (
+                        <button type="button" onClick={() => setEditBatches(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: "1.1rem", padding: "0 4px", lineHeight: 1 }}>✕</button>
+                      ) : <span />}
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setEditBatches(prev => [...prev, { batchNo: "", expireDate: "", quantityPurchased: "", quantityUsed: "" }])}
+                    style={{ fontSize: "0.8rem", color: "#2563eb", background: "none", border: "1px dashed #93c5fd", borderRadius: 6, padding: "4px 12px", cursor: "pointer", marginTop: 2 }}>
+                    + Add row
+                  </button>
                 </div>
                 <div className="mobile-grid mobile-grid--2">
                   <div><label>Animal Identity</label><input value={editingRecord.animalIdentity ?? ""} onChange={e => updateEditField("animalIdentity", e.target.value)} /></div>
@@ -541,15 +581,36 @@ export default function MedicationPage() {
             </div>
             <div className="mobile-grid mobile-grid--2">
               <div><label>Supplier</label><input value={supplier} onChange={e => setSupplier(e.target.value)} disabled={!canOperate} /></div>
-              <div><label>Batch No</label><input value={batchNo} onChange={e => setBatchNo(e.target.value)} disabled={!canOperate} /></div>
-            </div>
-            <div className="mobile-grid mobile-grid--2">
-              <div><label>Expiry Date</label><input type="date" value={expireDate} onChange={e => setExpireDate(e.target.value)} disabled={!canOperate} /></div>
               <div><label>Finish Date</label><input type="date" value={finishDate} onChange={e => setFinishDate(e.target.value)} disabled={!canOperate} /></div>
             </div>
-            <div className="mobile-grid mobile-grid--2">
-              <div><label>Quantity Purchased</label><input value={quantityPurchased} onChange={e => setQuantityPurchased(e.target.value)} disabled={!canOperate} /></div>
-              <div><label>Quantity Used</label><input value={quantityUsed} onChange={e => setQuantityUsed(e.target.value)} disabled={!canOperate} /></div>
+
+            {/* Batch rows */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 4, alignItems: "center" }}>
+                <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Batch No</span>
+                <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Expiry Date</span>
+                <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Qty Purchased</span>
+                <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Qty Used</span>
+                <span />
+              </div>
+              {batches.map((b, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                  <input value={b.batchNo} onChange={e => setBatches(prev => prev.map((r, j) => j === i ? { ...r, batchNo: e.target.value } : r))} disabled={!canOperate} style={{ margin: 0 }} />
+                  <input type="date" value={b.expireDate} onChange={e => setBatches(prev => prev.map((r, j) => j === i ? { ...r, expireDate: e.target.value } : r))} disabled={!canOperate} style={{ margin: 0 }} />
+                  <input value={b.quantityPurchased} onChange={e => setBatches(prev => prev.map((r, j) => j === i ? { ...r, quantityPurchased: e.target.value } : r))} disabled={!canOperate} style={{ margin: 0 }} />
+                  <input value={b.quantityUsed} onChange={e => setBatches(prev => prev.map((r, j) => j === i ? { ...r, quantityUsed: e.target.value } : r))} disabled={!canOperate} style={{ margin: 0 }} />
+                  {batches.length > 1 && canOperate ? (
+                    <button type="button" onClick={() => setBatches(prev => prev.filter((_, j) => j !== i))}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: "1.1rem", padding: "0 4px", lineHeight: 1 }}>✕</button>
+                  ) : <span />}
+                </div>
+              ))}
+              {canOperate && (
+                <button type="button" onClick={() => setBatches(prev => [...prev, { batchNo: "", expireDate: "", quantityPurchased: "", quantityUsed: "" }])}
+                  style={{ fontSize: "0.8rem", color: "#2563eb", background: "none", border: "1px dashed #93c5fd", borderRadius: 6, padding: "4px 12px", cursor: "pointer", marginTop: 2 }}>
+                  + Add row
+                </button>
+              )}
             </div>
             <div className="mobile-grid mobile-grid--2">
               <div><label>Animal Identity</label><input value={animalIdentity} onChange={e => setAnimalIdentity(e.target.value)} disabled={!canOperate} /></div>
