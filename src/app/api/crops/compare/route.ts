@@ -32,14 +32,31 @@ async function buildCropStats(cropNumber: string, farmId: string) {
   const closingStockKg   = (crop.closingFeedStockKg  ?? 0) + (crop.closingWheatStockKg ?? 0);
   const totalFeedKg      = Math.max(0, openingStockKg + feedDeliveredKg + wheatDeliveredKg - closingStockKg);
 
-  // --- Crop length: days from placement to latest clearDate (capped at today) ---
+  // --- Crop length (weeks) — same formula as Total page ---
+  // cropEndMs = latest clearDate capped at today
   const clearTimestamps = crop.placements
     .map(p => p.clearDate ? new Date(p.clearDate).getTime() : null)
     .filter((d): d is number => d !== null);
-  const endMs = clearTimestamps.length > 0
+  const cropEndMs = clearTimestamps.length > 0
     ? Math.min(Date.now(), Math.max(...clearTimestamps))
     : Date.now();
-  const cropLengthDays = Math.max(1, Math.floor((endMs - placementMs) / MSDAY));
+  const ageDays = Math.max(1, Math.floor((cropEndMs - placementMs) / MSDAY));
+
+  // Previous crop: most recently finished crop placed before this one
+  const prevCrop = await prisma.crop.findFirst({
+    where: {
+      farmId,
+      status: "finished",
+      placementDate: { lt: crop.placementDate },
+    },
+    orderBy: { placementDate: "desc" },
+    select: { finishDate: true },
+  });
+  const prevFinishMs = prevCrop?.finishDate ? new Date(prevCrop.finishDate).getTime() : null;
+  const lengthCropDays = prevFinishMs
+    ? Math.max(1, Math.floor((cropEndMs - prevFinishMs) / MSDAY))
+    : ageDays + 10;
+  const cropLengthWeeks = lengthCropDays / 7;
 
   // --- Final weight ---
   const weightRecords  = crop.daily.filter(r => r.avgWeightG !== null);
@@ -59,11 +76,11 @@ async function buildCropStats(cropNumber: string, farmId: string) {
     fcr = totalFeedKg / (finalBirdsSold * finalAvgWeightKg);
   }
 
-  // --- EPEF ---
+  // --- EPEF — uses ageDays (bird age), not lengthCrop ---
   let epef: number | null = null;
-  if (fcr && fcr > 0 && cropLengthDays > 0 && finalAvgWeightKg && birdsPlaced > 0) {
+  if (fcr && fcr > 0 && ageDays > 0 && finalAvgWeightKg && birdsPlaced > 0) {
     const livabilityPct = ((birdsPlaced - totalLosses) / birdsPlaced) * 100;
-    epef = (livabilityPct * finalAvgWeightKg * 100) / (fcr * cropLengthDays);
+    epef = (livabilityPct * finalAvgWeightKg * 100) / (fcr * ageDays);
   }
 
   // --- Margin ---
@@ -146,9 +163,9 @@ async function buildCropStats(cropNumber: string, farmId: string) {
     }
   }
 
-  const ageThinDays  = avgAgeThinBirds  > 0 ? Math.round(avgAgeThinSum  / avgAgeThinBirds)  : null;
-  const ageThin2Days = avgAgeThin2Birds > 0 ? Math.round(avgAgeThin2Sum / avgAgeThin2Birds) : null;
-  const ageClearDays = avgAgeClearBirds > 0 ? Math.round(avgAgeClearSum / avgAgeClearBirds) : null;
+  const ageThinDays  = avgAgeThinBirds  > 0 ? avgAgeThinSum  / avgAgeThinBirds  : null;
+  const ageThin2Days = avgAgeThin2Birds > 0 ? avgAgeThin2Sum / avgAgeThin2Birds : null;
+  const ageClearDays = avgAgeClearBirds > 0 ? avgAgeClearSum / avgAgeClearBirds : null;
 
   const birdsSoldThin  = crop.placements.reduce((s, p) => s + (p.thinBirds  ?? 0), 0);
   const birdsSoldThin2 = crop.placements.reduce((s, p) => s + (p.thin2Birds ?? 0), 0);
@@ -171,7 +188,7 @@ async function buildCropStats(cropNumber: string, farmId: string) {
     // feed (consumed)
     totalFeedKg,
     // length & weight
-    cropLengthDays,
+    cropLengthWeeks,
     finalAvgWeightKg,
     finalBirdsSold,
     // performance
