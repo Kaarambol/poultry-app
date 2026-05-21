@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getCurrentFarmId } from "@/lib/app-context";
+
+type CropOption = {
+  id: string;
+  cropNumber: string;
+  placementDate: string;
+  status: string;
+};
 
 type CropStats = {
   id: string;
@@ -108,9 +115,21 @@ function SectionHeader({ label }: { label: string }) {
 export default function CropComparePage() {
   const [num1, setNum1] = useState("");
   const [num2, setNum2] = useState("");
+  const [crops, setCrops] = useState<CropOption[]>([]);
   const [result, setResult] = useState<{ crop1: CropStats; crop2: CropStats } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const farmId = getCurrentFarmId();
+    if (!farmId) return;
+    fetch(`/api/crops/list?farmId=${farmId}`)
+      .then((r) => r.json())
+      .then((data: CropOption[]) => {
+        if (Array.isArray(data)) setCrops(data);
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleCompare(e: React.FormEvent) {
     e.preventDefault();
@@ -157,7 +176,7 @@ export default function CropComparePage() {
             <div className="page-intro__eyebrow">History</div>
             <h1 className="page-intro__title">Crop Comparison</h1>
             <p className="page-intro__subtitle">
-              Enter two crop numbers to compare their results side by side.
+              Select two crops to compare their results side by side.
             </p>
           </div>
         </div>
@@ -167,24 +186,28 @@ export default function CropComparePage() {
             <div className="mobile-grid mobile-grid--2">
               <div>
                 <label>Crop A</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 3009"
-                  value={num1}
-                  onChange={(e) => setNum1(e.target.value)}
-                />
+                <select value={num1} onChange={(e) => setNum1(e.target.value)}>
+                  <option value="">— select —</option>
+                  {crops.map((c) => (
+                    <option key={c.id} value={c.cropNumber}>
+                      {c.cropNumber} · {new Date(c.placementDate).toLocaleDateString("en-GB")} ({c.status})
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label>Crop B</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 3008"
-                  value={num2}
-                  onChange={(e) => setNum2(e.target.value)}
-                />
+                <select value={num2} onChange={(e) => setNum2(e.target.value)}>
+                  <option value="">— select —</option>
+                  {crops.map((c) => (
+                    <option key={c.id} value={c.cropNumber}>
+                      {c.cropNumber} · {new Date(c.placementDate).toLocaleDateString("en-GB")} ({c.status})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-            <button className="mobile-full-button" type="submit" disabled={loading}>
+            <button className="mobile-full-button" type="submit" disabled={loading || !num1 || !num2}>
               {loading ? "Loading..." : "Compare"}
             </button>
           </form>
