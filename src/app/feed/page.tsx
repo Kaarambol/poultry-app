@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { getCurrentFarmId, getHistoryCropId, setCurrentCropId, isViewingHistory } from "@/lib/app-context";
 import { FarmRole, canOperateUi, isReadOnlyUi, canSeeCosts } from "@/lib/ui-permissions";
 
@@ -344,6 +345,12 @@ export default function FeedPage() {
               <div style={{ marginTop: 6 }}>Your role: {myRole || "-"}</div>
             </div>
           </div>
+        </div>
+
+        <div className="mobile-card" style={{ marginBottom: 16 }}>
+          <Link href="/feed/order" className="mobile-button mobile-button--secondary">
+            Feed Order →
+          </Link>
         </div>
 
         {readOnly && <div className="mobile-alert mobile-alert--warning" style={{ marginBottom: 16 }}>Read-only mode.</div>}

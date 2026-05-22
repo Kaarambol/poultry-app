@@ -76,6 +76,7 @@ model Farm {
   nightChecks    NightCheck[]
   documents      FarmDocument[]
   targetProfiles TargetProfile[]
+  feedBins       FeedBin[]
 }
 
 model House {
@@ -483,6 +484,19 @@ model ForumPost {
   author User       @relation("ForumPostAuthor", fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([topicId])
+}
+
+model FeedBin {
+  id             String @id @default(cuid())
+  farmId         String
+  name           String
+  capacityTonnes Float  @default(13.5)
+  sortOrder      Int    @default(0)
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([farmId, name])
+  @@index([farmId, sortOrder])
 }
 
 model UserForumLanguage {
