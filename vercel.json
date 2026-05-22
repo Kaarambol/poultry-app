@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npx prisma migrate deploy && next build",
+  "buildCommand": "node scripts/db-deploy.js && next build",
   "crons": [
     {
       "path": "/api/cron/weekly-backup",
