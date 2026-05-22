@@ -61,8 +61,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(saved);
-  } catch (e) {
+  } catch (e: any) {
     console.error("FEED BINS POST ERROR:", e);
-    return NextResponse.json({ error: "Server error." }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Server error." }, { status: 500 });
   }
 }
