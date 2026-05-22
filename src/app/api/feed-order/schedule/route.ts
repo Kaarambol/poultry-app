@@ -35,6 +35,7 @@ export interface WeekRow {
   orderNeededTonnes: number;
   closingUnlockedKg: number; // closing stock that becomes available if closing bin ordered
   stockAfterKg: number;     // stock after order + closing bin delivery
+  feedProducts: string[];   // feed types active during this week
   notes: string[];
 }
 
@@ -172,6 +173,25 @@ export async function GET(req: NextRequest) {
       return { kg: totalKg, totalBirds };
     }
 
+    // ── 5b. Load feed phases ──────────────────────────────────────────────
+    const phaseTemplate = await prisma.feedPhaseTemplate.findUnique({
+      where: { farmId },
+      include: { phases: { orderBy: { sortOrder: "asc" } } },
+    });
+    const feedPhases = phaseTemplate?.phases ?? [];
+
+    function getFeedProductsForWeek(ageStart: number, ageEnd: number): string[] {
+      const products = new Set<string>();
+      for (const phase of feedPhases) {
+        const phaseStart = phase.dayFrom;
+        const phaseEnd = phase.dayTo ?? 60;
+        if (ageStart <= phaseEnd && ageEnd >= phaseStart) {
+          products.add(phase.feedProduct);
+        }
+      }
+      return [...products];
+    }
+
     // ── 6. Load current stock ─────────────────────────────────────────────
     const stockRecord = await prisma.feedOrderStock.findUnique({ where: { farmId } });
     let runningStockKg = (stockRecord?.activeStockTonnes ?? 0) * 1000;
@@ -271,6 +291,7 @@ export async function GET(req: NextRequest) {
 
       const ageMin = ageSet.length > 0 ? Math.min(...ageSet) : 0;
       const ageMax = ageSet.length > 0 ? Math.max(...ageSet) : 0;
+      const feedProducts = getFeedProductsForWeek(ageMin, ageMax);
 
       rows.push({
         wednesday: toISO(wednesday),
@@ -285,6 +306,7 @@ export async function GET(req: NextRequest) {
         orderNeededTonnes: Math.round(orderKg) / 1000,
         closingUnlockedKg: Math.round(closingUnlocked),
         stockAfterKg: Math.round(stockAfter),
+        feedProducts,
         notes,
       });
 

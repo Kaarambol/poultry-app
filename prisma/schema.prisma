@@ -79,6 +79,7 @@ model Farm {
   feedBins            FeedBin[]
   feedBinAssignments  FeedBinAssignment[]
   feedOrderStock      FeedOrderStock?
+  feedPhaseTemplate   FeedPhaseTemplate?
 }
 
 model House {
@@ -514,6 +515,27 @@ model FeedOrderStock {
 
   farm       Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
   closingBin FeedBin? @relation(fields: [closingBinId], references: [id], onDelete: SetNull)
+}
+
+model FeedPhaseTemplate {
+  id     String @id @default(cuid())
+  farmId String @unique
+
+  farm   Farm        @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  phases FeedPhase[]
+}
+
+model FeedPhase {
+  id          String  @id @default(cuid())
+  templateId  String
+  feedProduct String
+  dayFrom     Int
+  dayTo       Int?
+  sortOrder   Int     @default(0)
+
+  template FeedPhaseTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, sortOrder])
 }
 
 model FeedBinAssignment {

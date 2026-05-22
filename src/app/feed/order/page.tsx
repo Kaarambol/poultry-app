@@ -30,6 +30,7 @@ type WeekRow = {
   orderNeededTonnes: number;
   closingUnlockedKg: number;
   stockAfterKg: number;
+  feedProducts: string[];
   notes: string[];
 };
 
@@ -47,6 +48,31 @@ function fmtDate(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
+
+const FEED_PRODUCTS = [
+  { value: "STARTER_CRUMB_185",  label: "Starter Crumb 185" },
+  { value: "REARER_PELLET_385",  label: "Rearer Pellet 385" },
+  { value: "GROWER_PELLET_485",  label: "Grower Pellet 485" },
+  { value: "FINISHER_PELLET_585", label: "Finisher Pellet 585" },
+];
+
+function getFeedLabel(v: string) {
+  return FEED_PRODUCTS.find(p => p.value === v)?.label ?? v;
+}
+
+type FeedPhase = {
+  id?: string;
+  feedProduct: string;
+  dayFrom: number;
+  dayTo: number | null;
+};
+
+const DEFAULT_PHASES: FeedPhase[] = [
+  { feedProduct: "STARTER_CRUMB_185",  dayFrom: 0,  dayTo: 10 },
+  { feedProduct: "REARER_PELLET_385",  dayFrom: 11, dayTo: 15 },
+  { feedProduct: "GROWER_PELLET_485",  dayFrom: 16, dayTo: 24 },
+  { feedProduct: "FINISHER_PELLET_585", dayFrom: 25, dayTo: null },
+];
 
 const PRESETS = [
   { label: "1a–8b (16)", bins: ["1a","1b","2a","2b","3a","3b","4a","4b","5a","5b","6a","6b","7a","7b","8a","8b"] },
@@ -71,6 +97,12 @@ export default function FeedOrderPage() {
   // assignments[houseId] = Set of binIds
   const [assignments, setAssignments]       = useState<Record<string, Set<string>>>({});
   const [savingAssign, setSavingAssign]     = useState(false);
+
+  // Feed phase state
+  const [savedPhases, setSavedPhases]     = useState<FeedPhase[]>([]);
+  const [editingPhases, setEditingPhases] = useState(false);
+  const [draftPhases, setDraftPhases]     = useState<FeedPhase[]>(DEFAULT_PHASES);
+  const [savingPhases, setSavingPhases]   = useState(false);
 
   // Current stock state
   const [activeStock, setActiveStock]       = useState("0");
@@ -98,7 +130,52 @@ export default function FeedOrderPage() {
     loadBins(fid);
     loadAssignments(fid);
     loadStock(fid);
+    loadPhases(fid);
   }, []);
+
+  async function loadPhases(fid: string) {
+    const r = await fetch(`/api/feed-phases?farmId=${fid}`);
+    const d = await r.json();
+    if (Array.isArray(d) && d.length > 0) {
+      setSavedPhases(d);
+      setDraftPhases(d);
+    } else {
+      setSavedPhases([]);
+      setDraftPhases(DEFAULT_PHASES);
+    }
+  }
+
+  async function savePhases(e: React.FormEvent) {
+    e.preventDefault();
+    if (!farmId) return;
+    setSavingPhases(true);
+    try {
+      const r = await fetch("/api/feed-phases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ farmId, phases: draftPhases }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Error saving.");
+      setSavedPhases(d);
+      setEditingPhases(false);
+      setMsgType("success"); setMsg("Feed phases saved.");
+    } catch (err: any) {
+      setMsgType("error"); setMsg(err.message);
+    } finally {
+      setSavingPhases(false);
+    }
+  }
+
+  function updateDraftPhase(i: number, field: keyof FeedPhase, value: string) {
+    setDraftPhases(prev => prev.map((p, j) => {
+      if (j !== i) return p;
+      if (field === "feedProduct") return { ...p, feedProduct: value };
+      if (field === "dayFrom") return { ...p, dayFrom: parseInt(value) || 0 };
+      if (field === "dayTo") return { ...p, dayTo: value === "" ? null : (parseInt(value) || null) };
+      return p;
+    }));
+  }
 
   async function loadStock(fid: string) {
     const r = await fetch(`/api/feed-order-stock?farmId=${fid}`);
@@ -310,6 +387,92 @@ export default function FeedOrderPage() {
             {msg}
           </div>
         )}
+
+        {/* ── SECTION 0: FEED PHASES ── */}
+        <div className="mobile-card" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h2 style={{ margin: 0 }}>Feed Phases</h2>
+            {!editingPhases && canOperate && (
+              <button className="mobile-button mobile-button--secondary"
+                style={{ padding: "4px 14px", fontSize: "0.85rem" }}
+                onClick={() => { setDraftPhases(savedPhases.length ? savedPhases : DEFAULT_PHASES); setEditingPhases(true); setMsg(""); }}>
+                {savedPhases.length ? "Edit" : "Set up"}
+              </button>
+            )}
+          </div>
+
+          {/* VIEW mode */}
+          {!editingPhases && savedPhases.length > 0 && (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>Feed type</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>From (day)</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>To (day)</span>
+              </div>
+              {savedPhases.map((p, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px", gap: 8, padding: "6px 0", borderBottom: "1px solid #f1f5f9" }}>
+                  <span style={{ fontSize: "0.88rem", fontWeight: 600 }}>{getFeedLabel(p.feedProduct)}</span>
+                  <span style={{ fontSize: "0.85rem", color: "#475569" }}>D{p.dayFrom}</span>
+                  <span style={{ fontSize: "0.85rem", color: "#475569" }}>{p.dayTo != null ? `D${p.dayTo}` : "end"}</span>
+                </div>
+              ))}
+            </>
+          )}
+
+          {!editingPhases && savedPhases.length === 0 && (
+            <p style={{ margin: 0, color: "#64748b", fontSize: "0.85rem" }}>
+              No feed phases configured yet. {canOperate ? "Click \"Set up\" to define your feed schedule." : ""}
+            </p>
+          )}
+
+          {/* EDIT mode */}
+          {editingPhases && canOperate && (
+            <form onSubmit={savePhases}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 32px", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>Feed type</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>From day</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>To day</span>
+                <span />
+              </div>
+              {draftPhases.map((p, i) => (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 32px", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                  <select value={p.feedProduct} onChange={e => updateDraftPhase(i, "feedProduct", e.target.value)} style={{ margin: 0 }}>
+                    {FEED_PRODUCTS.map(fp => (
+                      <option key={fp.value} value={fp.value}>{fp.label}</option>
+                    ))}
+                  </select>
+                  <input type="number" min="0" max="60" value={p.dayFrom}
+                    onChange={e => updateDraftPhase(i, "dayFrom", e.target.value)}
+                    style={{ margin: 0 }} />
+                  <input type="number" min="0" max="60" value={p.dayTo ?? ""}
+                    placeholder="end"
+                    onChange={e => updateDraftPhase(i, "dayTo", e.target.value)}
+                    style={{ margin: 0 }} />
+                  {draftPhases.length > 1 ? (
+                    <button type="button"
+                      onClick={() => setDraftPhases(prev => prev.filter((_, j) => j !== i))}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: "1.1rem", padding: 0 }}>✕</button>
+                  ) : <span />}
+                </div>
+              ))}
+              <button type="button"
+                onClick={() => setDraftPhases(prev => [...prev, { feedProduct: "FINISHER_PELLET_585", dayFrom: 0, dayTo: null }])}
+                style={{ fontSize: "0.8rem", color: "#2563eb", background: "none", border: "1px dashed #93c5fd", borderRadius: 6, padding: "5px 16px", cursor: "pointer", margin: "4px 0 14px", width: "100%" }}>
+                + Add phase
+              </button>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="mobile-button" type="submit" disabled={savingPhases}
+                  style={{ background: "#1B3A5C", color: "#fff", flex: 1 }}>
+                  {savingPhases ? "Saving..." : "Save Phases"}
+                </button>
+                <button className="mobile-button mobile-button--secondary" type="button"
+                  onClick={() => setEditingPhases(false)} style={{ flex: 1 }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
 
         {/* ── SECTION 1: BIN CONFIGURATION ── */}
         <div className="mobile-card" style={{ marginBottom: 16 }}>
@@ -581,6 +744,7 @@ export default function FeedOrderPage() {
                       <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Order Wed</th>
                       <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Covers</th>
                       <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Age</th>
+                      <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Feed type</th>
                       <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Birds</th>
                       <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Weekly (t)</th>
                       <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Stock before (t)</th>
@@ -606,6 +770,9 @@ export default function FeedOrderPage() {
                           </td>
                           <td style={{ padding: "7px 10px", textAlign: "right", color: "#475569", whiteSpace: "nowrap" }}>
                             D{row.ageRangeStart}–D{row.ageRangeEnd}
+                          </td>
+                          <td style={{ padding: "7px 10px", fontSize: "0.75rem", color: "#475569" }}>
+                            {row.feedProducts.map(fp => getFeedLabel(fp)).join(", ") || "—"}
                           </td>
                           <td style={{ padding: "7px 10px", textAlign: "right", color: "#475569" }}>
                             {row.totalBirdsAvg > 0 ? fmt(row.totalBirdsAvg) : "—"}
