@@ -20,6 +20,7 @@ const alreadyApplied = [
   "20260513000001_add_darkness_checktime",
   "20260513000002_add_superadmin",
   "20260513000003_add_thin_clear_weights",
+  "20260522000001_add_feed_bins",
 ];
 
 for (const name of alreadyApplied) {

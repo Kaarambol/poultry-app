@@ -78,6 +78,7 @@ model Farm {
   targetProfiles      TargetProfile[]
   feedBins            FeedBin[]
   feedBinAssignments  FeedBinAssignment[]
+  feedOrderStock      FeedOrderStock?
 }
 
 model House {
@@ -495,11 +496,24 @@ model FeedBin {
   capacityTonnes Float  @default(13.5)
   sortOrder      Int    @default(0)
 
-  farm        Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  assignments FeedBinAssignment[]
+  farm           Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  assignments    FeedBinAssignment[]
+  closingStockFor FeedOrderStock[]
 
   @@unique([farmId, name])
   @@index([farmId, sortOrder])
+}
+
+model FeedOrderStock {
+  id                String   @id @default(cuid())
+  farmId            String   @unique
+  activeStockTonnes Float    @default(0)
+  closingBinId      String?
+  closingBinTonnes  Float    @default(0)
+  updatedAt         DateTime @updatedAt
+
+  farm       Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  closingBin FeedBin? @relation(fields: [closingBinId], references: [id], onDelete: SetNull)
 }
 
 model FeedBinAssignment {

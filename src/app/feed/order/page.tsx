@@ -17,6 +17,37 @@ type House = {
   code: string | null;
 };
 
+type WeekRow = {
+  wednesday: string;
+  weekStart: string;
+  weekEnd: string;
+  ageRangeStart: number;
+  ageRangeEnd: number;
+  totalBirdsAvg: number;
+  weeklyConsumptionKg: number;
+  stockBeforeKg: number;
+  orderNeededKg: number;
+  orderNeededTonnes: number;
+  closingUnlockedKg: number;
+  stockAfterKg: number;
+  notes: string[];
+};
+
+type ScheduleMeta = {
+  totalBinCapacityTonnes: number;
+  maxOrderTonnes: number;
+  cycleEnd: string;
+  closingBinName: string | null;
+  closingBinTonnes: number;
+  activeStockTonnes: number;
+};
+
+function fmt(n: number) { return n.toLocaleString("en-GB", { maximumFractionDigits: 1 }); }
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+}
+
 const PRESETS = [
   { label: "1a–8b (16)", bins: ["1a","1b","2a","2b","3a","3b","4a","4b","5a","5b","6a","6b","7a","7b","8a","8b"] },
   { label: "1–16",        bins: Array.from({ length: 16 }, (_, i) => String(i + 1)) },
@@ -41,6 +72,18 @@ export default function FeedOrderPage() {
   const [assignments, setAssignments]       = useState<Record<string, Set<string>>>({});
   const [savingAssign, setSavingAssign]     = useState(false);
 
+  // Current stock state
+  const [activeStock, setActiveStock]       = useState("0");
+  const [closingBinId, setClosingBinId]     = useState("");
+  const [closingBinTonnes, setClosingBinTonnes] = useState("0");
+  const [savingStock, setSavingStock]       = useState(false);
+
+  // Schedule state
+  const [scheduleRows, setScheduleRows]     = useState<WeekRow[]>([]);
+  const [scheduleMeta, setScheduleMeta]     = useState<ScheduleMeta | null>(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleWarning, setScheduleWarning] = useState("");
+
   const [msg, setMsg]       = useState("");
   const [msgType, setMsgType] = useState<"success" | "error">("success");
 
@@ -54,7 +97,66 @@ export default function FeedOrderPage() {
     fetch(`/api/houses/list?farmId=${fid}`).then(r => r.json()).then(d => { if (Array.isArray(d)) setHouses(d); }).catch(() => {});
     loadBins(fid);
     loadAssignments(fid);
+    loadStock(fid);
   }, []);
+
+  async function loadStock(fid: string) {
+    const r = await fetch(`/api/feed-order-stock?farmId=${fid}`);
+    const d = await r.json();
+    if (r.ok) {
+      setActiveStock(String(d.activeStockTonnes ?? 0));
+      setClosingBinId(d.closingBinId ?? "");
+      setClosingBinTonnes(String(d.closingBinTonnes ?? 0));
+      // Auto-load schedule if stock was previously saved
+      if ((d.activeStockTonnes ?? 0) > 0) {
+        loadSchedule(fid);
+      }
+    }
+  }
+
+  async function saveStock(e: React.FormEvent) {
+    e.preventDefault();
+    if (!farmId) return;
+    setSavingStock(true);
+    try {
+      const r = await fetch("/api/feed-order-stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          farmId,
+          activeStockTonnes: parseFloat(activeStock) || 0,
+          closingBinId: closingBinId || null,
+          closingBinTonnes: parseFloat(closingBinTonnes) || 0,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Error saving stock.");
+      setMsgType("success");
+      setMsg("Current stock saved.");
+      loadSchedule(farmId);
+    } catch (err: any) {
+      setMsgType("error"); setMsg(err.message);
+    } finally {
+      setSavingStock(false);
+    }
+  }
+
+  async function loadSchedule(fid: string) {
+    setScheduleLoading(true);
+    setScheduleWarning("");
+    try {
+      const r = await fetch(`/api/feed-order/schedule?farmId=${fid}`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Error loading schedule.");
+      setScheduleRows(d.rows ?? []);
+      setScheduleMeta(d.meta ?? null);
+      if (d.warning) setScheduleWarning(d.warning);
+    } catch (err: any) {
+      setScheduleWarning(err.message);
+    } finally {
+      setScheduleLoading(false);
+    }
+  }
 
   async function loadBins(fid: string) {
     const r = await fetch(`/api/feed-bins?farmId=${fid}`);
@@ -377,6 +479,158 @@ export default function FeedOrderPage() {
               <button className="mobile-full-button" onClick={saveAssignments} disabled={savingAssign}>
                 {savingAssign ? "Saving..." : "Save House Assignments"}
               </button>
+            )}
+          </div>
+        )}
+
+        {/* ── SECTION 3: CURRENT STOCK ── */}
+        {savedBins.length > 0 && (
+          <div className="mobile-card" style={{ marginBottom: 16 }}>
+            <h2 style={{ marginTop: 0 }}>Current Stock</h2>
+            <p style={{ margin: "0 0 14px", fontSize: "0.82rem", color: "#64748b" }}>
+              Enter current stock levels to generate the delivery schedule.
+            </p>
+            <form onSubmit={saveStock}>
+              <div className="mobile-grid mobile-grid--2" style={{ marginBottom: 12 }}>
+                <div>
+                  <label>Active stock (tonnes)</label>
+                  <input
+                    type="number" step="0.1" min="0"
+                    value={activeStock}
+                    onChange={e => setActiveStock(e.target.value)}
+                    placeholder="e.g. 45.5"
+                  />
+                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 2 }}>
+                    Total usable feed in bins right now
+                  </div>
+                </div>
+                <div>
+                  <label>Closing stock (tonnes)</label>
+                  <input
+                    type="number" step="0.1" min="0"
+                    value={closingBinTonnes}
+                    onChange={e => setClosingBinTonnes(e.target.value)}
+                    placeholder="e.g. 4.2"
+                  />
+                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 2 }}>
+                    Locked feed in closing bin (not in use yet)
+                  </div>
+                </div>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label>Closing bin</label>
+                <select
+                  value={closingBinId}
+                  onChange={e => setClosingBinId(e.target.value)}
+                  style={{ width: "100%" }}
+                >
+                  <option value="">— none —</option>
+                  {savedBins.map(b => (
+                    <option key={b.id} value={b.id}>{b.name} ({b.capacityTonnes}t)</option>
+                  ))}
+                </select>
+              </div>
+              {canOperate && (
+                <button className="mobile-button" type="submit" disabled={savingStock}
+                  style={{ background: "#1B3A5C", color: "#fff" }}>
+                  {savingStock ? "Saving..." : "Save & Generate Schedule"}
+                </button>
+              )}
+            </form>
+          </div>
+        )}
+
+        {/* ── SECTION 4: DELIVERY SCHEDULE ── */}
+        {(scheduleRows.length > 0 || scheduleLoading || scheduleWarning) && (
+          <div className="mobile-card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h2 style={{ margin: 0 }}>Delivery Schedule</h2>
+              {scheduleMeta && (
+                <button
+                  className="mobile-button mobile-button--secondary"
+                  style={{ fontSize: "0.78rem", padding: "3px 12px" }}
+                  onClick={() => loadSchedule(farmId)}
+                  disabled={scheduleLoading}
+                >
+                  Refresh
+                </button>
+              )}
+            </div>
+
+            {scheduleLoading && <p style={{ color: "#64748b", fontSize: "0.85rem" }}>Calculating...</p>}
+            {scheduleWarning && (
+              <div className="mobile-alert mobile-alert--error" style={{ marginBottom: 12 }}>{scheduleWarning}</div>
+            )}
+
+            {scheduleMeta && (
+              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 14, fontSize: "0.8rem", color: "#64748b" }}>
+                <span>Bin capacity: <strong>{fmt(scheduleMeta.totalBinCapacityTonnes)}t</strong></span>
+                <span>Max order: <strong>{fmt(scheduleMeta.maxOrderTonnes)}t</strong> (80%)</span>
+                <span>Cycle end: <strong>{fmtDate(scheduleMeta.cycleEnd)}</strong></span>
+                {scheduleMeta.closingBinName && (
+                  <span>Closing bin: <strong>{scheduleMeta.closingBinName}</strong> ({fmt(scheduleMeta.closingBinTonnes)}t locked)</span>
+                )}
+              </div>
+            )}
+
+            {scheduleRows.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                  <thead>
+                    <tr style={{ background: "#f8fafc" }}>
+                      <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Order Wed</th>
+                      <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Covers</th>
+                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Age</th>
+                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Birds</th>
+                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Weekly (t)</th>
+                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Stock before (t)</th>
+                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap", color: "#1d4ed8", fontWeight: 700 }}>Order (t)</th>
+                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Stock after (t)</th>
+                      <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleRows.map((row, i) => {
+                      const stockLow = row.stockBeforeKg < row.weeklyConsumptionKg * 0.5;
+                      const needsOrder = row.orderNeededKg > 0;
+                      return (
+                        <tr key={row.wednesday} style={{
+                          background: needsOrder ? "#eff6ff" : (i % 2 === 0 ? "#fff" : "#fafafa"),
+                          borderBottom: "1px solid #f1f5f9",
+                        }}>
+                          <td style={{ padding: "7px 10px", fontWeight: 700, color: needsOrder ? "#1d4ed8" : "#374151", whiteSpace: "nowrap" }}>
+                            {fmtDate(row.wednesday)}
+                          </td>
+                          <td style={{ padding: "7px 10px", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.77rem" }}>
+                            {fmtDate(row.weekStart)}–{fmtDate(row.weekEnd)}
+                          </td>
+                          <td style={{ padding: "7px 10px", textAlign: "right", color: "#475569", whiteSpace: "nowrap" }}>
+                            D{row.ageRangeStart}–D{row.ageRangeEnd}
+                          </td>
+                          <td style={{ padding: "7px 10px", textAlign: "right", color: "#475569" }}>
+                            {row.totalBirdsAvg > 0 ? fmt(row.totalBirdsAvg) : "—"}
+                          </td>
+                          <td style={{ padding: "7px 10px", textAlign: "right" }}>
+                            {fmt(row.weeklyConsumptionKg / 1000)}
+                          </td>
+                          <td style={{ padding: "7px 10px", textAlign: "right", color: stockLow ? "#dc2626" : "#374151", fontWeight: stockLow ? 700 : 400 }}>
+                            {fmt(row.stockBeforeKg / 1000)}
+                          </td>
+                          <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: needsOrder ? "#1d4ed8" : "#94a3b8" }}>
+                            {needsOrder ? fmt(row.orderNeededTonnes) : "—"}
+                          </td>
+                          <td style={{ padding: "7px 10px", textAlign: "right", color: "#475569" }}>
+                            {fmt(row.stockAfterKg / 1000)}
+                          </td>
+                          <td style={{ padding: "7px 10px", color: "#64748b", fontSize: "0.75rem" }}>
+                            {row.notes.join(" · ") || ""}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
