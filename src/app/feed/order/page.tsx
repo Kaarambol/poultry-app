@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getCurrentFarmId } from "@/lib/app-context";
 import { FarmRole, canOperateUi } from "@/lib/ui-permissions";
@@ -9,6 +9,7 @@ type FeedBin = {
   id: string;
   name: string;
   capacityTonnes: number;
+  isClosingStock: boolean;
 };
 
 type House = {
@@ -38,8 +39,7 @@ type ScheduleMeta = {
   totalBinCapacityTonnes: number;
   maxOrderTonnes: number;
   cycleEnd: string;
-  closingBinName: string | null;
-  closingBinTonnes: number;
+  closingBins: string[];
   activeStockTonnes: number;
 };
 
@@ -106,8 +106,6 @@ export default function FeedOrderPage() {
 
   // Current stock state
   const [activeStock, setActiveStock]       = useState("0");
-  const [closingBinId, setClosingBinId]     = useState("");
-  const [closingBinTonnes, setClosingBinTonnes] = useState("0");
   const [savingStock, setSavingStock]       = useState(false);
 
   // Schedule state
@@ -120,6 +118,7 @@ export default function FeedOrderPage() {
   const [msgType, setMsgType] = useState<"success" | "error">("success");
 
   const canOperate = canOperateUi(myRole);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const fid = getCurrentFarmId();
@@ -182,9 +181,6 @@ export default function FeedOrderPage() {
     const d = await r.json();
     if (r.ok) {
       setActiveStock(String(d.activeStockTonnes ?? 0));
-      setClosingBinId(d.closingBinId ?? "");
-      setClosingBinTonnes(String(d.closingBinTonnes ?? 0));
-      // Auto-load schedule if stock was previously saved
       if ((d.activeStockTonnes ?? 0) > 0) {
         loadSchedule(fid);
       }
@@ -199,12 +195,7 @@ export default function FeedOrderPage() {
       const r = await fetch("/api/feed-order-stock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          farmId,
-          activeStockTonnes: parseFloat(activeStock) || 0,
-          closingBinId: closingBinId || null,
-          closingBinTonnes: parseFloat(closingBinTonnes) || 0,
-        }),
+        body: JSON.stringify({ farmId, activeStockTonnes: parseFloat(activeStock) || 0 }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Error saving stock.");
@@ -338,6 +329,46 @@ export default function FeedOrderPage() {
       next[houseId] = set;
       return next;
     });
+  }
+
+  async function toggleClosingStock(binId: string, current: boolean) {
+    if (!farmId) return;
+    try {
+      const r = await fetch("/api/feed-bins/toggle-closing", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ farmId, binId, isClosingStock: !current }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setSavedBins(prev => prev.map(b => b.id === binId ? { ...b, isClosingStock: !current } : b));
+    } catch (err: any) {
+      setMsgType("error"); setMsg(err.message);
+    }
+  }
+
+  function handleBinTileClick(houseId: string, binId: string, isAssigned: boolean, isClosing: boolean) {
+    if (!canOperate) return;
+    if (clickTimerRef.current) {
+      // Second click within 300ms = double click
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      if (isAssigned) {
+        // Toggle closing stock flag (blue → red or red → blue)
+        toggleClosingStock(binId, isClosing);
+      }
+    } else {
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = null;
+        if (isClosing) {
+          // Single click on red: remove closing stock flag, keep assigned
+          toggleClosingStock(binId, true);
+        } else {
+          // Single click on gray/blue: toggle assign
+          toggleBinForHouse(houseId, binId);
+        }
+      }, 280);
+    }
   }
 
   async function saveAssignments() {
@@ -601,27 +632,29 @@ export default function FeedOrderPage() {
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {savedBins.map(bin => {
-                    const checked = assignments[house.id]?.has(bin.id) ?? false;
+                    const isAssigned = assignments[house.id]?.has(bin.id) ?? false;
+                    const isClosing = bin.isClosingStock;
+                    // Color: red=closing, blue=assigned, gray=not assigned
+                    const bg = isClosing ? "#fee2e2" : isAssigned ? "#dbeafe" : "#f8fafc";
+                    const border = isClosing ? "#fca5a5" : isAssigned ? "#93c5fd" : "#e2e8f0";
+                    const color = isClosing ? "#dc2626" : isAssigned ? "#1d4ed8" : "#475569";
                     return (
-                      <label key={bin.id} style={{
-                        display: "flex", alignItems: "center", gap: 6, cursor: canOperate ? "pointer" : "default",
-                        background: checked ? "#dbeafe" : "#f8fafc",
-                        border: `1px solid ${checked ? "#93c5fd" : "#e2e8f0"}`,
-                        borderRadius: 8, padding: "6px 12px", fontSize: "0.85rem", fontWeight: checked ? 600 : 400,
-                        color: checked ? "#1d4ed8" : "#475569",
-                        userSelect: "none",
-                      }}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => canOperate && toggleBinForHouse(house.id, bin.id)}
-                          style={{ display: "none" }}
-                        />
+                      <div key={bin.id}
+                        onClick={() => handleBinTileClick(house.id, bin.id, isAssigned, isClosing)}
+                        title={isClosing ? "Closing stock bin — double-click to remove flag" : isAssigned ? "Double-click to mark as closing stock" : "Click to assign"}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 6,
+                          cursor: canOperate ? "pointer" : "default",
+                          background: bg, border: `1px solid ${border}`,
+                          borderRadius: 8, padding: "6px 12px", fontSize: "0.85rem",
+                          fontWeight: (isAssigned || isClosing) ? 600 : 400,
+                          color, userSelect: "none", transition: "all 0.15s",
+                        }}>
                         {bin.name}
-                        <span style={{ fontSize: "0.72rem", color: checked ? "#3b82f6" : "#94a3b8" }}>
+                        <span style={{ fontSize: "0.72rem", color: isClosing ? "#ef4444" : isAssigned ? "#3b82f6" : "#94a3b8" }}>
                           {bin.capacityTonnes}t
                         </span>
-                      </label>
+                      </div>
                     );
                   })}
                 </div>
@@ -654,45 +687,26 @@ export default function FeedOrderPage() {
               Enter current stock levels to generate the delivery schedule.
             </p>
             <form onSubmit={saveStock}>
-              <div className="mobile-grid mobile-grid--2" style={{ marginBottom: 12 }}>
-                <div>
-                  <label>Active stock (tonnes)</label>
-                  <input
-                    type="number" step="0.1" min="0"
-                    value={activeStock}
-                    onChange={e => setActiveStock(e.target.value)}
-                    placeholder="e.g. 45.5"
-                  />
-                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 2 }}>
-                    Total usable feed in bins right now
-                  </div>
-                </div>
-                <div>
-                  <label>Closing stock (tonnes)</label>
-                  <input
-                    type="number" step="0.1" min="0"
-                    value={closingBinTonnes}
-                    onChange={e => setClosingBinTonnes(e.target.value)}
-                    placeholder="e.g. 4.2"
-                  />
-                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 2 }}>
-                    Locked feed in closing bin (not in use yet)
-                  </div>
-                </div>
-              </div>
               <div style={{ marginBottom: 14 }}>
-                <label>Closing bin</label>
-                <select
-                  value={closingBinId}
-                  onChange={e => setClosingBinId(e.target.value)}
-                  style={{ width: "100%" }}
-                >
-                  <option value="">— none —</option>
-                  {savedBins.map(b => (
-                    <option key={b.id} value={b.id}>{b.name} ({b.capacityTonnes}t)</option>
-                  ))}
-                </select>
+                <label>Active stock (tonnes)</label>
+                <input
+                  type="number" step="0.1" min="0"
+                  value={activeStock}
+                  onChange={e => setActiveStock(e.target.value)}
+                  placeholder="e.g. 45.5"
+                  style={{ maxWidth: 200 }}
+                />
+                <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 4 }}>
+                  Total usable feed in active bins right now.
+                  Mark closing stock bins in red using the house assignment section above.
+                </div>
               </div>
+              {savedBins.some(b => b.isClosingStock) && (
+                <div style={{ marginBottom: 14, fontSize: "0.82rem", color: "#dc2626" }}>
+                  Closing stock bins: <strong>{savedBins.filter(b => b.isClosingStock).map(b => b.name).join(", ")}</strong>
+                  {" "}— excluded from order capacity
+                </div>
+              )}
               {canOperate && (
                 <button className="mobile-button" type="submit" disabled={savingStock}
                   style={{ background: "#1B3A5C", color: "#fff" }}>
@@ -730,8 +744,8 @@ export default function FeedOrderPage() {
                 <span>Bin capacity: <strong>{fmt(scheduleMeta.totalBinCapacityTonnes)}t</strong></span>
                 <span>Max order: <strong>{fmt(scheduleMeta.maxOrderTonnes)}t</strong> (80%)</span>
                 <span>Cycle end: <strong>{fmtDate(scheduleMeta.cycleEnd)}</strong></span>
-                {scheduleMeta.closingBinName && (
-                  <span>Closing bin: <strong>{scheduleMeta.closingBinName}</strong> ({fmt(scheduleMeta.closingBinTonnes)}t locked)</span>
+                {scheduleMeta.closingBins.length > 0 && (
+                  <span style={{ color: "#dc2626" }}>Closing bins: <strong>{scheduleMeta.closingBins.join(", ")}</strong></span>
                 )}
               </div>
             )}

@@ -58,7 +58,10 @@ export async function GET(req: NextRequest) {
     });
     const farmBins = await prisma.feedBin.findMany({ where: { farmId }, orderBy: { sortOrder: "asc" } });
     const totalBinCapacityKg = farmBins.reduce((s, b) => s + b.capacityTonnes * 1000, 0);
-    const maxOrderKg = farmBins.reduce((s, b) => s + b.capacityTonnes * 0.8 * 1000, 0);
+    // Closing stock bins excluded from max order capacity (not being ordered this cycle)
+    const maxOrderKg = farmBins
+      .filter(b => !b.isClosingStock)
+      .reduce((s, b) => s + b.capacityTonnes * 0.8 * 1000, 0);
 
     // Houses that have any bin assignment
     const assignedHouseIds = [...new Set(binAssignments.map(a => a.houseId))];
@@ -195,7 +198,8 @@ export async function GET(req: NextRequest) {
     // ── 6. Load current stock ─────────────────────────────────────────────
     const stockRecord = await prisma.feedOrderStock.findUnique({ where: { farmId } });
     let runningStockKg = (stockRecord?.activeStockTonnes ?? 0) * 1000;
-    const closingBinKg = (stockRecord?.closingBinTonnes ?? 0) * 1000;
+    const closingBins = farmBins.filter(b => b.isClosingStock);
+    const closingBinKg = 0; // amount not tracked — closing bins excluded from order capacity only
 
     // ── 7. Simulate week by week ──────────────────────────────────────────
     const rows: WeekRow[] = [];
@@ -319,8 +323,7 @@ export async function GET(req: NextRequest) {
         totalBinCapacityTonnes: totalBinCapacityKg / 1000,
         maxOrderTonnes: maxOrderKg / 1000,
         cycleEnd: toISO(cycleEnd),
-        closingBinName: farmBins.find(b => b.id === stockRecord?.closingBinId)?.name ?? null,
-        closingBinTonnes: (stockRecord?.closingBinTonnes ?? 0),
+        closingBins: closingBins.map(b => b.name),
         activeStockTonnes: (stockRecord?.activeStockTonnes ?? 0),
       },
     });

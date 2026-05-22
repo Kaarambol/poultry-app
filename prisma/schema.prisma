@@ -491,15 +491,15 @@ model ForumPost {
 }
 
 model FeedBin {
-  id             String @id @default(cuid())
+  id             String  @id @default(cuid())
   farmId         String
   name           String
-  capacityTonnes Float  @default(13.5)
-  sortOrder      Int    @default(0)
+  capacityTonnes Float   @default(13.5)
+  sortOrder      Int     @default(0)
+  isClosingStock Boolean @default(false)
 
-  farm           Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  assignments    FeedBinAssignment[]
-  closingStockFor FeedOrderStock[]
+  farm        Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  assignments FeedBinAssignment[]
 
   @@unique([farmId, name])
   @@index([farmId, sortOrder])
@@ -509,12 +509,9 @@ model FeedOrderStock {
   id                String   @id @default(cuid())
   farmId            String   @unique
   activeStockTonnes Float    @default(0)
-  closingBinId      String?
-  closingBinTonnes  Float    @default(0)
   updatedAt         DateTime @updatedAt
 
-  farm       Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  closingBin FeedBin? @relation(fields: [closingBinId], references: [id], onDelete: SetNull)
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
 }
 
 model FeedPhaseTemplate {

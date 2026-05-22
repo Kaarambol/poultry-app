@@ -37,13 +37,11 @@ export async function POST(req: NextRequest) {
     if (!canOperate(role)) return NextResponse.json({ error: "Permission denied." }, { status: 403 });
 
     const activeStockTonnes = parseFloat(body.activeStockTonnes) || 0;
-    const closingBinId: string | null = body.closingBinId || null;
-    const closingBinTonnes = parseFloat(body.closingBinTonnes) || 0;
 
     const saved = await prisma.feedOrderStock.upsert({
       where: { farmId },
-      update: { activeStockTonnes, closingBinId, closingBinTonnes },
-      create: { farmId, activeStockTonnes, closingBinId, closingBinTonnes },
+      update: { activeStockTonnes },
+      create: { farmId, activeStockTonnes },
     });
 
     return NextResponse.json(saved);
