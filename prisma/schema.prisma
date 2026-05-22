@@ -68,15 +68,16 @@ model Farm {
   weedkiller            String?
   security              String?
 
-  houses         House[]
-  crops          Crop[]
-  farmUsers      FarmUser[]
-  changeLogs     ChangeLog[]
-  feedRecords    FeedRecord[]
-  nightChecks    NightCheck[]
-  documents      FarmDocument[]
-  targetProfiles TargetProfile[]
-  feedBins       FeedBin[]
+  houses              House[]
+  crops               Crop[]
+  farmUsers           FarmUser[]
+  changeLogs          ChangeLog[]
+  feedRecords         FeedRecord[]
+  nightChecks         NightCheck[]
+  documents           FarmDocument[]
+  targetProfiles      TargetProfile[]
+  feedBins            FeedBin[]
+  feedBinAssignments  FeedBinAssignment[]
 }
 
 model House {
@@ -99,12 +100,13 @@ model House {
   defaultMaxAmmoniaPpm     Float?
   notes                    String?
 
-  farm        Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  placements  CropHousePlacement[]
-  daily       DailyRecord[]
-  cropConfigs CropHouseConfig[]
-  feedRecords FeedRecord[]
-  nightChecks NightCheck[]
+  farm               Farm                 @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  placements         CropHousePlacement[]
+  daily              DailyRecord[]
+  cropConfigs        CropHouseConfig[]
+  feedRecords        FeedRecord[]
+  nightChecks        NightCheck[]
+  feedBinAssignments FeedBinAssignment[]
 
   @@unique([farmId, code])
 }
@@ -493,10 +495,25 @@ model FeedBin {
   capacityTonnes Float  @default(13.5)
   sortOrder      Int    @default(0)
 
-  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farm        Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  assignments FeedBinAssignment[]
 
   @@unique([farmId, name])
   @@index([farmId, sortOrder])
+}
+
+model FeedBinAssignment {
+  id      String @id @default(cuid())
+  farmId  String
+  houseId String
+  binId   String
+
+  farm  Farm    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  house House   @relation(fields: [houseId], references: [id], onDelete: Cascade)
+  bin   FeedBin @relation(fields: [binId], references: [id], onDelete: Cascade)
+
+  @@unique([houseId, binId])
+  @@index([farmId])
 }
 
 model UserForumLanguage {
