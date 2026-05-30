@@ -68,7 +68,7 @@ export async function GET(req: Request) {
     const totalWheatKg = records.reduce((sum, item) => sum + item.wheatKg, 0);
     const totalDeliveredKg = totalFeedKg + totalWheatKg;
 
-    const totalCostGbp = records.reduce((sum, item) => {
+    const deliveryCostGbp = records.reduce((sum, item) => {
       const feedCost = item.feedPricePerTonneGbp
         ? (item.feedKg / 1000) * item.feedPricePerTonneGbp
         : 0;
@@ -83,6 +83,22 @@ export async function GET(req: Request) {
     const openingWheatStockKg = crop?.openingWheatStockKg ?? 0;
     const closingFeedStockKg = crop?.closingFeedStockKg ?? 0;
     const closingWheatStockKg = crop?.closingWheatStockKg ?? 0;
+
+    // Price = last ordered feed record (most recent delivery date)
+    const recordsByDateDesc = [...records].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    const lastFeedPrice = recordsByDateDesc.find(r => r.feedPricePerTonneGbp != null)?.feedPricePerTonneGbp ?? null;
+    const lastWheatPrice = recordsByDateDesc.find(r => r.wheatPricePerTonneGbp != null)?.wheatPricePerTonneGbp ?? null;
+
+    const openingStockCost =
+      (lastFeedPrice  ? openingFeedStockKg  / 1000 * lastFeedPrice  : 0) +
+      (lastWheatPrice ? openingWheatStockKg / 1000 * lastWheatPrice : 0);
+    const closingStockCost =
+      (lastFeedPrice  ? closingFeedStockKg  / 1000 * lastFeedPrice  : 0) +
+      (lastWheatPrice ? closingWheatStockKg / 1000 * lastWheatPrice : 0);
+
+    const totalCostGbp = deliveryCostGbp + openingStockCost - closingStockCost;
 
     const netFeedKg = totalFeedKg + openingFeedStockKg - closingFeedStockKg;
     const netWheatKg = totalWheatKg + openingWheatStockKg - closingWheatStockKg;
