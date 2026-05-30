@@ -108,15 +108,17 @@ async function buildCropStats(cropNumber: string, farmId: string) {
     (lastWheatPrice ? (crop.closingWheatStockKg ?? 0) / 1000 * lastWheatPrice : 0);
 
   const feedCost = deliveryCostGbp + openingStockCost - closingStockCost;
-  if (crop.finalRevenueGbp !== null) {
-    finalMarginGbp = crop.finalRevenueGbp - feedCost;
+  const chickCost = crop.chickenPricePerKg != null ? birdsPlaced * crop.chickenPricePerKg : null;
+  if (crop.finalRevenueGbp !== null && chickCost !== null) {
+    finalMarginGbp = crop.finalRevenueGbp - chickCost - feedCost;
   } else if (
     crop.finalBirdsSold !== null &&
     crop.finalAvgWeightKg !== null &&
-    crop.salePricePerKgAllIn !== null
+    crop.salePricePerKgAllIn !== null &&
+    chickCost !== null
   ) {
     const revenue = crop.finalBirdsSold * crop.finalAvgWeightKg * crop.salePricePerKgAllIn;
-    finalMarginGbp = revenue - feedCost;
+    finalMarginGbp = revenue - chickCost - feedCost;
   }
 
   // --- Per-house map for clear birds (to compute effective clear birds) ---
