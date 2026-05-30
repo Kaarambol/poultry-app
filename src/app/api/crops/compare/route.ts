@@ -92,11 +92,57 @@ async function buildCropStats(cropNumber: string, farmId: string) {
     fcr = totalFeedKg / (finalBirdsSold * finalAvgWeightKg);
   }
 
-  // --- EPEF — uses ageDays (bird age), not lengthCrop ---
+  // --- Weighted average age at sale (same formula as financial-summary) ---
+  // Σ(birds × ageAtSaleEvent) / Σ(birds) across thin1, thin2, clear
+  let avgAgeWeightedSum = 0;
+  let avgAgeTotalBirds  = 0;
+  for (const p of crop.placements) {
+    if (p.thinBirds && p.thinBirds > 0 && p.thinDate) {
+      const age = Math.round((new Date(p.thinDate).getTime() - placementMs) / MSDAY);
+      avgAgeWeightedSum += p.thinBirds * age;
+      avgAgeTotalBirds  += p.thinBirds;
+    }
+    if (p.thin2Birds && p.thin2Birds > 0 && p.thin2Date) {
+      const age = Math.round((new Date(p.thin2Date).getTime() - placementMs) / MSDAY);
+      avgAgeWeightedSum += p.thin2Birds * age;
+      avgAgeTotalBirds  += p.thin2Birds;
+    }
+  }
+  // Clear birds — computed per house after houseMap is built (done below, so we'll patch after)
+  // We iterate houseMap inline here using placements data directly
+  for (const p of crop.placements) {
+    if (p.clearDate && new Date(p.clearDate) <= new Date()) {
+      const clearAge = Math.round((new Date(p.clearDate).getTime() - placementMs) / MSDAY);
+      const houseMort  = crop.daily.filter(r => r.houseId === p.houseId).reduce((s, r) => s + r.mort + r.culls, 0);
+      const houseThin  = crop.placements.filter(pl => pl.houseId === p.houseId).reduce((s, pl) => s + (pl.thinBirds ?? 0) + (pl.thin2Birds ?? 0), 0);
+      const housePlace = crop.placements.filter(pl => pl.houseId === p.houseId).reduce((s, pl) => s + pl.birdsPlaced, 0);
+      const houseClr   = crop.placements.filter(pl => pl.houseId === p.houseId).reduce((s, pl) => s + (pl.clearBirds ?? 0), 0);
+      const effectiveClearBirds = houseClr > 0
+        ? houseClr
+        : Math.max(0, housePlace - houseMort - houseThin);
+      // Only count once per house (use the first clearDate placement encountered)
+      const isFirstClearPlacement = crop.placements.find(
+        pl => pl.houseId === p.houseId && pl.clearDate
+      )?.id === p.id;
+      if (isFirstClearPlacement && effectiveClearBirds > 0) {
+        avgAgeWeightedSum += effectiveClearBirds * clearAge;
+        avgAgeTotalBirds  += effectiveClearBirds;
+      }
+    }
+  }
+  const avgAge: number | null = avgAgeTotalBirds > 0 ? avgAgeWeightedSum / avgAgeTotalBirds : null;
+
+  // --- EPEF — same formula as financial-summary ---
+  // EPEF = (survivalPct × avgBirdWeightKg / (avgAge × FCR)) × 100
+  // avgBirdWeightKg = saleWeightKg / finalBirdsSold (factory report)
+  const survivalPct = 100 - mortalityPct;
+  const avgBirdWeightKg: number | null =
+    saleWeightKg && crop.finalBirdsSold && crop.finalBirdsSold > 0
+      ? saleWeightKg / crop.finalBirdsSold
+      : finalAvgWeightKg;
   let epef: number | null = null;
-  if (fcr && fcr > 0 && ageDays > 0 && finalAvgWeightKg && birdsPlaced > 0) {
-    const livabilityPct = ((birdsPlaced - totalLosses) / birdsPlaced) * 100;
-    epef = (livabilityPct * finalAvgWeightKg * 100) / (fcr * ageDays);
+  if (fcr && fcr > 0 && avgAge !== null && avgAge > 0 && avgBirdWeightKg && birdsPlaced > 0) {
+    epef = (survivalPct * avgBirdWeightKg / (avgAge * fcr)) * 100;
   }
 
   // --- Margin (pence per m² per week, same as Total page) ---
