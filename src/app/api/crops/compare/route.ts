@@ -8,7 +8,7 @@ async function buildCropStats(cropNumber: string, farmId: string) {
   const crop = await prisma.crop.findUnique({
     where: { farmId_cropNumber: { farmId, cropNumber } },
     include: {
-      placements: true,
+      placements: { include: { house: { select: { floorAreaM2: true } } } },
       daily: { orderBy: { date: "asc" } },
       feedRecords: true,
     },
@@ -17,6 +17,16 @@ async function buildCropStats(cropNumber: string, farmId: string) {
   if (!crop) return null;
 
   const placementMs = new Date(crop.placementDate).getTime();
+
+  // --- Floor area (sum once per unique house) ---
+  const seenHouseIds = new Set<string>();
+  let totalFloorAreaM2 = 0;
+  for (const p of crop.placements) {
+    if (!seenHouseIds.has(p.houseId)) {
+      seenHouseIds.add(p.houseId);
+      totalFloorAreaM2 += p.house.floorAreaM2;
+    }
+  }
 
   // --- Production ---
   const birdsPlaced  = crop.placements.reduce((s, p) => s + p.birdsPlaced, 0);
@@ -43,6 +53,7 @@ async function buildCropStats(cropNumber: string, farmId: string) {
   const ageDays = Math.max(1, Math.floor((cropEndMs - placementMs) / MSDAY));
 
   // Previous crop: most recently finished crop placed before this one
+  // Crop length = days from prev crop's last clearDate to this crop's last clearDate
   const prevCrop = await prisma.crop.findFirst({
     where: {
       farmId,
@@ -50,11 +61,16 @@ async function buildCropStats(cropNumber: string, farmId: string) {
       placementDate: { lt: crop.placementDate },
     },
     orderBy: { placementDate: "desc" },
-    select: { finishDate: true },
+    select: { finishDate: true, placements: { select: { clearDate: true } } },
   });
-  const prevFinishMs = prevCrop?.finishDate ? new Date(prevCrop.finishDate).getTime() : null;
-  const lengthCropDays = prevFinishMs
-    ? Math.max(1, Math.floor((cropEndMs - prevFinishMs) / MSDAY))
+  const prevClearTimestamps = (prevCrop?.placements ?? [])
+    .map(p => p.clearDate ? new Date(p.clearDate).getTime() : null)
+    .filter((d): d is number => d !== null);
+  const prevLastClearMs = prevClearTimestamps.length > 0
+    ? Math.max(...prevClearTimestamps)
+    : (prevCrop?.finishDate ? new Date(prevCrop.finishDate).getTime() : null);
+  const lengthCropDays = prevLastClearMs
+    ? Math.max(1, Math.floor((cropEndMs - prevLastClearMs) / MSDAY))
     : ageDays + 10;
   const cropLengthWeeks = lengthCropDays / 7;
 
@@ -83,7 +99,7 @@ async function buildCropStats(cropNumber: string, farmId: string) {
     epef = (livabilityPct * finalAvgWeightKg * 100) / (fcr * ageDays);
   }
 
-  // --- Margin ---
+  // --- Margin (pence per m² per week, same as Total page) ---
   let finalMarginGbp: number | null = null;
   const deliveryCostGbp = crop.feedRecords.reduce((s, r) => {
     const fc = r.feedPricePerTonneGbp  ? (r.feedKg  / 1000) * r.feedPricePerTonneGbp  : 0;
@@ -120,6 +136,11 @@ async function buildCropStats(cropNumber: string, farmId: string) {
     const revenue = crop.finalBirdsSold * crop.finalAvgWeightKg * crop.salePricePerKgAllIn;
     finalMarginGbp = revenue - chickCost - feedCost;
   }
+  // Margin per m² per week (pence) = (grossMarginGbp × 100) / floorAreaM2 / cropLengthWeeks
+  const marginPencePerM2Week: number | null =
+    finalMarginGbp !== null && totalFloorAreaM2 > 0 && cropLengthWeeks > 0
+      ? (finalMarginGbp * 100) / totalFloorAreaM2 / cropLengthWeeks
+      : null;
 
   // --- Per-house map for clear birds (to compute effective clear birds) ---
   type HouseData = {
@@ -214,6 +235,7 @@ async function buildCropStats(cropNumber: string, farmId: string) {
     fcr,
     epef,
     finalMarginGbp,
+    marginPencePerM2Week,
     // thin / clear (weighted avg ages)
     ageThinDays,
     ageThin2Days,

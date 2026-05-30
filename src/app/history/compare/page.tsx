@@ -30,6 +30,7 @@ type CropStats = {
   fcr: number | null;
   epef: number | null;
   finalMarginGbp: number | null;
+  marginPencePerM2Week: number | null;
   ageThinDays: number | null;
   ageThin2Days: number | null;
   ageClearDays: number | null;
@@ -282,7 +283,7 @@ export default function CropComparePage() {
                   {/* Performance */}
                   <SectionHeader label="Performance" />
                   <Row label="EPEF"            v1={fmt(c1.epef, 1)}         v2={fmt(c2.epef, 1)} highlight />
-                  <Row label={`Margin (${currency})`} v1={fmt(c1.finalMarginGbp, 2)} v2={fmt(c2.finalMarginGbp, 2)} highlight />
+                  <Row label="Margin (p/m²/week)" v1={fmt(c1.marginPencePerM2Week, 2)} v2={fmt(c2.marginPencePerM2Week, 2)} highlight />
 
                   {/* Thinning & Clearance */}
                   <SectionHeader label="Thinning / Clearance" />
