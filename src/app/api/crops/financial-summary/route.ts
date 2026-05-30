@@ -98,7 +98,7 @@ export async function GET(req: Request) {
     // Consumed = opening + delivered from tickets - closing stock
     const totalConsumedKg = Math.max(0, totalDeliveredKg - closingStockKg);
 
-    const totalFeedCostGbp = crop.feedRecords.reduce((sum, r) => {
+    const deliveryCostGbp = crop.feedRecords.reduce((sum, r) => {
       const feedCost = r.feedPricePerTonneGbp
         ? (r.feedKg / 1000) * r.feedPricePerTonneGbp
         : 0;
@@ -107,6 +107,24 @@ export async function GET(req: Request) {
         : 0;
       return sum + feedCost + wheatCost;
     }, 0);
+
+    // Opening stock: paid in previous crop, consumed this crop → add to cost
+    // Closing stock: delivered this crop but not consumed → subtract from cost
+    // Price = last ordered feed record (most recent delivery date)
+    const feedRecordsByDateDesc = [...crop.feedRecords].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    const lastFeedPrice = feedRecordsByDateDesc.find(r => r.feedPricePerTonneGbp != null)?.feedPricePerTonneGbp ?? null;
+    const lastWheatPrice = feedRecordsByDateDesc.find(r => r.wheatPricePerTonneGbp != null)?.wheatPricePerTonneGbp ?? null;
+
+    const openingStockCost =
+      (lastFeedPrice  ? (crop.openingFeedStockKg  ?? 0) / 1000 * lastFeedPrice  : 0) +
+      (lastWheatPrice ? (crop.openingWheatStockKg ?? 0) / 1000 * lastWheatPrice : 0);
+    const closingStockCost =
+      (lastFeedPrice  ? (crop.closingFeedStockKg  ?? 0) / 1000 * lastFeedPrice  : 0) +
+      (lastWheatPrice ? (crop.closingWheatStockKg ?? 0) / 1000 * lastWheatPrice : 0);
+
+    const totalFeedCostGbp = deliveryCostGbp + openingStockCost - closingStockCost;
 
     // --- Per-house calculations for weight, FCR (using actual feed consumed) ---
     type HouseCalc = {

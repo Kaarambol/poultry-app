@@ -85,12 +85,29 @@ async function buildCropStats(cropNumber: string, farmId: string) {
 
   // --- Margin ---
   let finalMarginGbp: number | null = null;
-  const feedDeliveryCost = await prisma.feedRecord.findMany({ where: { cropId: crop.id } });
-  const feedCost = feedDeliveryCost.reduce((s, r) => {
+  const deliveryCostGbp = crop.feedRecords.reduce((s, r) => {
     const fc = r.feedPricePerTonneGbp  ? (r.feedKg  / 1000) * r.feedPricePerTonneGbp  : 0;
     const wc = r.wheatPricePerTonneGbp ? (r.wheatKg / 1000) * r.wheatPricePerTonneGbp : 0;
     return s + fc + wc;
   }, 0);
+
+  // Opening stock: paid in previous crop, consumed this crop → add to cost
+  // Closing stock: delivered this crop but not consumed → subtract from cost
+  // Price = last ordered feed record (most recent delivery date)
+  const feedRecordsByDateDesc = [...crop.feedRecords].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+  const lastFeedPrice = feedRecordsByDateDesc.find(r => r.feedPricePerTonneGbp != null)?.feedPricePerTonneGbp ?? null;
+  const lastWheatPrice = feedRecordsByDateDesc.find(r => r.wheatPricePerTonneGbp != null)?.wheatPricePerTonneGbp ?? null;
+
+  const openingStockCost =
+    (lastFeedPrice  ? (crop.openingFeedStockKg  ?? 0) / 1000 * lastFeedPrice  : 0) +
+    (lastWheatPrice ? (crop.openingWheatStockKg ?? 0) / 1000 * lastWheatPrice : 0);
+  const closingStockCost =
+    (lastFeedPrice  ? (crop.closingFeedStockKg  ?? 0) / 1000 * lastFeedPrice  : 0) +
+    (lastWheatPrice ? (crop.closingWheatStockKg ?? 0) / 1000 * lastWheatPrice : 0);
+
+  const feedCost = deliveryCostGbp + openingStockCost - closingStockCost;
   if (crop.finalRevenueGbp !== null) {
     finalMarginGbp = crop.finalRevenueGbp - feedCost;
   } else if (
