@@ -52,8 +52,21 @@ async function buildCropStats(cropNumber: string, farmId: string) {
     : Date.now();
   const ageDays = Math.max(1, Math.floor((cropEndMs - placementMs) / MSDAY));
 
-  // Crop length = placementDate to last clearDate (same as financial-summary ageDays)
-  const cropLengthWeeks = ageDays / 7;
+  // Crop length = prev crop finishDate (= last clearDate) → this crop last clearDate
+  // Same logic as Total page (prevCropFinishDate → cropEndMs)
+  const prevCrop = await prisma.crop.findFirst({
+    where: {
+      farmId,
+      placementDate: { lt: crop.placementDate },
+    },
+    orderBy: { placementDate: "desc" },
+    select: { finishDate: true },
+  });
+  const prevFinishMs = prevCrop?.finishDate ? new Date(prevCrop.finishDate).getTime() : null;
+  const lengthCropDays = prevFinishMs
+    ? Math.max(1, Math.floor((cropEndMs - prevFinishMs) / MSDAY))
+    : ageDays;
+  const cropLengthWeeks = lengthCropDays / 7;
 
   // --- Final weight ---
   const weightRecords  = crop.daily.filter(r => r.avgWeightG !== null);
