@@ -22,6 +22,17 @@ function toISO(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+export interface DayRow {
+  date: string;          // ISO date
+  dayOfWeek: string;     // "Mon", "Tue", etc.
+  ageRangeStart: number;
+  ageRangeEnd: number;
+  birds: number;
+  dailyConsumptionKg: number;
+  stockAtDayStartKg: number;  // stock before consuming this day
+  feedProducts: string[];
+}
+
 export interface WeekRow {
   wednesday: string;        // ISO date of the ordering Wednesday
   weekStart: string;        // Thu (day after Wednesday)
@@ -33,10 +44,12 @@ export interface WeekRow {
   stockBeforeKg: number;    // stock at start of Wednesday (before order)
   orderNeededKg: number;    // how much to order this Wednesday
   orderNeededTonnes: number;
+  trailersNeeded: number;   // Math.ceil(orderNeededTonnes / 27)
   closingUnlockedKg: number; // closing stock that becomes available if closing bin ordered
   stockAfterKg: number;     // stock after order + closing bin delivery
   feedProducts: string[];   // feed types active during this week
   notes: string[];
+  days: DayRow[];           // per-day breakdown (Thu–Wed)
 }
 
 // GET /api/feed-order/schedule?farmId=xxx
@@ -285,6 +298,34 @@ export async function GET(req: NextRequest) {
       }
       if (closingUnlocked > 0) notes.push(`Closing stock +${(closingUnlocked/1000).toFixed(2)}t available`);
 
+      // Daily breakdown — order arrives Thursday morning (day 1)
+      const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      const days: DayRow[] = [];
+      let dayRunningStock = runningStockKg + orderKg + closingUnlocked; // stock at Thu start
+      for (let i = 1; i <= 7; i++) {
+        const day = addDays(wednesday, i);
+        const { kg, totalBirds } = dailyConsumptionKg(day);
+        const dayAgeSet: number[] = [];
+        for (const p of activePlacements) {
+          const pd = new Date(p.placementDate); pd.setHours(0,0,0,0);
+          const age = Math.round((day.getTime() - pd.getTime()) / MS_DAY);
+          if (age >= 0 && age <= 60) dayAgeSet.push(age);
+        }
+        const dayAgeMin = dayAgeSet.length > 0 ? Math.min(...dayAgeSet) : 0;
+        const dayAgeMax = dayAgeSet.length > 0 ? Math.max(...dayAgeSet) : 0;
+        days.push({
+          date: toISO(day),
+          dayOfWeek: DOW[day.getDay()],
+          ageRangeStart: dayAgeMin,
+          ageRangeEnd: dayAgeMax,
+          birds: totalBirds,
+          dailyConsumptionKg: Math.round(kg),
+          stockAtDayStartKg: Math.round(dayRunningStock),
+          feedProducts: getFeedProductsForWeek(dayAgeMin, dayAgeMax),
+        });
+        dayRunningStock -= kg;
+      }
+
       // Consume this week
       for (let i = 1; i <= 7; i++) {
         const day = addDays(wednesday, i);
@@ -308,10 +349,12 @@ export async function GET(req: NextRequest) {
         stockBeforeKg: Math.round(stockBefore),
         orderNeededKg: Math.round(orderKg),
         orderNeededTonnes: Math.round(orderKg) / 1000,
+        trailersNeeded: orderKg > 0 ? Math.ceil(Math.round(orderKg) / 27000) : 0,
         closingUnlockedKg: Math.round(closingUnlocked),
         stockAfterKg: Math.round(stockAfter),
         feedProducts,
         notes,
+        days,
       });
 
       wednesday = addDays(wednesday, 7);

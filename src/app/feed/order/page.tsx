@@ -18,6 +18,17 @@ type House = {
   code: string | null;
 };
 
+type DayRow = {
+  date: string;
+  dayOfWeek: string;
+  ageRangeStart: number;
+  ageRangeEnd: number;
+  birds: number;
+  dailyConsumptionKg: number;
+  stockAtDayStartKg: number;
+  feedProducts: string[];
+};
+
 type WeekRow = {
   wednesday: string;
   weekStart: string;
@@ -29,10 +40,12 @@ type WeekRow = {
   stockBeforeKg: number;
   orderNeededKg: number;
   orderNeededTonnes: number;
+  trailersNeeded: number;
   closingUnlockedKg: number;
   stockAfterKg: number;
   feedProducts: string[];
   notes: string[];
+  days: DayRow[];
 };
 
 type ScheduleMeta = {
@@ -751,66 +764,106 @@ export default function FeedOrderPage() {
             )}
 
             {scheduleRows.length > 0 && (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
-                  <thead>
-                    <tr style={{ background: "#f8fafc" }}>
-                      <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Order Wed</th>
-                      <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Covers</th>
-                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Age</th>
-                      <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Feed type</th>
-                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Birds</th>
-                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Weekly (t)</th>
-                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Stock before (t)</th>
-                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap", color: "#1d4ed8", fontWeight: 700 }}>Order (t)</th>
-                      <th style={{ padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>Stock after (t)</th>
-                      <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scheduleRows.map((row, i) => {
-                      const stockLow = row.stockBeforeKg < row.weeklyConsumptionKg * 0.5;
-                      const needsOrder = row.orderNeededKg > 0;
-                      return (
-                        <tr key={row.wednesday} style={{
-                          background: needsOrder ? "#eff6ff" : (i % 2 === 0 ? "#fff" : "#fafafa"),
-                          borderBottom: "1px solid #f1f5f9",
-                        }}>
-                          <td style={{ padding: "7px 10px", fontWeight: 700, color: needsOrder ? "#1d4ed8" : "#374151", whiteSpace: "nowrap" }}>
-                            {fmtDate(row.wednesday)}
-                          </td>
-                          <td style={{ padding: "7px 10px", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.77rem" }}>
-                            {fmtDate(row.weekStart)}–{fmtDate(row.weekEnd)}
-                          </td>
-                          <td style={{ padding: "7px 10px", textAlign: "right", color: "#475569", whiteSpace: "nowrap" }}>
-                            D{row.ageRangeStart}–D{row.ageRangeEnd}
-                          </td>
-                          <td style={{ padding: "7px 10px", fontSize: "0.75rem", color: "#475569" }}>
-                            {row.feedProducts.map(fp => getFeedLabel(fp)).join(", ") || "—"}
-                          </td>
-                          <td style={{ padding: "7px 10px", textAlign: "right", color: "#475569" }}>
-                            {row.totalBirdsAvg > 0 ? fmt(row.totalBirdsAvg) : "—"}
-                          </td>
-                          <td style={{ padding: "7px 10px", textAlign: "right" }}>
-                            {fmt(row.weeklyConsumptionKg / 1000)}
-                          </td>
-                          <td style={{ padding: "7px 10px", textAlign: "right", color: stockLow ? "#dc2626" : "#374151", fontWeight: stockLow ? 700 : 400 }}>
-                            {fmt(row.stockBeforeKg / 1000)}
-                          </td>
-                          <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: needsOrder ? "#1d4ed8" : "#94a3b8" }}>
-                            {needsOrder ? fmt(row.orderNeededTonnes) : "—"}
-                          </td>
-                          <td style={{ padding: "7px 10px", textAlign: "right", color: "#475569" }}>
-                            {fmt(row.stockAfterKg / 1000)}
-                          </td>
-                          <td style={{ padding: "7px 10px", color: "#64748b", fontSize: "0.75rem" }}>
-                            {row.notes.join(" · ") || ""}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {scheduleRows.map((row) => {
+                  const stockLow = row.stockBeforeKg < row.weeklyConsumptionKg * 0.5;
+                  const needsOrder = row.orderNeededKg > 0;
+                  return (
+                    <div key={row.wednesday} style={{
+                      border: needsOrder ? "2px solid #93c5fd" : "1px solid #e2e8f0",
+                      borderRadius: 10,
+                      background: needsOrder ? "#f0f7ff" : "#fafafa",
+                      overflow: "hidden",
+                    }}>
+                      {/* Week header */}
+                      <div style={{
+                        padding: "10px 14px",
+                        background: needsOrder ? "#dbeafe" : "#f1f5f9",
+                        display: "flex", flexWrap: "wrap", gap: "8px 20px", alignItems: "center",
+                      }}>
+                        <span style={{ fontWeight: 700, fontSize: "0.95rem", color: needsOrder ? "#1d4ed8" : "#374151" }}>
+                          Order: {fmtDate(row.wednesday)} (Wed)
+                        </span>
+                        <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                          Covers {fmtDate(row.weekStart)}–{fmtDate(row.weekEnd)}
+                        </span>
+                        <span style={{ fontSize: "0.8rem", color: "#475569" }}>
+                          D{row.ageRangeStart}–D{row.ageRangeEnd}
+                        </span>
+                        <span style={{ fontSize: "0.8rem", color: "#475569" }}>
+                          {row.feedProducts.map(fp => getFeedLabel(fp)).join(", ") || "—"}
+                        </span>
+                        {row.notes.length > 0 && (
+                          <span style={{ fontSize: "0.78rem", color: "#dc2626", fontWeight: 600 }}>
+                            {row.notes.join(" · ")}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Week summary row */}
+                      <div style={{
+                        padding: "8px 14px",
+                        display: "flex", flexWrap: "wrap", gap: "6px 20px",
+                        borderBottom: "1px solid #e2e8f0",
+                        fontSize: "0.82rem",
+                      }}>
+                        <span>Birds: <strong>{row.totalBirdsAvg > 0 ? fmt(row.totalBirdsAvg) : "—"}</strong></span>
+                        <span>Weekly: <strong>{fmt(row.weeklyConsumptionKg / 1000)} t</strong></span>
+                        <span style={{ color: stockLow ? "#dc2626" : undefined, fontWeight: stockLow ? 700 : 400 }}>
+                          Stock before: <strong>{fmt(row.stockBeforeKg / 1000)} t</strong>
+                        </span>
+                        <span style={{ color: needsOrder ? "#1d4ed8" : "#94a3b8", fontWeight: needsOrder ? 700 : 400 }}>
+                          Order: <strong>{needsOrder ? `${fmt(row.orderNeededTonnes)} t` : "—"}</strong>
+                        </span>
+                        {needsOrder && (
+                          <span style={{ color: "#7c3aed", fontWeight: 700 }}>
+                            Trailers: <strong>{row.trailersNeeded} × 27t</strong>
+                          </span>
+                        )}
+                        <span>Stock after: <strong>{fmt(row.stockAfterKg / 1000)} t</strong></span>
+                      </div>
+
+                      {/* Daily breakdown */}
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.79rem" }}>
+                          <thead>
+                            <tr style={{ background: "#f8fafc" }}>
+                              <th style={{ padding: "5px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Day</th>
+                              <th style={{ padding: "5px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Date</th>
+                              <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Age</th>
+                              <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Birds</th>
+                              <th style={{ padding: "5px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Feed</th>
+                              <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Daily (t)</th>
+                              <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Stock start (t)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(row.days ?? []).map((d, di) => {
+                              const dayStockLow = d.stockAtDayStartKg < d.dailyConsumptionKg * 1.5;
+                              return (
+                                <tr key={d.date} style={{ background: di % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f1f5f9" }}>
+                                  <td style={{ padding: "5px 10px", fontWeight: 600, color: "#374151" }}>{d.dayOfWeek}</td>
+                                  <td style={{ padding: "5px 10px", color: "#475569", whiteSpace: "nowrap" }}>{fmtDate(d.date)}</td>
+                                  <td style={{ padding: "5px 10px", textAlign: "right", color: "#475569" }}>D{d.ageRangeStart}–D{d.ageRangeEnd}</td>
+                                  <td style={{ padding: "5px 10px", textAlign: "right", color: "#475569" }}>{d.birds > 0 ? fmt(d.birds) : "—"}</td>
+                                  <td style={{ padding: "5px 10px", color: "#475569", fontSize: "0.73rem" }}>
+                                    {d.feedProducts.map(fp => getFeedLabel(fp)).join(", ") || "—"}
+                                  </td>
+                                  <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>
+                                    {fmt(d.dailyConsumptionKg / 1000)}
+                                  </td>
+                                  <td style={{ padding: "5px 10px", textAlign: "right", color: dayStockLow ? "#dc2626" : "#374151", fontWeight: dayStockLow ? 700 : 400 }}>
+                                    {fmt(d.stockAtDayStartKg / 1000)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
