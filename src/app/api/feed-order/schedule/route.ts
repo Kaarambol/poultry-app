@@ -260,8 +260,8 @@ export async function GET(req: NextRequest) {
 
         if (segLeft <= 0) { segIdx++; segUsed = 0; continue; }
 
-        // Phase transition: split trailer if segment ends within half-trailer range
-        if (segLeft < HALF_KG && segIdx + 1 < segments.length && remaining >= TRAILER_KG) {
+        // Phase transition: split trailer if remaining segment < full trailer worth
+        if (segLeft < TRAILER_KG && segIdx + 1 < segments.length && remaining >= TRAILER_KG) {
           trailers.push({
             feeds: [
               { feedProduct: seg.feedProduct, tonnes: HALF_KG / 1000 },
