@@ -230,59 +230,65 @@ export async function GET(req: NextRequest) {
     // ── Build trailer loads for a delivery ────────────────────────────────────
     function buildTrailers(orderKg: number, startDate: Date): TrailerLoad[] {
       if (orderKg <= 0) return [];
-      const trailers: TrailerLoad[] = [];
-      let remaining = orderKg;
 
-      // Build phase segments from startDate forward
-      type Segment = { feedProduct: string; neededKg: number };
-      const segments: Segment[] = [];
-      let cur = new Date(startDate);
-      const horizon = addDays(startDate, 14);
+      // Step 1: Accumulate phase segments for exactly orderKg of feed.
+      // We track how much kg is still unallocated and stop once it reaches 0.
+      type Segment = { feedProduct: string; kg: number };
+      const segs: Segment[] = [];
+      let left = orderKg;
+      let cur = startDate;
+      const horizon = addDays(startDate, 28);
 
-      while (cur < horizon && remaining > 0) {
+      while (left > 1 && cur < horizon) {
         const { pureFeedKg, phases } = dailyData(cur);
         const product = phases[0]?.product ?? "FINISHER_PELLET_585";
-        const last = segments[segments.length - 1];
-        if (last && last.feedProduct === product) {
-          last.neededKg += pureFeedKg;
-        } else {
-          segments.push({ feedProduct: product, neededKg: pureFeedKg });
+        const take = Math.min(pureFeedKg, left); // don't overshoot
+        if (take > 0) {
+          const last = segs[segs.length - 1];
+          if (last?.feedProduct === product) last.kg += take;
+          else segs.push({ feedProduct: product, kg: take });
+          left -= take;
         }
         cur = addDays(cur, 1);
       }
 
-      let segIdx = 0;
-      let segUsed = 0;
+      // Step 2: Convert segments to 27t trailers (13.5+13.5 split at transitions).
+      const trailers: TrailerLoad[] = [];
 
-      while (remaining > 0 && segIdx < segments.length) {
-        const seg = segments[segIdx];
-        const segLeft = seg.neededKg - segUsed;
+      for (let si = 0; si < segs.length; si++) {
+        let segKg = segs[si].kg;
+        const next = segs[si + 1];
 
-        if (segLeft <= 0) { segIdx++; segUsed = 0; continue; }
-
-        // Phase transition: split trailer if remaining segment < full trailer worth
-        if (segLeft < TRAILER_KG && segIdx + 1 < segments.length && remaining >= TRAILER_KG) {
+        // Full trailers
+        const fullCount = Math.floor(segKg / TRAILER_KG);
+        for (let t = 0; t < fullCount; t++) {
           trailers.push({
-            feeds: [
-              { feedProduct: seg.feedProduct, tonnes: HALF_KG / 1000 },
-              { feedProduct: segments[segIdx + 1].feedProduct, tonnes: HALF_KG / 1000 },
-            ],
+            feeds: [{ feedProduct: segs[si].feedProduct, tonnes: TRAILER_KG / 1000 }],
             totalTonnes: TRAILER_KG / 1000,
           });
-          remaining -= TRAILER_KG;
-          segUsed = 0;
-          segIdx++;
-          segments[segIdx].neededKg -= HALF_KG;
-        } else {
-          const useKg = Math.min(TRAILER_KG, remaining);
-          const actualKg = useKg >= TRAILER_KG ? TRAILER_KG : HALF_KG;
-          trailers.push({
-            feeds: [{ feedProduct: seg.feedProduct, tonnes: actualKg / 1000 }],
-            totalTonnes: actualKg / 1000,
-          });
-          remaining -= actualKg;
-          segUsed += actualKg;
-          if (segUsed >= seg.neededKg) { segIdx++; segUsed = 0; }
+        }
+        segKg -= fullCount * TRAILER_KG;
+
+        // Remainder (< 27t)
+        if (segKg > 1) {
+          if (next) {
+            // Split 13.5t old + 13.5t new at phase boundary
+            trailers.push({
+              feeds: [
+                { feedProduct: segs[si].feedProduct, tonnes: HALF_KG / 1000 },
+                { feedProduct: next.feedProduct, tonnes: HALF_KG / 1000 },
+              ],
+              totalTonnes: TRAILER_KG / 1000,
+            });
+            next.kg -= HALF_KG; // already allocated to this trailer
+            if (next.kg < 0) next.kg = 0;
+          } else {
+            // Last segment — round up to full trailer
+            trailers.push({
+              feeds: [{ feedProduct: segs[si].feedProduct, tonnes: TRAILER_KG / 1000 }],
+              totalTonnes: TRAILER_KG / 1000,
+            });
+          }
         }
       }
 
