@@ -18,39 +18,46 @@ type House = {
   code: string | null;
 };
 
-type DayRow = {
+type TrailerLoad = {
+  feeds: { feedProduct: string; tonnes: number }[];
+  totalTonnes: number;
+};
+
+type StockDay = {
   date: string;
   dayOfWeek: string;
   ageMin: number;
   ageMax: number;
   birds: number;
-  totalConsumptionKg: number;
-  pureConsumptionKg: number;
+  consumptionKg: number;
   stockStartKg: number;
+  stockEndKg: number;
+};
+
+type DeliveryDay = {
+  date: string;
+  dayOfWeek: string;
+  ageMin: number;
+  ageMax: number;
+  birds: number;
+  consumptionKg: number;
+  stockBeforeKg: number;
+  trailers: TrailerLoad[];
+  deliveryKg: number;
+  stockAfterDeliveryKg: number;
+  stockEndKg: number;
   feedProducts: { product: string; ownWheat: boolean; wheatPct: number }[];
 };
 
-type TrailerLoad = {
-  feeds: { feedProduct: string; kg: number; tonnes: number }[];
-  totalTonnes: number;
-};
-
-type DeliveryRow = {
-  deliveryDate: string;
-  trailers: TrailerLoad[];
+type OrderWeek = {
+  orderDate: string;
+  stockOnOrderDayKg: number;
   totalOrderKg: number;
-  stockBeforeKg: number;
-  stockAfterKg: number;
-  notes: string[];
-};
-
-type WeekSchedule = {
-  orderWednesday: string;
-  deliveries: DeliveryRow[];
-  days: DayRow[];
-  weeklyConsumptionKg: number;
-  stockOnWednesdayKg: number;
-  stockOnFridayAfterDeliveryKg: number;
+  totalTrailers: number;
+  preDelivery: StockDay[];
+  deliveryWindow: DeliveryDay[];
+  coverage: StockDay[];
+  stockOnFinalTuesdayKg: number;
   notes: string[];
 };
 
@@ -131,7 +138,7 @@ export default function FeedOrderPage() {
   const [savingStock, setSavingStock]       = useState(false);
 
   // Schedule state
-  const [scheduleRows, setScheduleRows]     = useState<WeekSchedule[]>([]);
+  const [scheduleRows, setScheduleRows]     = useState<OrderWeek[]>([]);
   const [scheduleMeta, setScheduleMeta]     = useState<ScheduleMeta | null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleWarning, setScheduleWarning] = useState("");
@@ -181,8 +188,8 @@ export default function FeedOrderPage() {
       setSavedPhases(d);
       setEditingPhases(false);
       setMsgType("success"); setMsg("Feed phases saved.");
-    } catch (err: any) {
-      setMsgType("error"); setMsg(err.message);
+    } catch (err: unknown) {
+      setMsgType("error"); setMsg((err as Error).message);
     } finally {
       setSavingPhases(false);
     }
@@ -226,8 +233,8 @@ export default function FeedOrderPage() {
       setMsgType("success");
       setMsg("Current stock saved.");
       loadSchedule(farmId);
-    } catch (err: any) {
-      setMsgType("error"); setMsg(err.message);
+    } catch (err: unknown) {
+      setMsgType("error"); setMsg((err as Error).message);
     } finally {
       setSavingStock(false);
     }
@@ -240,11 +247,11 @@ export default function FeedOrderPage() {
       const r = await fetch(`/api/feed-order/schedule?farmId=${fid}`);
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Error loading schedule.");
-      setScheduleRows(d.weeks ?? []);
+      setScheduleRows(d.orders ?? []);
       setScheduleMeta(d.meta ?? null);
       if (d.warning) setScheduleWarning(d.warning);
-    } catch (err: any) {
-      setScheduleWarning(err.message);
+    } catch (err: unknown) {
+      setScheduleWarning((err as Error).message);
     } finally {
       setScheduleLoading(false);
     }
@@ -336,8 +343,8 @@ export default function FeedOrderPage() {
       setMsg(`Saved ${data.length} bins.`);
       // Reload assignments in case bin IDs changed
       loadAssignments(farmId);
-    } catch (err: any) {
-      setMsgType("error"); setMsg(err.message);
+    } catch (err: unknown) {
+      setMsgType("error"); setMsg((err as Error).message);
     } finally {
       setSavingBins(false);
     }
@@ -366,8 +373,8 @@ export default function FeedOrderPage() {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       setSavedBins(prev => prev.map(b => b.id === binId ? { ...b, isClosingStock: !current } : b));
-    } catch (err: any) {
-      setMsgType("error"); setMsg(err.message);
+    } catch (err: unknown) {
+      setMsgType("error"); setMsg((err as Error).message);
     }
   }
 
@@ -412,8 +419,8 @@ export default function FeedOrderPage() {
       if (!r.ok) throw new Error(data.error || "Error saving.");
       setMsgType("success");
       setMsg("House assignments saved.");
-    } catch (err: any) {
-      setMsgType("error"); setMsg(err.message);
+    } catch (err: unknown) {
+      setMsgType("error"); setMsg((err as Error).message);
     } finally {
       setSavingAssign(false);
     }
@@ -788,62 +795,133 @@ export default function FeedOrderPage() {
             )}
 
             {scheduleRows.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                {scheduleRows.map((week) => {
-                  const hasDeliveries = week.deliveries.length > 0;
+              <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+                {scheduleRows.map((order) => {
+                  const finalTuesday = order.coverage[order.coverage.length - 1];
+                  const finalOk = order.stockOnFinalTuesdayKg >= 0;
                   return (
-                    <div key={week.orderWednesday}>
-                      {/* Order header */}
-                      <div style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
-                        Order Wednesday {fmtDate(week.orderWednesday)} · stock: {fmt(week.stockOnWednesdayKg / 1000)}t · week use: {fmt(week.weeklyConsumptionKg / 1000)}t
-                        {week.notes.length > 0 && <span style={{ color: "#dc2626", marginLeft: 10 }}>{week.notes.join(" · ")}</span>}
+                    <div key={order.orderDate}>
+
+                      {/* ── Order header ── */}
+                      <div style={{
+                        background: "#1B3A5C", color: "#fff",
+                        borderRadius: "10px 10px 0 0", padding: "12px 16px",
+                        marginBottom: 0,
+                      }}>
+                        <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 4 }}>
+                          ORDER: Wednesday {fmtDate(order.orderDate)}
+                        </div>
+                        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", fontSize: "0.85rem", opacity: 0.9 }}>
+                          <span>Stock now: <strong>{fmt(order.stockOnOrderDayKg / 1000)}t</strong></span>
+                          <span>Order total: <strong>{fmt(order.totalOrderKg / 1000)}t</strong>
+                            {order.totalTrailers > 0 && ` (${order.totalTrailers} trailer${order.totalTrailers !== 1 ? "s" : ""})`}
+                          </span>
+                          {order.notes.length > 0 && (
+                            <span style={{ color: "#fbbf24" }}>{order.notes.join(" · ")}</span>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Delivery cards — one per delivery day, PROMINENT */}
-                      {hasDeliveries ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
-                          {week.deliveries.map((del, di) => {
-                            const isMonday = di === 0;
-                            const nTrailers = del.trailers.length;
-                            return (
-                              <div key={di} style={{
-                                border: `2px solid ${isMonday ? "#2563eb" : "#16a34a"}`,
-                                borderRadius: 10, overflow: "hidden",
+                      {/* ── Pre-delivery buffer ── */}
+                      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderTop: "none", padding: "10px 16px 6px" }}>
+                        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                          Pre-delivery (existing stock)
+                        </div>
+                        {order.preDelivery.map((day) => (
+                          <div key={day.date} style={{
+                            display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
+                            padding: "4px 0", borderBottom: "1px solid #f1f5f9", fontSize: "0.82rem",
+                          }}>
+                            <span style={{ fontWeight: 600, color: "#374151", minWidth: 36 }}>{day.dayOfWeek}</span>
+                            <span style={{ color: "#64748b", minWidth: 44 }}>{fmtDate(day.date)}</span>
+                            <span style={{ color: "#94a3b8", minWidth: 36 }}>D{day.ageMin}</span>
+                            <span style={{ color: "#475569", minWidth: 60 }}>{day.birds > 0 ? fmt(day.birds) : "—"}</span>
+                            <span style={{ fontWeight: 600, color: "#1e293b", minWidth: 50 }}>{fmt(day.consumptionKg / 1000)}t</span>
+                            <span style={{ color: "#64748b" }}>
+                              stock: {fmt(day.stockStartKg / 1000)}t
+                              <span style={{ color: "#94a3b8", margin: "0 4px" }}>→</span>
+                              <span style={{ color: day.stockEndKg < 0 ? "#dc2626" : "#374151", fontWeight: day.stockEndKg < 0 ? 700 : 400 }}>
+                                {fmt(day.stockEndKg / 1000)}t
+                              </span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* ── Delivery window ── */}
+                      <div style={{ border: "1px solid #e2e8f0", borderTop: "none" }}>
+                        <div style={{ background: "#eff6ff", padding: "8px 16px 4px", borderBottom: "1px solid #dbeafe" }}>
+                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                            Delivery window (Mon–Fri)
+                          </div>
+                        </div>
+                        {order.deliveryWindow.map((day) => {
+                          const hasDelivery = day.deliveryKg > 0;
+                          const dow = day.dayOfWeek;
+                          // Mon/Tue/Wed = blue, Thu/Fri = amber
+                          const isEarlyWeek = dow === "Mon" || dow === "Tue" || dow === "Wed";
+                          const delivColor = isEarlyWeek ? "#1d4ed8" : "#b45309";
+                          const delivBg = isEarlyWeek ? "#dbeafe" : "#fef3c7";
+                          const delivBorder = isEarlyWeek ? "#93c5fd" : "#fcd34d";
+
+                          return (
+                            <div key={day.date} style={{
+                              borderBottom: "1px solid #f1f5f9",
+                              background: hasDelivery ? (isEarlyWeek ? "#eff6ff" : "#fffbeb") : "#fff",
+                            }}>
+                              {/* Day summary row */}
+                              <div style={{
+                                display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
+                                padding: "6px 16px", fontSize: "0.82rem",
                               }}>
-                                {/* Delivery day banner */}
-                                <div style={{
-                                  background: isMonday ? "#1d4ed8" : "#15803d",
-                                  color: "#fff", padding: "10px 16px",
-                                  display: "flex", flexWrap: "wrap", gap: "4px 20px", alignItems: "center",
-                                }}>
-                                  <span style={{ fontWeight: 700, fontSize: "1rem" }}>
-                                    {isMonday ? "MONDAY" : "FRIDAY"} {fmtDate(del.deliveryDate)}
+                                <span style={{ fontWeight: 700, color: hasDelivery ? delivColor : "#374151", minWidth: 36 }}>{day.dayOfWeek}</span>
+                                <span style={{ color: "#64748b", minWidth: 44 }}>{fmtDate(day.date)}</span>
+                                <span style={{ color: "#94a3b8", minWidth: 36 }}>D{day.ageMin}</span>
+                                <span style={{ color: "#475569", minWidth: 60 }}>{day.birds > 0 ? fmt(day.birds) : "—"}</span>
+                                {hasDelivery ? (
+                                  <span style={{
+                                    background: delivBg, border: `1px solid ${delivBorder}`,
+                                    color: delivColor, borderRadius: 6, padding: "2px 10px",
+                                    fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap",
+                                  }}>
+                                    DELIVERY +{fmt(day.deliveryKg / 1000)}t
                                   </span>
-                                  <span style={{ fontWeight: 700, fontSize: "1rem" }}>
-                                    {nTrailers} trailer{nTrailers !== 1 ? "s" : ""} · {fmt(del.totalOrderKg / 1000)}t
+                                ) : (
+                                  <span style={{ color: "#cbd5e1", fontSize: "0.78rem", fontStyle: "italic" }}>no delivery</span>
+                                )}
+                                <span style={{ color: "#475569", marginLeft: "auto" }}>
+                                  use: <strong>{fmt(day.consumptionKg / 1000)}t</strong>
+                                </span>
+                                <span style={{ color: "#64748b" }}>
+                                  {hasDelivery
+                                    ? `${fmt(day.stockBeforeKg / 1000)}t + ${fmt(day.deliveryKg / 1000)}t = ${fmt(day.stockAfterDeliveryKg / 1000)}t`
+                                    : `${fmt(day.stockBeforeKg / 1000)}t`
+                                  }
+                                  <span style={{ color: "#94a3b8", margin: "0 4px" }}>→</span>
+                                  <span style={{ color: day.stockEndKg < 0 ? "#dc2626" : "#374151", fontWeight: day.stockEndKg < 0 ? 700 : 400 }}>
+                                    {fmt(day.stockEndKg / 1000)}t
                                   </span>
-                                  <span style={{ fontSize: "0.82rem", opacity: 0.85 }}>
-                                    stock before: {fmt(del.stockBeforeKg / 1000)}t → after: {fmt(del.stockAfterKg / 1000)}t
-                                  </span>
-                                  {del.notes.length > 0 && <span style={{ fontSize: "0.78rem", opacity: 0.85 }}>{del.notes.join(" · ")}</span>}
-                                </div>
-                                {/* Trailers */}
-                                <div style={{ padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8, background: isMonday ? "#eff6ff" : "#f0fdf4" }}>
-                                  {del.trailers.map((trailer, ti) => (
-                                    <div key={ti} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                </span>
+                              </div>
+
+                              {/* Trailer breakdown */}
+                              {hasDelivery && day.trailers.length > 0 && (
+                                <div style={{ padding: "4px 16px 10px 52px", display: "flex", flexDirection: "column", gap: 6 }}>
+                                  {day.trailers.map((trailer, ti) => (
+                                    <div key={ti} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                                       <span style={{
-                                        background: isMonday ? "#1d4ed8" : "#15803d",
-                                        color: "#fff", borderRadius: 6, padding: "2px 10px",
-                                        fontSize: "0.78rem", fontWeight: 700, whiteSpace: "nowrap",
+                                        background: delivColor, color: "#fff",
+                                        borderRadius: 5, padding: "2px 9px",
+                                        fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap",
                                       }}>
                                         Trailer {ti + 1}
                                       </span>
                                       {trailer.feeds.map((f, fi) => (
                                         <span key={fi} style={{
                                           background: "#fff",
-                                          border: `1px solid ${isMonday ? "#93c5fd" : "#86efac"}`,
-                                          borderRadius: 6, padding: "3px 12px",
-                                          fontSize: "0.88rem", fontWeight: 700, color: "#1e293b",
+                                          border: `1px solid ${delivBorder}`,
+                                          borderRadius: 5, padding: "2px 10px",
+                                          fontSize: "0.82rem", fontWeight: 600, color: "#1e293b",
                                         }}>
                                           {getFeedLabel(f.feedProduct)} — {f.tonnes}t
                                         </span>
@@ -851,56 +929,58 @@ export default function FeedOrderPage() {
                                     </div>
                                   ))}
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div style={{ color: "#94a3b8", fontSize: "0.82rem", marginBottom: 12, fontStyle: "italic" }}>
-                          No delivery needed this week
-                        </div>
-                      )}
-
-                      {/* Daily breakdown — compact, secondary */}
-                      <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.79rem" }}>
-                          <thead>
-                            <tr style={{ background: "#f8fafc" }}>
-                              <th style={{ padding: "4px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Day</th>
-                              <th style={{ padding: "4px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Date</th>
-                              <th style={{ padding: "4px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Age</th>
-                              <th style={{ padding: "4px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Birds</th>
-                              <th style={{ padding: "4px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Use (t)</th>
-                              <th style={{ padding: "4px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Stock (t)</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {week.days.map((d, di) => {
-                              const isDeliveryDay = week.deliveries.some(del => del.deliveryDate === d.date);
-                              const stockLow = d.stockStartKg < d.pureConsumptionKg * 2;
-                              return (
-                                <tr key={d.date} style={{
-                                  background: isDeliveryDay ? "#fef9c3" : di % 2 === 0 ? "#fff" : "#fafafa",
-                                  borderBottom: "1px solid #f1f5f9",
-                                }}>
-                                  <td style={{ padding: "4px 10px", fontWeight: isDeliveryDay ? 700 : 600, color: "#374151" }}>
-                                    {d.dayOfWeek}{isDeliveryDay ? " 📦" : ""}
-                                  </td>
-                                  <td style={{ padding: "4px 10px", color: "#475569", whiteSpace: "nowrap" }}>{fmtDate(d.date)}</td>
-                                  <td style={{ padding: "4px 10px", textAlign: "right", color: "#475569" }}>D{d.ageMin}</td>
-                                  <td style={{ padding: "4px 10px", textAlign: "right", color: "#475569" }}>{d.birds > 0 ? fmt(d.birds) : "—"}</td>
-                                  <td style={{ padding: "4px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>
-                                    {fmt(d.pureConsumptionKg / 1000)}
-                                  </td>
-                                  <td style={{ padding: "4px 10px", textAlign: "right", color: stockLow ? "#dc2626" : "#374151", fontWeight: stockLow ? 700 : 400 }}>
-                                    {fmt(d.stockStartKg / 1000)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
+
+                      {/* ── Coverage through Tuesday ── */}
+                      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderTop: "none", padding: "10px 16px 6px", borderRadius: "0 0 10px 10px" }}>
+                        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                          Coverage through Tuesday
+                        </div>
+                        {order.coverage.map((day, ci) => {
+                          const isFinalTuesday = ci === order.coverage.length - 1;
+                          return (
+                            <div key={day.date} style={{
+                              display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
+                              padding: "4px 0", borderBottom: isFinalTuesday ? "none" : "1px solid #f1f5f9", fontSize: "0.82rem",
+                            }}>
+                              <span style={{ fontWeight: 600, color: "#374151", minWidth: 36 }}>{day.dayOfWeek}</span>
+                              <span style={{ color: "#64748b", minWidth: 44 }}>{fmtDate(day.date)}</span>
+                              <span style={{ color: "#94a3b8", minWidth: 36 }}>D{day.ageMin}</span>
+                              <span style={{ color: "#475569", minWidth: 60 }}>{day.birds > 0 ? fmt(day.birds) : "—"}</span>
+                              <span style={{ fontWeight: 600, color: "#1e293b", minWidth: 50 }}>{fmt(day.consumptionKg / 1000)}t</span>
+                              <span style={{ color: "#64748b" }}>
+                                {fmt(day.stockStartKg / 1000)}t
+                                <span style={{ color: "#94a3b8", margin: "0 4px" }}>→</span>
+                                <span style={{ color: day.stockEndKg < 0 ? "#dc2626" : "#374151", fontWeight: (isFinalTuesday || day.stockEndKg < 0) ? 700 : 400 }}>
+                                  {fmt(day.stockEndKg / 1000)}t
+                                </span>
+                              </span>
+                              {isFinalTuesday && (
+                                <span style={{
+                                  marginLeft: 4, fontWeight: 700,
+                                  color: finalOk ? "#16a34a" : "#dc2626",
+                                  fontSize: "1rem",
+                                }}>
+                                  {finalOk ? "✓" : "⚠"}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {finalTuesday && (
+                          <div style={{ marginTop: 8, fontSize: "0.78rem", color: finalOk ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
+                            {finalOk
+                              ? `Stock at Tuesday end: ${fmt(order.stockOnFinalTuesdayKg / 1000)}t — sufficient`
+                              : `Stock deficit at Tuesday end: ${fmt(order.stockOnFinalTuesdayKg / 1000)}t — order more`
+                            }
+                          </div>
+                        )}
+                      </div>
+
                     </div>
                   );
                 })}
