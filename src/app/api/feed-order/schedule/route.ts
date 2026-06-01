@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
 
     const today = startOfDay(new Date());
     const activePlacements = placements.filter(p => {
-      const endDate = p.clearDate ? startOfDay(new Date(p.clearDate)) : addDays(new Date(p.placementDate), 42);
+      const endDate = p.clearDate ? startOfDay(new Date(p.clearDate)) : addDays(new Date(p.placementDate), 56);
       return endDate >= today || p.crop.status === "ACTIVE";
     });
 
@@ -170,7 +170,7 @@ export async function GET(req: NextRequest) {
 
       activePlacements.forEach((p, idx) => {
         const pd = startOfDay(new Date(p.placementDate));
-        const endDate = p.clearDate ? startOfDay(new Date(p.clearDate)) : addDays(pd, 42);
+        const endDate = p.clearDate ? startOfDay(new Date(p.clearDate)) : addDays(pd, 56);
         if (d < pd || d > endDate) return;
 
         const age = Math.round((d.getTime() - pd.getTime()) / MS_DAY);
