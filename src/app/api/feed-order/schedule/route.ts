@@ -99,10 +99,15 @@ export async function GET(req: NextRequest) {
     });
 
     const today = startOfDay(new Date());
-    const activePlacements = placements.filter(p => {
-      const endDate = p.clearDate ? startOfDay(new Date(p.clearDate)) : addDays(new Date(p.placementDate), 56);
-      return endDate >= today || p.crop.status === "ACTIVE";
-    });
+
+    // Determine end date for a placement: clearDate > crop.finishDate > +56 days
+    function placementEnd(p: typeof placements[0]): Date {
+      if (p.clearDate) return startOfDay(new Date(p.clearDate));
+      if (p.crop.finishDate) return startOfDay(new Date(p.crop.finishDate));
+      return addDays(startOfDay(new Date(p.placementDate)), 56);
+    }
+
+    const activePlacements = placements.filter(p => placementEnd(p) >= today);
 
     if (activePlacements.length === 0) {
       return NextResponse.json({ orders: [], warning: "No active placements found." });
@@ -149,7 +154,7 @@ export async function GET(req: NextRequest) {
     // ── Cycle end ─────────────────────────────────────────────────────────────
     let cycleEnd = today;
     for (const p of activePlacements) {
-      const end = p.clearDate ? startOfDay(new Date(p.clearDate)) : addDays(new Date(p.placementDate), 42);
+      const end = placementEnd(p);
       if (end > cycleEnd) cycleEnd = new Date(end);
     }
 
@@ -170,7 +175,7 @@ export async function GET(req: NextRequest) {
 
       activePlacements.forEach((p, idx) => {
         const pd = startOfDay(new Date(p.placementDate));
-        const endDate = p.clearDate ? startOfDay(new Date(p.clearDate)) : addDays(pd, 56);
+        const endDate = placementEnd(p);
         if (d < pd || d > endDate) return;
 
         const age = Math.round((d.getTime() - pd.getTime()) / MS_DAY);
