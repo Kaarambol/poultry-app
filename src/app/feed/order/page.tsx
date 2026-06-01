@@ -135,6 +135,7 @@ export default function FeedOrderPage() {
 
   // Current stock state
   const [activeStock, setActiveStock]       = useState("0");
+  const [expectedClearDate, setExpectedClearDate] = useState("");
   const [savingStock, setSavingStock]       = useState(false);
 
   // Schedule state
@@ -244,7 +245,10 @@ export default function FeedOrderPage() {
     setScheduleLoading(true);
     setScheduleWarning("");
     try {
-      const r = await fetch(`/api/feed-order/schedule?farmId=${fid}`);
+      const url = expectedClearDate
+        ? `/api/feed-order/schedule?farmId=${fid}&clearDate=${expectedClearDate}`
+        : `/api/feed-order/schedule?farmId=${fid}`;
+      const r = await fetch(url);
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Error loading schedule.");
       setScheduleRows(d.orders ?? []);
@@ -735,18 +739,29 @@ export default function FeedOrderPage() {
               Enter current stock levels to generate the delivery schedule.
             </p>
             <form onSubmit={saveStock}>
-              <div style={{ marginBottom: 14 }}>
-                <label>Active stock (tonnes)</label>
-                <input
-                  type="number" step="0.1" min="0"
-                  value={activeStock}
-                  onChange={e => setActiveStock(e.target.value)}
-                  placeholder="e.g. 45.5"
-                  style={{ maxWidth: 200 }}
-                />
-                <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 4 }}>
-                  Total usable feed in active bins right now.
-                  Mark closing stock bins in red using the house assignment section above.
+              <div className="mobile-grid mobile-grid--2" style={{ marginBottom: 14 }}>
+                <div>
+                  <label>Active stock (tonnes)</label>
+                  <input
+                    type="number" step="0.1" min="0"
+                    value={activeStock}
+                    onChange={e => setActiveStock(e.target.value)}
+                    placeholder="e.g. 45.5"
+                  />
+                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 4 }}>
+                    Feed in active bins right now.
+                  </div>
+                </div>
+                <div>
+                  <label>Expected clear date</label>
+                  <input
+                    type="date"
+                    value={expectedClearDate}
+                    onChange={e => setExpectedClearDate(e.target.value)}
+                  />
+                  <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 4 }}>
+                    Last day of catching — limits orders.
+                  </div>
                 </div>
               </div>
               {savedBins.some(b => b.isClosingStock) && (

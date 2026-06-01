@@ -73,6 +73,10 @@ export async function GET(req: NextRequest) {
     const role = await getUserRoleOnFarm(uid, farmId);
     if (!canView(role)) return NextResponse.json({ error: "No access." }, { status: 403 });
 
+    // Optional override: cap all placement ends at this date
+    const clearDateParam = req.nextUrl.searchParams.get("clearDate");
+    const overrideClearDate = clearDateParam ? startOfDay(new Date(clearDateParam)) : null;
+
     // ── Bins ─────────────────────────────────────────────────────────────────
     const farmBins = await prisma.feedBin.findMany({ where: { farmId }, orderBy: { sortOrder: "asc" } });
     const totalBinCapacityKg = farmBins.reduce((s, b) => s + b.capacityTonnes * 1000, 0);
@@ -103,8 +107,9 @@ export async function GET(req: NextRequest) {
 
     const today = startOfDay(new Date());
 
-    // Determine end date for a placement: clearDate > crop.finishDate > +56 days
+    // Determine end date for a placement: overrideClearDate > clearDate > crop.finishDate > +56 days
     function placementEnd(p: typeof placements[0]): Date {
+      if (overrideClearDate) return overrideClearDate;
       if (p.clearDate) return startOfDay(new Date(p.clearDate));
       if (p.crop.finishDate) return startOfDay(new Date(p.crop.finishDate));
       return addDays(startOfDay(new Date(p.placementDate)), 56);
