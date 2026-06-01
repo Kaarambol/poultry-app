@@ -342,20 +342,33 @@ export async function GET(req: NextRequest) {
         trailersNeeded = Math.min(trailersNeeded, maxTrailers);
       }
 
-      // ── Distribute trailers greedily across Mon–Fri ───────────────────────
+      // ── Distribute trailers evenly across Mon–Fri ────────────────────────
+      // Spread deliveries: each day gets ceil(remaining / daysLeft) trailers,
+      // capped at what physically fits in bins. Max 2 per day to avoid piling
+      // up 7 trucks on Monday.
+      const DELIVERY_OFFSETS = [5, 6, 7, 8, 9]; // Mon Tue Wed Thu Fri
+      const MAX_PER_DAY = 2;
       const deliveryByOffset = new Map<number, number>(); // offset → kg
       let remaining = trailersNeeded;
       let simForDist = stockAtMonMorningKg;
 
-      for (let i = 5; i <= 9 && remaining > 0; i++) {
-        let maxFit: number;
+      for (let di = 0; di < DELIVERY_OFFSETS.length && remaining > 0; di++) {
+        const i = DELIVERY_OFFSETS[di];
+        const daysLeft = DELIVERY_OFFSETS.length - di;
+
+        // Even split: how many should go today to spread remainder evenly
+        const evenToday = Math.ceil(remaining / daysLeft);
+
+        // Physical cap: don't overflow bins
+        let fitInBins: number;
         if (effectiveCapKg > 0) {
-          // Don't overflow bins on any single delivery
-          maxFit = Math.floor(Math.max(0, effectiveCapKg - simForDist) / TRAILER_KG);
+          fitInBins = Math.floor(Math.max(0, effectiveCapKg - simForDist) / TRAILER_KG);
         } else {
-          maxFit = remaining; // no bin constraint → assign all on first available day
+          fitInBins = remaining;
         }
-        const assign = Math.min(remaining, maxFit);
+
+        // Assign: even split, capped by physical fit and daily max (2/day)
+        const assign = Math.min(remaining, fitInBins, Math.max(evenToday, MAX_PER_DAY));
         if (assign > 0) {
           deliveryByOffset.set(i, assign * TRAILER_KG);
           remaining -= assign;
