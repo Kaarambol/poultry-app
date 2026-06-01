@@ -86,9 +86,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ orders: [], warning: "No house-bin assignments found." });
     }
 
-    // ── Active placements ─────────────────────────────────────────────────────
+    // ── Active placements (only ACTIVE crops) ────────────────────────────────
     const placements = await prisma.cropHousePlacement.findMany({
-      where: { houseId: { in: assignedHouseIds } },
+      where: {
+        houseId: { in: assignedHouseIds },
+        crop: { status: "ACTIVE" },
+      },
       include: {
         crop: {
           include: {
@@ -321,6 +324,12 @@ export async function GET(req: NextRequest) {
       let totalNeededKg = 0;
       for (let i = 5; i <= 13; i++) {
         totalNeededKg += dailyData(addDays(wednesday, i)).pureFeedKg;
+      }
+
+      // No birds eating this week → no order needed, just advance and skip
+      if (totalNeededKg === 0) {
+        wednesday = addDays(wednesday, 7);
+        continue;
       }
 
       // ── Stock at Monday morning (burn Wed + Thu + Fri + Sat + Sun) ────────
