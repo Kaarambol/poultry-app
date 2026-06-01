@@ -323,12 +323,12 @@ export async function GET(req: NextRequest) {
       // Calculate deficit and order quantity
       const deficitKg = Math.max(0, totalNeededKg - stockAtMonMorningKg);
       let totalOrderKg = Math.ceil(deficitKg / TRAILER_KG) * TRAILER_KG;
-      // Cap at bin capacity minus what's already in bins at Monday morning
-      const binCap = Math.max(0, maxOrderKg - Math.max(0, stockAtMonMorningKg));
+      // Cap at total bin capacity minus stock already in bins at Monday morning
+      const binCap = Math.max(0, totalBinCapacityKg - Math.max(0, stockAtMonMorningKg));
       totalOrderKg = Math.min(totalOrderKg, Math.ceil(binCap / TRAILER_KG) * TRAILER_KG);
 
       // Distribute deliveries: Monday gets max that fits, Thursday gets remainder
-      const maxMonKg = Math.floor(Math.max(0, maxOrderKg - Math.max(0, stockAtMonMorningKg)) / TRAILER_KG) * TRAILER_KG;
+      const maxMonKg = Math.floor(Math.max(0, totalBinCapacityKg - Math.max(0, stockAtMonMorningKg)) / TRAILER_KG) * TRAILER_KG;
       let mondayKg = Math.min(totalOrderKg, maxMonKg);
       // Ensure at least 1 trailer on Monday if we need to order
       if (totalOrderKg > 0 && mondayKg === 0) {
