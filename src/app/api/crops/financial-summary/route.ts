@@ -71,6 +71,16 @@ export async function GET(req: Request) {
       );
     }
 
+    // Previous crop finishDate for cropLengthWeeks (same as Total page)
+    const prevCropData = await prisma.crop.findFirst({
+      where: {
+        farmId: crop.farmId,
+        placementDate: { lt: crop.placementDate },
+      },
+      orderBy: { placementDate: "desc" },
+      select: { finishDate: true },
+    });
+
     // Sum floor area once per unique house
     const seenHouseIds = new Set<string>();
     let totalFloorAreaM2 = 0;
@@ -316,8 +326,13 @@ export async function GET(req: Request) {
         ? finalRevenue - finalChickCost - totalFeedCostGbp
         : null;
 
-    // Margin in pence per m² per week: (grossMargin × 100) / area / (ageDays / 7)
-    const lengthCropWeeks = ageDays / 7;
+    // Margin in pence per m² per week: (grossMargin × 100) / area / cropLengthWeeks
+    // cropLengthWeeks = prevCrop.finishDate → cropEndDate (same as Total page display)
+    const prevFinishMs = prevCropData?.finishDate ? new Date(prevCropData.finishDate).getTime() : null;
+    const lengthCropDays = prevFinishMs
+      ? Math.max(1, Math.floor((endMs - prevFinishMs) / MSDAY))
+      : ageDays;
+    const lengthCropWeeks = lengthCropDays / 7;
     const finalMarginPencePerM2Day: number | null =
       finalGrossMarginGbp !== null && totalFloorAreaM2 > 0 && lengthCropWeeks > 0
         ? (finalGrossMarginGbp * 100) / totalFloorAreaM2 / lengthCropWeeks
