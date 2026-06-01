@@ -303,7 +303,8 @@ export async function GET(req: NextRequest) {
       ? feedPhases[feedPhases.length - 1].feedProduct
       : null;
 
-    while (wednesday <= cycleEnd) {
+    // Only generate an order if Monday (+5) is on or before the last day birds need feed
+    while (addDays(wednesday, 5) <= cycleEnd) {
       const weekNotes: string[] = [];
       const stockOnOrderDayKg = runningStockKg;
 
@@ -322,20 +323,21 @@ export async function GET(req: NextRequest) {
       for (let i = 0; i <= 4; i++) { // Wed(0), Thu(+1), Fri(+2), Sat(+3), Sun(+4)
         stockAtMonMorningKg -= dailyData(addDays(wednesday, i)).pureFeedKg;
       }
+      // Clamp to 0: if stock runs out before Monday that's already a problem,
+      // but we should not double-count missing stock as extra shortfall.
+      const stockAtMonClamped = Math.max(0, stockAtMonMorningKg);
 
       // ── Effective bin capacity: include closing bins on last feed phase ────
-      // Check if Monday's feed is the last phase product
       const mondayPhase = dailyData(addDays(wednesday, 5)).phases[0];
       const isLastPhase = lastPhaseProduct !== null && mondayPhase?.product === lastPhaseProduct;
       const effectiveCapKg = isLastPhase ? totalBinCapacityKg : maxOrderKg;
       // 0 means no bins configured → no physical cap
 
       // ── How many trailers to order ────────────────────────────────────────
-      // Deficit = what we need above and beyond existing stock at Monday morning
-      const shortfallKg = Math.max(0, totalNeededKg - stockAtMonMorningKg);
-      // No total bin cap here — deliveries are spread Mon-Fri and birds eat between
-      // deliveries, so weekly order can exceed bin capacity. Only per-delivery
-      // day capping (below) prevents overflow on any single arrival.
+      // Shortfall = what birds will consume that is not already in stock Monday morning
+      const shortfallKg = Math.max(0, totalNeededKg - stockAtMonClamped);
+      // No total bin cap — deliveries spread Mon-Fri, birds eat between deliveries.
+      // Per-delivery cap (below) prevents overflow on any single day.
       const trailersNeeded = Math.ceil(shortfallKg / TRAILER_KG);
 
       // ── Distribute trailers evenly across Mon–Fri ────────────────────────
@@ -346,7 +348,7 @@ export async function GET(req: NextRequest) {
       const MAX_PER_DAY = 2;
       const deliveryByOffset = new Map<number, number>(); // offset → kg
       let remaining = trailersNeeded;
-      let simForDist = stockAtMonMorningKg;
+      let simForDist = stockAtMonClamped;
 
       for (let di = 0; di < DELIVERY_OFFSETS.length && remaining > 0; di++) {
         const i = DELIVERY_OFFSETS[di];
