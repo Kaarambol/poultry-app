@@ -797,8 +797,11 @@ export default function FeedOrderPage() {
             {scheduleRows.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {scheduleRows.map((order) => {
-                  const weeklyConsumptionKg = [...order.preDelivery, ...order.deliveryWindow, ...order.coverage]
-                    .reduce((s, d) => s + d.consumptionKg, 0);
+                  // Mon–Sun = deliveryWindow (Mon-Fri) + Sat + Sun (coverage[0], coverage[1])
+                  const weeklyConsumptionKg = [
+                    ...order.deliveryWindow,
+                    ...order.coverage.slice(0, 2),
+                  ].reduce((s, d) => s + d.consumptionKg, 0);
                   const deliveryDays = order.deliveryWindow.filter(d => d.deliveryKg > 0);
                   return (
                     <div key={order.orderDate} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #e2e8f0" }}>
