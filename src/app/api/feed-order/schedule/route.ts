@@ -299,7 +299,9 @@ export async function GET(req: NextRequest) {
 
     // ── Simulate week by week ─────────────────────────────────────────────────
     const orders: OrderWeek[] = [];
-    const MAX_FILL = 0.85;
+    const lastPhaseProduct = feedPhases.length > 0
+      ? feedPhases[feedPhases.length - 1].feedProduct
+      : null;
 
     while (wednesday <= cycleEnd) {
       const weekNotes: string[] = [];
@@ -315,21 +317,29 @@ export async function GET(req: NextRequest) {
         totalNeededKg += dailyData(addDays(wednesday, i)).pureFeedKg;
       }
 
-      // ── Stock at Monday morning (burn Thu-Sun) ────────────────────────────
+      // ── Stock at Monday morning (burn Wed + Thu + Fri + Sat + Sun) ────────
       let stockAtMonMorningKg = runningStockKg;
-      for (let i = 1; i <= 4; i++) {
+      for (let i = 0; i <= 4; i++) { // Wed(0), Thu(+1), Fri(+2), Sat(+3), Sun(+4)
         stockAtMonMorningKg -= dailyData(addDays(wednesday, i)).pureFeedKg;
       }
 
+      // ── Effective bin capacity: include closing bins on last feed phase ────
+      // Check if Monday's feed is the last phase product
+      const mondayPhase = dailyData(addDays(wednesday, 5)).phases[0];
+      const isLastPhase = lastPhaseProduct !== null && mondayPhase?.product === lastPhaseProduct;
+      const effectiveCapKg = isLastPhase ? totalBinCapacityKg : maxOrderKg;
+      // 0 means no bins configured → no physical cap
+
       // ── How many trailers to order ────────────────────────────────────────
+      // Deficit = what we need above and beyond existing stock at Monday morning
       const shortfallKg = Math.max(0, totalNeededKg - stockAtMonMorningKg);
       let trailersNeeded = Math.ceil(shortfallKg / TRAILER_KG);
 
-      // Cap by 85% bin capacity — only if bins are configured
-      if (totalBinCapacityKg > 0) {
-        const maxFillKg = totalBinCapacityKg * MAX_FILL;
-        const maxFit = Math.floor(Math.max(0, maxFillKg - Math.max(0, stockAtMonMorningKg)) / TRAILER_KG);
-        trailersNeeded = Math.min(trailersNeeded, maxFit);
+      // Cap: total order must fit in bins (cannot exceed available space)
+      if (effectiveCapKg > 0) {
+        const availableSpaceKg = Math.max(0, effectiveCapKg - Math.max(0, stockAtMonMorningKg));
+        const maxTrailers = Math.floor(availableSpaceKg / TRAILER_KG);
+        trailersNeeded = Math.min(trailersNeeded, maxTrailers);
       }
 
       // ── Distribute trailers greedily across Mon–Fri ───────────────────────
@@ -339,9 +349,9 @@ export async function GET(req: NextRequest) {
 
       for (let i = 5; i <= 9 && remaining > 0; i++) {
         let maxFit: number;
-        if (totalBinCapacityKg > 0) {
-          const maxFillKg = totalBinCapacityKg * MAX_FILL;
-          maxFit = Math.floor(Math.max(0, maxFillKg - simForDist) / TRAILER_KG);
+        if (effectiveCapKg > 0) {
+          // Don't overflow bins on any single delivery
+          maxFit = Math.floor(Math.max(0, effectiveCapKg - simForDist) / TRAILER_KG);
         } else {
           maxFit = remaining; // no bin constraint → assign all on first available day
         }
