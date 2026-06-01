@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const farmId: string = body.farmId ?? "";
-    const phases: { feedProduct: string; dayFrom: number; dayTo: number | null }[] = body.phases ?? [];
+    const phases: { feedProduct: string; dayFrom: number; dayTo: number | null; wheatPct: number; ownWheat: boolean }[] = body.phases ?? [];
 
     if (!farmId) return NextResponse.json({ error: "farmId required." }, { status: 400 });
 
@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
           dayFrom: p.dayFrom,
           dayTo: p.dayTo ?? null,
           sortOrder: i,
+          wheatPct: p.wheatPct ?? 0,
+          ownWheat: p.ownWheat ?? false,
         })),
       }),
     ]);

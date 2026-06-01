@@ -3,56 +3,63 @@ import { prisma } from "@/lib/db";
 import { getUserRoleOnFarm, canView } from "@/lib/permissions";
 
 const MS_DAY = 86_400_000;
-
-// Returns the next Wednesday on or after the given date
-function nextWednesday(from: Date): Date {
-  const d = new Date(from);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay(); // 0=Sun,1=Mon,...,3=Wed
-  const daysUntilWed = day <= 3 ? 3 - day : 10 - day;
-  d.setDate(d.getDate() + daysUntilWed);
-  return d;
-}
+const TRAILER_T = 27;          // tonnes per trailer
+const HALF_TRAILER_T = 13.5;   // half trailer (split delivery)
+const FRIDAY_TARGET_PCT = 0.85; // on Friday, bins should be 85% full
 
 function addDays(d: Date, n: number): Date {
   return new Date(d.getTime() + n * MS_DAY);
 }
+function toISO(d: Date) { return d.toISOString().slice(0, 10); }
+function startOfDay(d: Date): Date {
+  const r = new Date(d); r.setHours(0, 0, 0, 0); return r;
+}
 
-function toISO(d: Date) {
-  return d.toISOString().slice(0, 10);
+// Next Monday on or after `from`
+function nextMonday(from: Date): Date {
+  const d = startOfDay(from);
+  const dow = d.getDay(); // 0=Sun,1=Mon
+  const diff = dow === 1 ? 0 : (8 - dow) % 7 || 7;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+export interface DeliveryRow {
+  deliveryDate: string;          // ISO — Monday or Friday
+  trailers: TrailerLoad[];       // what's on each trailer
+  totalOrderKg: number;          // sum of all trailers
+  stockBeforeKg: number;         // stock when delivery arrives
+  stockAfterKg: number;
+  notes: string[];
+}
+
+export interface TrailerLoad {
+  feeds: { feedProduct: string; kg: number; tonnes: number }[];
+  totalTonnes: number;           // always 27
 }
 
 export interface DayRow {
-  date: string;          // ISO date
-  dayOfWeek: string;     // "Mon", "Tue", etc.
-  ageRangeStart: number;
-  ageRangeEnd: number;
+  date: string;
+  dayOfWeek: string;
+  ageMin: number;
+  ageMax: number;
   birds: number;
-  dailyConsumptionKg: number;
-  stockAtDayStartKg: number;  // stock before consuming this day
-  feedProducts: string[];
+  totalConsumptionKg: number;    // including wheat
+  pureConsumptionKg: number;     // excluding own-wheat (what comes from feed bins)
+  stockStartKg: number;
+  feedProducts: { product: string; ownWheat: boolean; wheatPct: number }[];
 }
 
-export interface WeekRow {
-  wednesday: string;        // ISO date of the ordering Wednesday
-  weekStart: string;        // Thu (day after Wednesday)
-  weekEnd: string;          // Wed next week
-  ageRangeStart: number;    // min age across active placements (start of week)
-  ageRangeEnd: number;      // max age across active placements (end of week)
-  totalBirdsAvg: number;    // avg birds active during the week
-  weeklyConsumptionKg: number;
-  stockBeforeKg: number;    // stock at start of Wednesday (before order)
-  orderNeededKg: number;    // how much to order this Wednesday
-  orderNeededTonnes: number;
-  trailersNeeded: number;   // Math.ceil(orderNeededTonnes / 27)
-  closingUnlockedKg: number; // closing stock that becomes available if closing bin ordered
-  stockAfterKg: number;     // stock after order + closing bin delivery
-  feedProducts: string[];   // feed types active during this week
+export interface WeekSchedule {
+  orderWednesday: string;
+  deliveries: DeliveryRow[];     // Monday + optional Friday
+  days: DayRow[];                // Thu–Wed (7 days)
+  weeklyConsumptionKg: number;   // pure feed consumption (bin draw-down)
+  stockOnWednesdayKg: number;
+  stockOnFridayAfterDeliveryKg: number;
   notes: string[];
-  days: DayRow[];           // per-day breakdown (Thu–Wed)
 }
 
-// GET /api/feed-order/schedule?farmId=xxx
 export async function GET(req: NextRequest) {
   try {
     const uid = req.cookies.get("uid")?.value;
@@ -64,25 +71,20 @@ export async function GET(req: NextRequest) {
     const role = await getUserRoleOnFarm(uid, farmId);
     if (!canView(role)) return NextResponse.json({ error: "No access." }, { status: 403 });
 
-    // ── 1. Bins assigned to any house on this farm ──────────────────────────
-    const binAssignments = await prisma.feedBinAssignment.findMany({
-      where: { farmId },
-      include: { bin: true },
-    });
+    // ── Bins ─────────────────────────────────────────────────────────────────
     const farmBins = await prisma.feedBin.findMany({ where: { farmId }, orderBy: { sortOrder: "asc" } });
     const totalBinCapacityKg = farmBins.reduce((s, b) => s + b.capacityTonnes * 1000, 0);
-    // Closing stock bins excluded from max order capacity (not being ordered this cycle)
     const maxOrderKg = farmBins
       .filter(b => !b.isClosingStock)
       .reduce((s, b) => s + b.capacityTonnes * 0.8 * 1000, 0);
 
-    // Houses that have any bin assignment
+    const binAssignments = await prisma.feedBinAssignment.findMany({ where: { farmId } });
     const assignedHouseIds = [...new Set(binAssignments.map(a => a.houseId))];
     if (assignedHouseIds.length === 0) {
-      return NextResponse.json({ rows: [], warning: "No house-bin assignments found." });
+      return NextResponse.json({ weeks: [], warning: "No house-bin assignments found." });
     }
 
-    // ── 2. Active placements for those houses ──────────────────────────────
+    // ── Active placements ─────────────────────────────────────────────────────
     const placements = await prisma.cropHousePlacement.findMany({
       where: { houseId: { in: assignedHouseIds } },
       include: {
@@ -94,280 +96,392 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Only consider placements whose crop is ACTIVE (or recently finished within 42 days)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
+    const today = startOfDay(new Date());
     const activePlacements = placements.filter(p => {
-      const endDate = p.clearDate ?? addDays(new Date(p.placementDate), 42);
+      const endDate = p.clearDate ? startOfDay(new Date(p.clearDate)) : addDays(new Date(p.placementDate), 42);
       return endDate >= today || p.crop.status === "ACTIVE";
     });
 
     if (activePlacements.length === 0) {
-      return NextResponse.json({ rows: [], warning: "No active placements found for houses with bin assignments." });
+      return NextResponse.json({ weeks: [], warning: "No active placements found." });
     }
 
-    // ── 3. Farm default target profile (fallback) ─────────────────────────
+    // ── Feed target profiles ──────────────────────────────────────────────────
     const farmDefaultProfile = await prisma.targetProfile.findFirst({
       where: { farmId, scope: "GLOBAL_TEMPLATE" },
       include: { days: { orderBy: { dayNumber: "asc" } } },
     });
 
-    // Build a feedTargetG lookup for a profile: day → grams
-    function buildFeedMap(days: { dayNumber: number; feedTargetG: number | null }[]): Map<number, number> {
+    function buildFeedMap(days: { dayNumber: number; feedTargetG: number | null }[]) {
       const map = new Map<number, number>();
-      for (const d of days) {
-        if (d.feedTargetG != null) map.set(d.dayNumber, d.feedTargetG);
-      }
+      for (const d of days) { if (d.feedTargetG != null) map.set(d.dayNumber, d.feedTargetG); }
       return map;
     }
-
-    // Interpolate: find closest lower day entry, fallback to last
-    function getFeedTargetG(map: Map<number, number>, maxDay: number, ageDay: number): number {
-      if (map.has(ageDay)) return map.get(ageDay)!;
-      // Walk down
-      for (let d = ageDay - 1; d >= 0; d--) {
-        if (map.has(d)) return map.get(d)!;
-      }
-      // Walk up
-      for (let d = ageDay + 1; d <= maxDay + 10; d++) {
-        if (map.has(d)) return map.get(d)!;
-      }
+    function getFeedTargetG(map: Map<number, number>, maxDay: number, age: number): number {
+      if (map.has(age)) return map.get(age)!;
+      for (let d = age - 1; d >= 0; d--) { if (map.has(d)) return map.get(d)!; }
+      for (let d = age + 1; d <= maxDay + 10; d++) { if (map.has(d)) return map.get(d)!; }
       return 0;
     }
 
-    // Per-placement feed map
     const placementFeedMaps = activePlacements.map(p => {
-      const profileDays = p.crop.targetProfile?.days ?? farmDefaultProfile?.days ?? [];
-      const map = buildFeedMap(profileDays);
-      const maxDay = profileDays.length > 0 ? Math.max(...profileDays.map(d => d.dayNumber)) : 42;
-      return { map, maxDay };
+      const days = p.crop.targetProfile?.days ?? farmDefaultProfile?.days ?? [];
+      return { map: buildFeedMap(days), maxDay: days.length > 0 ? Math.max(...days.map(d => d.dayNumber)) : 42 };
     });
 
-    // ── 4. Determine cycle end ─────────────────────────────────────────────
-    let cycleEnd = today;
-    for (const p of activePlacements) {
-      const end = p.clearDate ?? addDays(new Date(p.placementDate), 42);
-      if (end > cycleEnd) cycleEnd = new Date(end);
-    }
-    cycleEnd.setHours(0, 0, 0, 0);
-
-    // ── 5. Daily consumption function ────────────────────────────────────
-    function dailyConsumptionKg(date: Date): { kg: number; totalBirds: number } {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      let totalKg = 0;
-      let totalBirds = 0;
-
-      activePlacements.forEach((p, idx) => {
-        const placementDate = new Date(p.placementDate);
-        placementDate.setHours(0, 0, 0, 0);
-        const endDate = p.clearDate ? new Date(p.clearDate) : addDays(placementDate, 42);
-        endDate.setHours(0, 0, 0, 0);
-
-        if (d < placementDate || d > endDate) return;
-
-        const ageDay = Math.round((d.getTime() - placementDate.getTime()) / MS_DAY);
-
-        // Birds: 100% placed, reduce after thins
-        let birds = p.birdsPlaced;
-        if (p.thinDate && d >= new Date(new Date(p.thinDate).setHours(0,0,0,0))) {
-          birds -= (p.thinBirds ?? 0);
-        }
-        if (p.thin2Date && d >= new Date(new Date(p.thin2Date).setHours(0,0,0,0))) {
-          birds -= (p.thin2Birds ?? 0);
-        }
-        birds = Math.max(0, birds);
-
-        const { map, maxDay } = placementFeedMaps[idx];
-        const feedG = getFeedTargetG(map, maxDay, ageDay);
-
-        totalKg += birds * feedG / 1000;
-        totalBirds += birds;
-      });
-
-      return { kg: totalKg, totalBirds };
-    }
-
-    // ── 5b. Load feed phases ──────────────────────────────────────────────
+    // ── Feed phases ───────────────────────────────────────────────────────────
     const phaseTemplate = await prisma.feedPhaseTemplate.findUnique({
       where: { farmId },
       include: { phases: { orderBy: { sortOrder: "asc" } } },
     });
     const feedPhases = phaseTemplate?.phases ?? [];
 
-    function getFeedProductsForWeek(ageStart: number, ageEnd: number): string[] {
-      const products = new Set<string>();
+    function getPhaseForDay(age: number) {
       for (const phase of feedPhases) {
-        const phaseStart = phase.dayFrom;
-        const phaseEnd = phase.dayTo ?? 60;
-        if (ageStart <= phaseEnd && ageEnd >= phaseStart) {
-          products.add(phase.feedProduct);
-        }
+        const end = phase.dayTo ?? 999;
+        if (age >= phase.dayFrom && age <= end) return phase;
       }
-      return [...products];
+      return feedPhases[feedPhases.length - 1] ?? null;
     }
 
-    // ── 6. Load current stock ─────────────────────────────────────────────
+    // ── Cycle end ─────────────────────────────────────────────────────────────
+    let cycleEnd = today;
+    for (const p of activePlacements) {
+      const end = p.clearDate ? startOfDay(new Date(p.clearDate)) : addDays(new Date(p.placementDate), 42);
+      if (end > cycleEnd) cycleEnd = new Date(end);
+    }
+
+    // ── Daily consumption (pure feed from bins only) ──────────────────────────
+    // Returns kg that must come from feed bins (total - own wheat portion)
+    function dailyData(date: Date): {
+      pureFeedKg: number;
+      totalKg: number;
+      birds: number;
+      phases: { product: string; ownWheat: boolean; wheatPct: number }[];
+    } {
+      const d = startOfDay(date);
+      let totalKg = 0;
+      let pureFeedKg = 0;
+      let birds = 0;
+      const phaseSet = new Map<string, { ownWheat: boolean; wheatPct: number }>();
+
+      activePlacements.forEach((p, idx) => {
+        const pd = startOfDay(new Date(p.placementDate));
+        const endDate = p.clearDate ? startOfDay(new Date(p.clearDate)) : addDays(pd, 42);
+        if (d < pd || d > endDate) return;
+
+        const age = Math.round((d.getTime() - pd.getTime()) / MS_DAY);
+        let b = p.birdsPlaced;
+        if (p.thinDate && d >= startOfDay(new Date(p.thinDate))) b -= (p.thinBirds ?? 0);
+        if (p.thin2Date && d >= startOfDay(new Date(p.thin2Date))) b -= (p.thin2Birds ?? 0);
+        b = Math.max(0, b);
+
+        const { map, maxDay } = placementFeedMaps[idx];
+        const feedG = getFeedTargetG(map, maxDay, age);
+        const dayKg = b * feedG / 1000;
+
+        const phase = getPhaseForDay(age);
+        const wheatPct = phase?.wheatPct ?? 0;
+        const ownWheat = phase?.ownWheat ?? false;
+
+        totalKg += dayKg;
+        // If ownWheat: bins hold only pure feed (no wheat), so pure = dayKg * (1 - wheatPct/100)
+        // If !ownWheat: feed is already mixed (wheat included), so pure = dayKg
+        pureFeedKg += ownWheat ? dayKg * (1 - wheatPct / 100) : dayKg;
+        birds += b;
+
+        if (phase) phaseSet.set(phase.feedProduct, { ownWheat: phase.ownWheat, wheatPct: phase.wheatPct });
+      });
+
+      return {
+        pureFeedKg,
+        totalKg,
+        birds,
+        phases: [...phaseSet.entries()].map(([product, v]) => ({ product, ...v })),
+      };
+    }
+
+    // ── Current stock ─────────────────────────────────────────────────────────
     const stockRecord = await prisma.feedOrderStock.findUnique({ where: { farmId } });
     let runningStockKg = (stockRecord?.activeStockTonnes ?? 0) * 1000;
-    const closingBins = farmBins.filter(b => b.isClosingStock);
-    const closingBinKg = 0; // amount not tracked — closing bins excluded from order capacity only
 
-    // ── 7. Simulate week by week ──────────────────────────────────────────
-    const rows: WeekRow[] = [];
+    // ── Consume today to next Wednesday ──────────────────────────────────────
+    // Find the next ordering Wednesday
+    const todayDow = today.getDay();
+    const daysToWed = todayDow <= 3 ? 3 - todayDow : 10 - todayDow;
+    const firstWednesday = addDays(today, daysToWed);
 
-    // First Wednesday = this Wednesday or next
-    let wednesday = nextWednesday(today);
-    // If today IS Wednesday, first order is today
-    if (today.getDay() === 3) wednesday = new Date(today);
-
-    // Consume from today until first Wednesday
-    {
-      let cur = new Date(today);
-      while (cur < wednesday) {
-        const { kg } = dailyConsumptionKg(cur);
-        runningStockKg -= kg;
-        cur = addDays(cur, 1);
-      }
+    // Burn stock from today up to (but not including) Wednesday
+    for (let cur = new Date(today); cur < firstWednesday; cur = addDays(cur, 1)) {
+      const { pureFeedKg } = dailyData(cur);
+      runningStockKg -= pureFeedKg;
     }
 
-    let closingUnlockedThisWeek = false;
+    // ── Simulate week by week ─────────────────────────────────────────────────
+    const DOW_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const weeks: WeekSchedule[] = [];
+    let wednesday = new Date(firstWednesday);
+    if (today.getDay() === 3) wednesday = new Date(today);
 
     while (wednesday <= cycleEnd) {
-      const weekStart = addDays(wednesday, 1); // Thursday
-      const weekEnd = addDays(wednesday, 7);   // next Wednesday
+      const weekNotes: string[] = [];
+      const thursday = addDays(wednesday, 1);
+      const friday = addDays(wednesday, 2);
+      const monday = nextMonday(thursday); // next Monday after Wednesday
 
-      // Consumption next 7 days (Thu–Wed)
-      let weeklyKg = 0;
-      let totalBirdsSum = 0;
-      let birdsCount = 0;
-      const ageSet: number[] = [];
+      // ── Days Thu–Wed (7 days for display) ────────────────────────────────
+      const dayRows: DayRow[] = [];
+      let weeklyPureFeedKg = 0;
 
       for (let i = 1; i <= 7; i++) {
         const day = addDays(wednesday, i);
-        const { kg, totalBirds } = dailyConsumptionKg(day);
-        weeklyKg += kg;
-        totalBirdsSum += totalBirds;
-        birdsCount++;
-
-        // Age range: use first active placement for age ref
+        const { pureFeedKg, totalKg, birds, phases } = dailyData(day);
+        const ageSet: number[] = [];
         for (const p of activePlacements) {
-          const pd = new Date(p.placementDate);
-          pd.setHours(0, 0, 0, 0);
+          const pd = startOfDay(new Date(p.placementDate));
           const age = Math.round((day.getTime() - pd.getTime()) / MS_DAY);
-          if (age >= 0 && age <= 50) ageSet.push(age);
+          if (age >= 0 && age <= 60) ageSet.push(age);
         }
+        dayRows.push({
+          date: toISO(day),
+          dayOfWeek: DOW_SHORT[day.getDay()],
+          ageMin: ageSet.length ? Math.min(...ageSet) : 0,
+          ageMax: ageSet.length ? Math.max(...ageSet) : 0,
+          birds,
+          totalConsumptionKg: Math.round(totalKg),
+          pureConsumptionKg: Math.round(pureFeedKg),
+          stockStartKg: 0, // filled in below
+          feedProducts: phases,
+        });
+        weeklyPureFeedKg += pureFeedKg;
       }
 
-      const avgBirds = birdsCount > 0 ? Math.round(totalBirdsSum / birdsCount) : 0;
-      const stockBefore = runningStockKg;
-
-      // Order needed: what's required to cover the week (if stock can't cover it)
-      const deficit = weeklyKg - runningStockKg;
-      let orderKg = Math.max(0, deficit);
-
-      // Round up to nearest tonne, cap at max order capacity
-      orderKg = Math.min(Math.ceil(orderKg / 1000) * 1000, maxOrderKg);
-
-      // Check if closing bin should be unlocked this week
-      // (Unlock when stock would run out within this week without it)
-      let closingUnlocked = 0;
-      if (!closingUnlockedThisWeek && closingBinKg > 0 && runningStockKg < weeklyKg * 1.5) {
-        closingUnlocked = closingBinKg;
-        closingUnlockedThisWeek = true;
-      }
-
-      const stockAfter = runningStockKg + orderKg + closingUnlocked;
-
-      // Notes
-      const notes: string[] = [];
+      // ── Notes for this week ───────────────────────────────────────────────
+      const weekStart = thursday;
+      const weekEnd = addDays(wednesday, 7);
       for (const p of activePlacements) {
         if (p.thinDate) {
-          const td = new Date(p.thinDate); td.setHours(0,0,0,0);
-          if (td >= weekStart && td <= weekEnd) notes.push(`Thin 1 (${toISO(td)}, −${(p.thinBirds??0).toLocaleString()})`);
+          const td = startOfDay(new Date(p.thinDate));
+          if (td >= weekStart && td <= weekEnd) weekNotes.push(`Thin 1 (${toISO(td)}, −${(p.thinBirds ?? 0).toLocaleString()})`);
         }
         if (p.thin2Date) {
-          const td2 = new Date(p.thin2Date); td2.setHours(0,0,0,0);
-          if (td2 >= weekStart && td2 <= weekEnd) notes.push(`Thin 2 (${toISO(td2)}, −${(p.thin2Birds??0).toLocaleString()})`);
+          const td2 = startOfDay(new Date(p.thin2Date));
+          if (td2 >= weekStart && td2 <= weekEnd) weekNotes.push(`Thin 2 (${toISO(td2)}, −${(p.thin2Birds ?? 0).toLocaleString()})`);
         }
         if (p.clearDate) {
-          const cd = new Date(p.clearDate); cd.setHours(0,0,0,0);
-          if (cd >= weekStart && cd <= weekEnd) notes.push(`Clear (${toISO(cd)})`);
+          const cd = startOfDay(new Date(p.clearDate));
+          if (cd >= weekStart && cd <= weekEnd) weekNotes.push(`Clear (${toISO(cd)})`);
         }
       }
-      if (closingUnlocked > 0) notes.push(`Closing stock +${(closingUnlocked/1000).toFixed(2)}t available`);
 
-      // Daily breakdown — order arrives Thursday morning (day 1)
-      const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-      const days: DayRow[] = [];
-      let dayRunningStock = runningStockKg + orderKg + closingUnlocked; // stock at Thu start
-      for (let i = 1; i <= 7; i++) {
-        const day = addDays(wednesday, i);
-        const { kg, totalBirds } = dailyConsumptionKg(day);
-        const dayAgeSet: number[] = [];
-        for (const p of activePlacements) {
-          const pd = new Date(p.placementDate); pd.setHours(0,0,0,0);
-          const age = Math.round((day.getTime() - pd.getTime()) / MS_DAY);
-          if (age >= 0 && age <= 60) dayAgeSet.push(age);
+      // ── Calculate what to order ───────────────────────────────────────────
+      // Thu-Sun (4 days) must be covered by current stock before Monday delivery
+      let thuSunNeeded = 0;
+      for (let i = 1; i <= 4; i++) {
+        thuSunNeeded += dailyData(addDays(wednesday, i)).pureFeedKg;
+      }
+      // Mon-Fri (5 days) consumption
+      let monFriNeeded = 0;
+      for (let i = 5; i <= 9; i++) {
+        monFriNeeded += dailyData(addDays(wednesday, i)).pureFeedKg;
+      }
+      // Sat-Mon (need stock from Fri to last until Tue morning, conservative)
+      let satTueNeeded = 0;
+      for (let i = 10; i <= 13; i++) { // Sat,Sun,Mon,Tue
+        satTueNeeded += dailyData(addDays(wednesday, i)).pureFeedKg;
+      }
+
+      // Total needed this week (Mon delivery covers Mon–Fri + Sat–Tue buffer)
+      // Stock on Wednesday = runningStockKg
+      // Must survive Thu–Sun on existing stock
+      const stockAfterThuSun = runningStockKg - thuSunNeeded;
+
+      // What we need on Monday morning to cover Mon–Tue of next week (conservative: +1 day buffer)
+      const monDeliveryNeeded = monFriNeeded + satTueNeeded - Math.max(0, stockAfterThuSun);
+
+      // Round up to full trailers (27t each), cap at bin capacity
+      const monOrderKg = Math.min(
+        Math.ceil(Math.max(0, monDeliveryNeeded) / (TRAILER_T * 1000)) * TRAILER_T * 1000,
+        maxOrderKg
+      );
+
+      // ── Build trailer loads for Monday ───────────────────────────────────
+      // Find which feed products are needed Mon onwards, handle phase transitions
+      function buildTrailers(orderKg: number, startDay: Date): TrailerLoad[] {
+        if (orderKg <= 0) return [];
+        const trailers: TrailerLoad[] = [];
+        let remaining = orderKg;
+
+        // Build a sorted list of (feedProduct, kg needed) segments
+        // based on phase transitions starting from startDay
+        type Segment = { feedProduct: string; neededKg: number };
+        const segments: Segment[] = [];
+        let cur = new Date(startDay);
+        const horizon = addDays(startDay, 14);
+
+        while (cur < horizon && remaining > 0) {
+          const { pureFeedKg, phases } = dailyData(cur);
+          const product = phases[0]?.product ?? "FINISHER_PELLET_585";
+          const last = segments[segments.length - 1];
+          if (last && last.feedProduct === product) {
+            last.neededKg += pureFeedKg;
+          } else {
+            segments.push({ feedProduct: product, neededKg: pureFeedKg });
+          }
+          cur = addDays(cur, 1);
         }
-        const dayAgeMin = dayAgeSet.length > 0 ? Math.min(...dayAgeSet) : 0;
-        const dayAgeMax = dayAgeSet.length > 0 ? Math.max(...dayAgeSet) : 0;
-        days.push({
-          date: toISO(day),
-          dayOfWeek: DOW[day.getDay()],
-          ageRangeStart: dayAgeMin,
-          ageRangeEnd: dayAgeMax,
-          birds: totalBirds,
-          dailyConsumptionKg: Math.round(kg),
-          stockAtDayStartKg: Math.round(dayRunningStock),
-          feedProducts: getFeedProductsForWeek(dayAgeMin, dayAgeMax),
+
+        // Now fill trailers from segments
+        let segIdx = 0;
+        let segUsed = 0;
+
+        while (remaining > 0 && segIdx < segments.length) {
+          const seg = segments[segIdx];
+          const trailerKg = TRAILER_T * 1000;
+          const halfKg = HALF_TRAILER_T * 1000;
+
+          const segLeft = seg.neededKg - segUsed;
+
+          if (segLeft <= 0) { segIdx++; segUsed = 0; continue; }
+
+          // Check if this segment ends before the trailer is full (phase transition)
+          // If segLeft < halfKg and next segment exists → split trailer
+          if (segLeft < halfKg && segIdx + 1 < segments.length && remaining >= trailerKg) {
+            // Half trailer current phase + half next phase
+            const firstKg = halfKg;
+            const secondKg = halfKg;
+            trailers.push({
+              feeds: [
+                { feedProduct: seg.feedProduct, kg: firstKg, tonnes: HALF_TRAILER_T },
+                { feedProduct: segments[segIdx + 1].feedProduct, kg: secondKg, tonnes: HALF_TRAILER_T },
+              ],
+              totalTonnes: TRAILER_T,
+            });
+            remaining -= trailerKg;
+            segUsed = 0;
+            segIdx++;
+            segments[segIdx].neededKg -= secondKg;
+          } else {
+            // Full trailer of current phase
+            const useKg = Math.min(trailerKg, remaining);
+            // Round to 27t full trailer
+            const actualKg = useKg >= trailerKg ? trailerKg : halfKg;
+            trailers.push({
+              feeds: [{ feedProduct: seg.feedProduct, kg: actualKg, tonnes: actualKg / 1000 }],
+              totalTonnes: actualKg / 1000,
+            });
+            remaining -= actualKg;
+            segUsed += actualKg;
+            if (segUsed >= seg.neededKg) { segIdx++; segUsed = 0; }
+          }
+        }
+
+        return trailers;
+      }
+
+      const monTrailers = buildTrailers(monOrderKg, monday);
+      const monOrderActualKg = monTrailers.reduce((s, t) => s + t.totalTonnes * 1000, 0);
+
+      // ── Friday delivery check ─────────────────────────────────────────────
+      // On Friday, bins should be at 85% of capacity
+      // stockOnFriday (before Fri delivery) = stock after Mon delivery minus Mon–Thu consumption
+      const stockAfterMon = stockAfterThuSun + monOrderActualKg;
+      let stockOnFriday = stockAfterMon;
+      for (let i = 5; i <= 8; i++) { // Mon(5)..Thu(8) = 4 days
+        stockOnFriday -= dailyData(addDays(wednesday, i)).pureFeedKg;
+      }
+
+      const fridayTarget = totalBinCapacityKg * FRIDAY_TARGET_PCT;
+      const fridayDeficit = fridayTarget - stockOnFriday;
+      let friOrderKg = 0;
+      let friTrailers: TrailerLoad[] = [];
+
+      if (fridayDeficit > 0) {
+        friOrderKg = Math.min(
+          Math.ceil(fridayDeficit / (TRAILER_T * 1000)) * TRAILER_T * 1000,
+          maxOrderKg - monOrderActualKg,
+        );
+        if (friOrderKg > 0) {
+          friTrailers = buildTrailers(friOrderKg, friday);
+          friOrderKg = friTrailers.reduce((s, t) => s + t.totalTonnes * 1000, 0);
+        }
+      }
+
+      // ── Build deliveries array ────────────────────────────────────────────
+      const deliveries: DeliveryRow[] = [];
+      const stockOnMondayMorning = stockAfterThuSun;
+
+      if (monTrailers.length > 0) {
+        deliveries.push({
+          deliveryDate: toISO(monday),
+          trailers: monTrailers,
+          totalOrderKg: monOrderActualKg,
+          stockBeforeKg: Math.round(stockOnMondayMorning),
+          stockAfterKg: Math.round(stockOnMondayMorning + monOrderActualKg),
+          notes: [],
         });
-        dayRunningStock -= kg;
       }
 
-      // Consume this week
+      if (friTrailers.length > 0) {
+        const stockBeforeFri = stockOnFriday;
+        deliveries.push({
+          deliveryDate: toISO(friday),
+          trailers: friTrailers,
+          totalOrderKg: friOrderKg,
+          stockBeforeKg: Math.round(stockBeforeFri),
+          stockAfterKg: Math.round(stockBeforeFri + friOrderKg),
+          notes: [`Friday target: ${(FRIDAY_TARGET_PCT * 100).toFixed(0)}% capacity`],
+        });
+      }
+
+      // ── Fill in stockStartKg for day rows ─────────────────────────────────
+      let simStockForDays = runningStockKg;
+      for (let i = 0; i < dayRows.length; i++) {
+        const day = addDays(wednesday, i + 1);
+
+        // Monday delivery arrives before consumption this day
+        if (toISO(day) === toISO(monday) && monOrderActualKg > 0) {
+          simStockForDays += monOrderActualKg;
+        }
+        // Friday delivery arrives before consumption this day
+        if (toISO(day) === toISO(friday) && friOrderKg > 0) {
+          simStockForDays += friOrderKg;
+        }
+
+        dayRows[i].stockStartKg = Math.round(simStockForDays);
+        simStockForDays -= dayRows[i].pureConsumptionKg;
+      }
+
+      weeks.push({
+        orderWednesday: toISO(wednesday),
+        deliveries,
+        days: dayRows,
+        weeklyConsumptionKg: Math.round(weeklyPureFeedKg),
+        stockOnWednesdayKg: Math.round(runningStockKg),
+        stockOnFridayAfterDeliveryKg: Math.round(stockOnFriday + friOrderKg),
+        notes: weekNotes,
+      });
+
+      // ── Advance running stock for next week ───────────────────────────────
       for (let i = 1; i <= 7; i++) {
         const day = addDays(wednesday, i);
-        const { kg } = dailyConsumptionKg(day);
-        runningStockKg -= kg;
+        if (toISO(day) === toISO(monday)) runningStockKg += monOrderActualKg;
+        if (toISO(day) === toISO(friday)) runningStockKg += friOrderKg;
+        runningStockKg -= dailyData(day).pureFeedKg;
       }
-      runningStockKg += orderKg + closingUnlocked;
-
-      const ageMin = ageSet.length > 0 ? Math.min(...ageSet) : 0;
-      const ageMax = ageSet.length > 0 ? Math.max(...ageSet) : 0;
-      const feedProducts = getFeedProductsForWeek(ageMin, ageMax);
-
-      rows.push({
-        wednesday: toISO(wednesday),
-        weekStart: toISO(weekStart),
-        weekEnd: toISO(weekEnd),
-        ageRangeStart: ageMin,
-        ageRangeEnd: ageMax,
-        totalBirdsAvg: avgBirds,
-        weeklyConsumptionKg: Math.round(weeklyKg),
-        stockBeforeKg: Math.round(stockBefore),
-        orderNeededKg: Math.round(orderKg),
-        orderNeededTonnes: Math.round(orderKg) / 1000,
-        trailersNeeded: orderKg > 0 ? Math.ceil(Math.round(orderKg) / 27000) : 0,
-        closingUnlockedKg: Math.round(closingUnlocked),
-        stockAfterKg: Math.round(stockAfter),
-        feedProducts,
-        notes,
-        days,
-      });
 
       wednesday = addDays(wednesday, 7);
     }
 
     return NextResponse.json({
-      rows,
+      weeks,
       meta: {
         totalBinCapacityTonnes: totalBinCapacityKg / 1000,
         maxOrderTonnes: maxOrderKg / 1000,
         cycleEnd: toISO(cycleEnd),
-        closingBins: closingBins.map(b => b.name),
-        activeStockTonnes: (stockRecord?.activeStockTonnes ?? 0),
+        activeStockTonnes: stockRecord?.activeStockTonnes ?? 0,
+        trailerTonnes: TRAILER_T,
+        closingBins: farmBins.filter(b => b.isClosingStock).map(b => b.name),
       },
     });
   } catch (e: any) {

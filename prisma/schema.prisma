@@ -529,6 +529,8 @@ model FeedPhase {
   dayFrom     Int
   dayTo       Int?
   sortOrder   Int     @default(0)
+  wheatPct    Float   @default(0)
+  ownWheat    Boolean @default(false)
 
   template FeedPhaseTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 

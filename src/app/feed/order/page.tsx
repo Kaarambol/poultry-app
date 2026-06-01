@@ -21,31 +21,37 @@ type House = {
 type DayRow = {
   date: string;
   dayOfWeek: string;
-  ageRangeStart: number;
-  ageRangeEnd: number;
+  ageMin: number;
+  ageMax: number;
   birds: number;
-  dailyConsumptionKg: number;
-  stockAtDayStartKg: number;
-  feedProducts: string[];
+  totalConsumptionKg: number;
+  pureConsumptionKg: number;
+  stockStartKg: number;
+  feedProducts: { product: string; ownWheat: boolean; wheatPct: number }[];
 };
 
-type WeekRow = {
-  wednesday: string;
-  weekStart: string;
-  weekEnd: string;
-  ageRangeStart: number;
-  ageRangeEnd: number;
-  totalBirdsAvg: number;
-  weeklyConsumptionKg: number;
+type TrailerLoad = {
+  feeds: { feedProduct: string; kg: number; tonnes: number }[];
+  totalTonnes: number;
+};
+
+type DeliveryRow = {
+  deliveryDate: string;
+  trailers: TrailerLoad[];
+  totalOrderKg: number;
   stockBeforeKg: number;
-  orderNeededKg: number;
-  orderNeededTonnes: number;
-  trailersNeeded: number;
-  closingUnlockedKg: number;
   stockAfterKg: number;
-  feedProducts: string[];
   notes: string[];
+};
+
+type WeekSchedule = {
+  orderWednesday: string;
+  deliveries: DeliveryRow[];
   days: DayRow[];
+  weeklyConsumptionKg: number;
+  stockOnWednesdayKg: number;
+  stockOnFridayAfterDeliveryKg: number;
+  notes: string[];
 };
 
 type ScheduleMeta = {
@@ -54,6 +60,7 @@ type ScheduleMeta = {
   cycleEnd: string;
   closingBins: string[];
   activeStockTonnes: number;
+  trailerTonnes: number;
 };
 
 function fmt(n: number) { return n.toLocaleString("en-GB", { maximumFractionDigits: 1 }); }
@@ -78,13 +85,15 @@ type FeedPhase = {
   feedProduct: string;
   dayFrom: number;
   dayTo: number | null;
+  wheatPct: number;
+  ownWheat: boolean;
 };
 
 const DEFAULT_PHASES: FeedPhase[] = [
-  { feedProduct: "STARTER_CRUMB_185",  dayFrom: 0,  dayTo: 10 },
-  { feedProduct: "REARER_PELLET_385",  dayFrom: 11, dayTo: 15 },
-  { feedProduct: "GROWER_PELLET_485",  dayFrom: 16, dayTo: 24 },
-  { feedProduct: "FINISHER_PELLET_585", dayFrom: 25, dayTo: null },
+  { feedProduct: "STARTER_CRUMB_185",  dayFrom: 0,  dayTo: 10,  wheatPct: 0, ownWheat: false },
+  { feedProduct: "REARER_PELLET_385",  dayFrom: 11, dayTo: 15,  wheatPct: 0, ownWheat: false },
+  { feedProduct: "GROWER_PELLET_485",  dayFrom: 16, dayTo: 24,  wheatPct: 0, ownWheat: false },
+  { feedProduct: "FINISHER_PELLET_585", dayFrom: 25, dayTo: null, wheatPct: 0, ownWheat: false },
 ];
 
 const PRESETS = [
@@ -122,7 +131,7 @@ export default function FeedOrderPage() {
   const [savingStock, setSavingStock]       = useState(false);
 
   // Schedule state
-  const [scheduleRows, setScheduleRows]     = useState<WeekRow[]>([]);
+  const [scheduleRows, setScheduleRows]     = useState<WeekSchedule[]>([]);
   const [scheduleMeta, setScheduleMeta]     = useState<ScheduleMeta | null>(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleWarning, setScheduleWarning] = useState("");
@@ -179,12 +188,14 @@ export default function FeedOrderPage() {
     }
   }
 
-  function updateDraftPhase(i: number, field: keyof FeedPhase, value: string) {
+  function updateDraftPhase(i: number, field: keyof FeedPhase, value: string | boolean) {
     setDraftPhases(prev => prev.map((p, j) => {
       if (j !== i) return p;
-      if (field === "feedProduct") return { ...p, feedProduct: value };
-      if (field === "dayFrom") return { ...p, dayFrom: parseInt(value) || 0 };
-      if (field === "dayTo") return { ...p, dayTo: value === "" ? null : (parseInt(value) || null) };
+      if (field === "feedProduct") return { ...p, feedProduct: value as string };
+      if (field === "dayFrom") return { ...p, dayFrom: parseInt(value as string) || 0 };
+      if (field === "dayTo") return { ...p, dayTo: (value as string) === "" ? null : (parseInt(value as string) || null) };
+      if (field === "wheatPct") return { ...p, wheatPct: parseFloat(value as string) || 0 };
+      if (field === "ownWheat") return { ...p, ownWheat: value as boolean };
       return p;
     }));
   }
@@ -229,7 +240,7 @@ export default function FeedOrderPage() {
       const r = await fetch(`/api/feed-order/schedule?farmId=${fid}`);
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Error loading schedule.");
-      setScheduleRows(d.rows ?? []);
+      setScheduleRows(d.weeks ?? []);
       setScheduleMeta(d.meta ?? null);
       if (d.warning) setScheduleWarning(d.warning);
     } catch (err: any) {
@@ -448,16 +459,22 @@ export default function FeedOrderPage() {
           {/* VIEW mode */}
           {!editingPhases && savedPhases.length > 0 && (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px", gap: 8, marginBottom: 6 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 70px 80px", gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>Feed type</span>
-                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>From (day)</span>
-                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>To (day)</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>From</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>To</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>Wheat %</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>Own wheat</span>
               </div>
               {savedPhases.map((p, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px", gap: 8, padding: "6px 0", borderBottom: "1px solid #f1f5f9" }}>
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 70px 80px", gap: 8, padding: "6px 0", borderBottom: "1px solid #f1f5f9" }}>
                   <span style={{ fontSize: "0.88rem", fontWeight: 600 }}>{getFeedLabel(p.feedProduct)}</span>
                   <span style={{ fontSize: "0.85rem", color: "#475569" }}>D{p.dayFrom}</span>
                   <span style={{ fontSize: "0.85rem", color: "#475569" }}>{p.dayTo != null ? `D${p.dayTo}` : "end"}</span>
+                  <span style={{ fontSize: "0.85rem", color: "#475569" }}>{p.wheatPct > 0 ? `${p.wheatPct}%` : "—"}</span>
+                  <span style={{ fontSize: "0.85rem", color: p.ownWheat ? "#1d4ed8" : "#94a3b8", fontWeight: p.ownWheat ? 600 : 400 }}>
+                    {p.ownWheat ? "Own" : "Mixed"}
+                  </span>
                 </div>
               ))}
             </>
@@ -472,14 +489,16 @@ export default function FeedOrderPage() {
           {/* EDIT mode */}
           {editingPhases && canOperate && (
             <form onSubmit={savePhases}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 32px", gap: 8, marginBottom: 6 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px 80px 32px", gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>Feed type</span>
-                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>From day</span>
-                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>To day</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>From</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>To</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>Wheat %</span>
+                <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>Own wheat</span>
                 <span />
               </div>
               {draftPhases.map((p, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 32px", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px 80px 32px", gap: 8, marginBottom: 8, alignItems: "center" }}>
                   <select value={p.feedProduct} onChange={e => updateDraftPhase(i, "feedProduct", e.target.value)} style={{ margin: 0 }}>
                     {FEED_PRODUCTS.map(fp => (
                       <option key={fp.value} value={fp.value}>{fp.label}</option>
@@ -492,6 +511,15 @@ export default function FeedOrderPage() {
                     placeholder="end"
                     onChange={e => updateDraftPhase(i, "dayTo", e.target.value)}
                     style={{ margin: 0 }} />
+                  <input type="number" min="0" max="100" step="1" value={p.wheatPct}
+                    onChange={e => updateDraftPhase(i, "wheatPct", e.target.value)}
+                    placeholder="0"
+                    style={{ margin: 0 }} />
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.82rem", cursor: "pointer", margin: 0 }}>
+                    <input type="checkbox" checked={p.ownWheat}
+                      onChange={e => updateDraftPhase(i, "ownWheat", e.target.checked)} />
+                    Own
+                  </label>
                   {draftPhases.length > 1 ? (
                     <button type="button"
                       onClick={() => setDraftPhases(prev => prev.filter((_, j) => j !== i))}
@@ -500,7 +528,7 @@ export default function FeedOrderPage() {
                 </div>
               ))}
               <button type="button"
-                onClick={() => setDraftPhases(prev => [...prev, { feedProduct: "FINISHER_PELLET_585", dayFrom: 0, dayTo: null }])}
+                onClick={() => setDraftPhases(prev => [...prev, { feedProduct: "FINISHER_PELLET_585", dayFrom: 0, dayTo: null, wheatPct: 0, ownWheat: false }])}
                 style={{ fontSize: "0.8rem", color: "#2563eb", background: "none", border: "1px dashed #93c5fd", borderRadius: 6, padding: "5px 16px", cursor: "pointer", margin: "4px 0 14px", width: "100%" }}>
                 + Add phase
               </button>
@@ -736,26 +764,22 @@ export default function FeedOrderPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <h2 style={{ margin: 0 }}>Delivery Schedule</h2>
               {scheduleMeta && (
-                <button
-                  className="mobile-button mobile-button--secondary"
+                <button className="mobile-button mobile-button--secondary"
                   style={{ fontSize: "0.78rem", padding: "3px 12px" }}
-                  onClick={() => loadSchedule(farmId)}
-                  disabled={scheduleLoading}
-                >
+                  onClick={() => loadSchedule(farmId)} disabled={scheduleLoading}>
                   Refresh
                 </button>
               )}
             </div>
 
             {scheduleLoading && <p style={{ color: "#64748b", fontSize: "0.85rem" }}>Calculating...</p>}
-            {scheduleWarning && (
-              <div className="mobile-alert mobile-alert--error" style={{ marginBottom: 12 }}>{scheduleWarning}</div>
-            )}
+            {scheduleWarning && <div className="mobile-alert mobile-alert--error" style={{ marginBottom: 12 }}>{scheduleWarning}</div>}
 
             {scheduleMeta && (
-              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 14, fontSize: "0.8rem", color: "#64748b" }}>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 14, fontSize: "0.8rem", color: "#64748b" }}>
                 <span>Bin capacity: <strong>{fmt(scheduleMeta.totalBinCapacityTonnes)}t</strong></span>
-                <span>Max order: <strong>{fmt(scheduleMeta.maxOrderTonnes)}t</strong> (80%)</span>
+                <span>Max order: <strong>{fmt(scheduleMeta.maxOrderTonnes)}t</strong></span>
+                <span>Trailer: <strong>{scheduleMeta.trailerTonnes}t</strong></span>
                 <span>Cycle end: <strong>{fmtDate(scheduleMeta.cycleEnd)}</strong></span>
                 {scheduleMeta.closingBins.length > 0 && (
                   <span style={{ color: "#dc2626" }}>Closing bins: <strong>{scheduleMeta.closingBins.join(", ")}</strong></span>
@@ -764,106 +788,120 @@ export default function FeedOrderPage() {
             )}
 
             {scheduleRows.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {scheduleRows.map((row) => {
-                  const stockLow = row.stockBeforeKg < row.weeklyConsumptionKg * 0.5;
-                  const needsOrder = row.orderNeededKg > 0;
-                  return (
-                    <div key={row.wednesday} style={{
-                      border: needsOrder ? "2px solid #93c5fd" : "1px solid #e2e8f0",
-                      borderRadius: 10,
-                      background: needsOrder ? "#f0f7ff" : "#fafafa",
-                      overflow: "hidden",
-                    }}>
-                      {/* Week header */}
-                      <div style={{
-                        padding: "10px 14px",
-                        background: needsOrder ? "#dbeafe" : "#f1f5f9",
-                        display: "flex", flexWrap: "wrap", gap: "8px 20px", alignItems: "center",
-                      }}>
-                        <span style={{ fontWeight: 700, fontSize: "0.95rem", color: needsOrder ? "#1d4ed8" : "#374151" }}>
-                          Order: {fmtDate(row.wednesday)} (Wed)
-                        </span>
-                        <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
-                          Covers {fmtDate(row.weekStart)}–{fmtDate(row.weekEnd)}
-                        </span>
-                        <span style={{ fontSize: "0.8rem", color: "#475569" }}>
-                          D{row.ageRangeStart}–D{row.ageRangeEnd}
-                        </span>
-                        <span style={{ fontSize: "0.8rem", color: "#475569" }}>
-                          {row.feedProducts.map(fp => getFeedLabel(fp)).join(", ") || "—"}
-                        </span>
-                        {row.notes.length > 0 && (
-                          <span style={{ fontSize: "0.78rem", color: "#dc2626", fontWeight: 600 }}>
-                            {row.notes.join(" · ")}
-                          </span>
-                        )}
-                      </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                {scheduleRows.map((week) => (
+                  <div key={week.orderWednesday} style={{ border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
 
-                      {/* Week summary row */}
-                      <div style={{
-                        padding: "8px 14px",
-                        display: "flex", flexWrap: "wrap", gap: "6px 20px",
-                        borderBottom: "1px solid #e2e8f0",
-                        fontSize: "0.82rem",
-                      }}>
-                        <span>Birds: <strong>{row.totalBirdsAvg > 0 ? fmt(row.totalBirdsAvg) : "—"}</strong></span>
-                        <span>Weekly: <strong>{fmt(row.weeklyConsumptionKg / 1000)} t</strong></span>
-                        <span style={{ color: stockLow ? "#dc2626" : undefined, fontWeight: stockLow ? 700 : 400 }}>
-                          Stock before: <strong>{fmt(row.stockBeforeKg / 1000)} t</strong>
-                        </span>
-                        <span style={{ color: needsOrder ? "#1d4ed8" : "#94a3b8", fontWeight: needsOrder ? 700 : 400 }}>
-                          Order: <strong>{needsOrder ? `${fmt(row.orderNeededTonnes)} t` : "—"}</strong>
-                        </span>
-                        {needsOrder && (
-                          <span style={{ color: "#7c3aed", fontWeight: 700 }}>
-                            Trailers: <strong>{row.trailersNeeded} × 27t</strong>
-                          </span>
-                        )}
-                        <span>Stock after: <strong>{fmt(row.stockAfterKg / 1000)} t</strong></span>
-                      </div>
-
-                      {/* Daily breakdown */}
-                      <div style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.79rem" }}>
-                          <thead>
-                            <tr style={{ background: "#f8fafc" }}>
-                              <th style={{ padding: "5px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Day</th>
-                              <th style={{ padding: "5px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Date</th>
-                              <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Age</th>
-                              <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Birds</th>
-                              <th style={{ padding: "5px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Feed</th>
-                              <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Daily (t)</th>
-                              <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Stock start (t)</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(row.days ?? []).map((d, di) => {
-                              const dayStockLow = d.stockAtDayStartKg < d.dailyConsumptionKg * 1.5;
-                              return (
-                                <tr key={d.date} style={{ background: di % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f1f5f9" }}>
-                                  <td style={{ padding: "5px 10px", fontWeight: 600, color: "#374151" }}>{d.dayOfWeek}</td>
-                                  <td style={{ padding: "5px 10px", color: "#475569", whiteSpace: "nowrap" }}>{fmtDate(d.date)}</td>
-                                  <td style={{ padding: "5px 10px", textAlign: "right", color: "#475569" }}>D{d.ageRangeStart}–D{d.ageRangeEnd}</td>
-                                  <td style={{ padding: "5px 10px", textAlign: "right", color: "#475569" }}>{d.birds > 0 ? fmt(d.birds) : "—"}</td>
-                                  <td style={{ padding: "5px 10px", color: "#475569", fontSize: "0.73rem" }}>
-                                    {d.feedProducts.map(fp => getFeedLabel(fp)).join(", ") || "—"}
-                                  </td>
-                                  <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>
-                                    {fmt(d.dailyConsumptionKg / 1000)}
-                                  </td>
-                                  <td style={{ padding: "5px 10px", textAlign: "right", color: dayStockLow ? "#dc2626" : "#374151", fontWeight: dayStockLow ? 700 : 400 }}>
-                                    {fmt(d.stockAtDayStartKg / 1000)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                    {/* Week header */}
+                    <div style={{ padding: "10px 14px", background: "#f1f5f9", display: "flex", flexWrap: "wrap", gap: "6px 20px", alignItems: "center" }}>
+                      <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>
+                        Order Wednesday: {fmtDate(week.orderWednesday)}
+                      </span>
+                      <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                        Stock Wed: <strong>{fmt(week.stockOnWednesdayKg / 1000)}t</strong>
+                      </span>
+                      <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                        Weekly use: <strong>{fmt(week.weeklyConsumptionKg / 1000)}t</strong>
+                      </span>
+                      {week.notes.length > 0 && (
+                        <span style={{ fontSize: "0.78rem", color: "#dc2626", fontWeight: 600 }}>{week.notes.join(" · ")}</span>
+                      )}
                     </div>
-                  );
-                })}
+
+                    {/* Deliveries */}
+                    {week.deliveries.length > 0 ? (
+                      <div style={{ padding: "10px 14px", borderBottom: "1px solid #e2e8f0", display: "flex", flexDirection: "column", gap: 10 }}>
+                        {week.deliveries.map((del, di) => (
+                          <div key={di} style={{
+                            background: di === 0 ? "#eff6ff" : "#f0fdf4",
+                            border: `1px solid ${di === 0 ? "#93c5fd" : "#86efac"}`,
+                            borderRadius: 8, padding: "8px 12px",
+                          }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", marginBottom: 6, alignItems: "center" }}>
+                              <span style={{ fontWeight: 700, fontSize: "0.9rem", color: di === 0 ? "#1d4ed8" : "#16a34a" }}>
+                                {di === 0 ? "Monday" : "Friday"} delivery — {fmtDate(del.deliveryDate)}
+                              </span>
+                              <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                                Stock before: <strong>{fmt(del.stockBeforeKg / 1000)}t</strong>
+                              </span>
+                              <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                                Stock after: <strong>{fmt(del.stockAfterKg / 1000)}t</strong>
+                              </span>
+                              {del.notes.length > 0 && (
+                                <span style={{ fontSize: "0.75rem", color: "#64748b" }}>{del.notes.join(" · ")}</span>
+                              )}
+                            </div>
+                            {del.trailers.map((trailer, ti) => (
+                              <div key={ti} style={{
+                                display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+                                padding: "4px 0", borderTop: ti > 0 ? "1px dashed #e2e8f0" : undefined,
+                              }}>
+                                <span style={{ fontSize: "0.78rem", color: "#94a3b8", minWidth: 60 }}>
+                                  Trailer {ti + 1} ({trailer.totalTonnes}t)
+                                </span>
+                                {trailer.feeds.map((f, fi) => (
+                                  <span key={fi} style={{
+                                    background: "#fff", border: "1px solid #e2e8f0",
+                                    borderRadius: 6, padding: "2px 10px",
+                                    fontSize: "0.82rem", fontWeight: 600, color: "#1e293b",
+                                  }}>
+                                    {getFeedLabel(f.feedProduct)} — {f.tonnes}t
+                                  </span>
+                                ))}
+                              </div>
+                            ))}
+                            <div style={{ marginTop: 4, fontSize: "0.78rem", color: "#475569", fontWeight: 600 }}>
+                              Total: {fmt(del.totalOrderKg / 1000)}t ({Math.round(del.totalOrderKg / 27000)} trailer{Math.round(del.totalOrderKg / 27000) !== 1 ? "s" : ""})
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ padding: "8px 14px", color: "#94a3b8", fontSize: "0.82rem", borderBottom: "1px solid #e2e8f0" }}>
+                        No delivery needed this week
+                      </div>
+                    )}
+
+                    {/* Daily breakdown */}
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.79rem" }}>
+                        <thead>
+                          <tr style={{ background: "#f8fafc" }}>
+                            <th style={{ padding: "5px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Day</th>
+                            <th style={{ padding: "5px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Date</th>
+                            <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Age</th>
+                            <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Birds</th>
+                            <th style={{ padding: "5px 10px", textAlign: "left", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Feed</th>
+                            <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Use (t)</th>
+                            <th style={{ padding: "5px 10px", textAlign: "right", borderBottom: "1px solid #e2e8f0", color: "#94a3b8", fontWeight: 600 }}>Stock (t)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {week.days.map((d, di) => {
+                            const stockLow = d.stockStartKg < d.pureConsumptionKg * 2;
+                            return (
+                              <tr key={d.date} style={{ background: di % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f1f5f9" }}>
+                                <td style={{ padding: "5px 10px", fontWeight: 600, color: "#374151" }}>{d.dayOfWeek}</td>
+                                <td style={{ padding: "5px 10px", color: "#475569", whiteSpace: "nowrap" }}>{fmtDate(d.date)}</td>
+                                <td style={{ padding: "5px 10px", textAlign: "right", color: "#475569" }}>D{d.ageMin}–D{d.ageMax}</td>
+                                <td style={{ padding: "5px 10px", textAlign: "right", color: "#475569" }}>{d.birds > 0 ? fmt(d.birds) : "—"}</td>
+                                <td style={{ padding: "5px 10px", color: "#475569", fontSize: "0.73rem" }}>
+                                  {d.feedProducts.map(fp => `${getFeedLabel(fp.product)}${fp.ownWheat ? ` (own ${fp.wheatPct}% w)` : fp.wheatPct > 0 ? ` (+${fp.wheatPct}%w)` : ""}`).join(", ") || "—"}
+                                </td>
+                                <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>
+                                  {fmt(d.pureConsumptionKg / 1000)}
+                                </td>
+                                <td style={{ padding: "5px 10px", textAlign: "right", color: stockLow ? "#dc2626" : "#374151", fontWeight: stockLow ? 700 : 400 }}>
+                                  {fmt(d.stockStartKg / 1000)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
