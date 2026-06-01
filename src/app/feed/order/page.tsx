@@ -795,26 +795,22 @@ export default function FeedOrderPage() {
             )}
 
             {scheduleRows.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {scheduleRows.map((order) => {
-                  const finalTuesday = order.coverage[order.coverage.length - 1];
-                  const finalOk = order.stockOnFinalTuesdayKg >= 0;
+                  const weeklyConsumptionKg = [...order.preDelivery, ...order.deliveryWindow, ...order.coverage]
+                    .reduce((s, d) => s + d.consumptionKg, 0);
+                  const deliveryDays = order.deliveryWindow.filter(d => d.deliveryKg > 0);
                   return (
-                    <div key={order.orderDate}>
+                    <div key={order.orderDate} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #e2e8f0" }}>
 
                       {/* ── Order header ── */}
-                      <div style={{
-                        background: "#1B3A5C", color: "#fff",
-                        borderRadius: "10px 10px 0 0", padding: "12px 16px",
-                        marginBottom: 0,
-                      }}>
+                      <div style={{ background: "#1B3A5C", color: "#fff", padding: "12px 16px" }}>
                         <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: 4 }}>
-                          ORDER: Wednesday {fmtDate(order.orderDate)}
+                          Order: Wednesday {fmtDate(order.orderDate)}
                         </div>
                         <div style={{ display: "flex", gap: 20, flexWrap: "wrap", fontSize: "0.85rem", opacity: 0.9 }}>
-                          <span>Stock now: <strong>{fmt(order.stockOnOrderDayKg / 1000)}t</strong></span>
-                          <span>Order total: <strong>{fmt(order.totalOrderKg / 1000)}t</strong>
-                            {order.totalTrailers > 0 && ` (${order.totalTrailers} trailer${order.totalTrailers !== 1 ? "s" : ""})`}
+                          <span>Total: <strong>{fmt(order.totalOrderKg / 1000)}t</strong>
+                            {order.totalTrailers > 0 && ` · ${order.totalTrailers} trailer${order.totalTrailers !== 1 ? "s" : ""}`}
                           </span>
                           {order.notes.length > 0 && (
                             <span style={{ color: "#fbbf24" }}>{order.notes.join(" · ")}</span>
@@ -822,163 +818,69 @@ export default function FeedOrderPage() {
                         </div>
                       </div>
 
-                      {/* ── Pre-delivery buffer ── */}
-                      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderTop: "none", padding: "10px 16px 6px" }}>
-                        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
-                          Pre-delivery (existing stock)
-                        </div>
-                        {order.preDelivery.map((day) => (
-                          <div key={day.date} style={{
-                            display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
-                            padding: "4px 0", borderBottom: "1px solid #f1f5f9", fontSize: "0.82rem",
-                          }}>
-                            <span style={{ fontWeight: 600, color: "#374151", minWidth: 36 }}>{day.dayOfWeek}</span>
-                            <span style={{ color: "#64748b", minWidth: 44 }}>{fmtDate(day.date)}</span>
-                            <span style={{ color: "#94a3b8", minWidth: 36 }}>D{day.ageMin}</span>
-                            <span style={{ color: "#475569", minWidth: 60 }}>{day.birds > 0 ? fmt(day.birds) : "—"}</span>
-                            <span style={{ fontWeight: 600, color: "#1e293b", minWidth: 50 }}>{fmt(day.consumptionKg / 1000)}t</span>
-                            <span style={{ color: "#64748b" }}>
-                              stock: {fmt(day.stockStartKg / 1000)}t
-                              <span style={{ color: "#94a3b8", margin: "0 4px" }}>→</span>
-                              <span style={{ color: day.stockEndKg < 0 ? "#dc2626" : "#374151", fontWeight: day.stockEndKg < 0 ? 700 : 400 }}>
-                                {fmt(day.stockEndKg / 1000)}t
-                              </span>
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* ── Delivery window ── */}
-                      <div style={{ border: "1px solid #e2e8f0", borderTop: "none" }}>
-                        <div style={{ background: "#eff6ff", padding: "8px 16px 4px", borderBottom: "1px solid #dbeafe" }}>
-                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                            Delivery window (Mon–Fri)
-                          </div>
-                        </div>
-                        {order.deliveryWindow.map((day) => {
-                          const hasDelivery = day.deliveryKg > 0;
-                          const dow = day.dayOfWeek;
-                          // Mon/Tue/Wed = blue, Thu/Fri = amber
-                          const isEarlyWeek = dow === "Mon" || dow === "Tue" || dow === "Wed";
-                          const delivColor = isEarlyWeek ? "#1d4ed8" : "#b45309";
-                          const delivBg = isEarlyWeek ? "#dbeafe" : "#fef3c7";
-                          const delivBorder = isEarlyWeek ? "#93c5fd" : "#fcd34d";
-
-                          return (
-                            <div key={day.date} style={{
-                              borderBottom: "1px solid #f1f5f9",
-                              background: hasDelivery ? (isEarlyWeek ? "#eff6ff" : "#fffbeb") : "#fff",
-                            }}>
-                              {/* Day summary row */}
-                              <div style={{
-                                display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
-                                padding: "6px 16px", fontSize: "0.82rem",
-                              }}>
-                                <span style={{ fontWeight: 700, color: hasDelivery ? delivColor : "#374151", minWidth: 36 }}>{day.dayOfWeek}</span>
-                                <span style={{ color: "#64748b", minWidth: 44 }}>{fmtDate(day.date)}</span>
-                                <span style={{ color: "#94a3b8", minWidth: 36 }}>D{day.ageMin}</span>
-                                <span style={{ color: "#475569", minWidth: 60 }}>{day.birds > 0 ? fmt(day.birds) : "—"}</span>
-                                {hasDelivery ? (
-                                  <span style={{
-                                    background: delivBg, border: `1px solid ${delivBorder}`,
-                                    color: delivColor, borderRadius: 6, padding: "2px 10px",
-                                    fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap",
-                                  }}>
-                                    DELIVERY +{fmt(day.deliveryKg / 1000)}t
-                                  </span>
-                                ) : (
-                                  <span style={{ color: "#cbd5e1", fontSize: "0.78rem", fontStyle: "italic" }}>no delivery</span>
-                                )}
-                                <span style={{ color: "#475569", marginLeft: "auto" }}>
-                                  use: <strong>{fmt(day.consumptionKg / 1000)}t</strong>
-                                </span>
-                                <span style={{ color: "#64748b" }}>
-                                  {hasDelivery
-                                    ? `${fmt(day.stockBeforeKg / 1000)}t + ${fmt(day.deliveryKg / 1000)}t = ${fmt(day.stockAfterDeliveryKg / 1000)}t`
-                                    : `${fmt(day.stockBeforeKg / 1000)}t`
-                                  }
-                                  <span style={{ color: "#94a3b8", margin: "0 4px" }}>→</span>
-                                  <span style={{ color: day.stockEndKg < 0 ? "#dc2626" : "#374151", fontWeight: day.stockEndKg < 0 ? 700 : 400 }}>
-                                    {fmt(day.stockEndKg / 1000)}t
-                                  </span>
-                                </span>
-                              </div>
-
-                              {/* Trailer breakdown */}
-                              {hasDelivery && day.trailers.length > 0 && (
-                                <div style={{ padding: "4px 16px 10px 52px", display: "flex", flexDirection: "column", gap: 6 }}>
-                                  {day.trailers.map((trailer, ti) => (
-                                    <div key={ti} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                                      <span style={{
-                                        background: delivColor, color: "#fff",
-                                        borderRadius: 5, padding: "2px 9px",
-                                        fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap",
-                                      }}>
-                                        Trailer {ti + 1}
-                                      </span>
-                                      {trailer.feeds.map((f, fi) => (
-                                        <span key={fi} style={{
-                                          background: "#fff",
-                                          border: `1px solid ${delivBorder}`,
-                                          borderRadius: 5, padding: "2px 10px",
-                                          fontSize: "0.82rem", fontWeight: 600, color: "#1e293b",
-                                        }}>
-                                          {getFeedLabel(f.feedProduct)} — {f.tonnes}t
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* ── Coverage through Tuesday ── */}
-                      <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderTop: "none", padding: "10px 16px 6px", borderRadius: "0 0 10px 10px" }}>
-                        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
-                          Coverage through Tuesday
-                        </div>
-                        {order.coverage.map((day, ci) => {
-                          const isFinalTuesday = ci === order.coverage.length - 1;
-                          return (
-                            <div key={day.date} style={{
-                              display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
-                              padding: "4px 0", borderBottom: isFinalTuesday ? "none" : "1px solid #f1f5f9", fontSize: "0.82rem",
-                            }}>
-                              <span style={{ fontWeight: 600, color: "#374151", minWidth: 36 }}>{day.dayOfWeek}</span>
-                              <span style={{ color: "#64748b", minWidth: 44 }}>{fmtDate(day.date)}</span>
-                              <span style={{ color: "#94a3b8", minWidth: 36 }}>D{day.ageMin}</span>
-                              <span style={{ color: "#475569", minWidth: 60 }}>{day.birds > 0 ? fmt(day.birds) : "—"}</span>
-                              <span style={{ fontWeight: 600, color: "#1e293b", minWidth: 50 }}>{fmt(day.consumptionKg / 1000)}t</span>
-                              <span style={{ color: "#64748b" }}>
-                                {fmt(day.stockStartKg / 1000)}t
-                                <span style={{ color: "#94a3b8", margin: "0 4px" }}>→</span>
-                                <span style={{ color: day.stockEndKg < 0 ? "#dc2626" : "#374151", fontWeight: (isFinalTuesday || day.stockEndKg < 0) ? 700 : 400 }}>
-                                  {fmt(day.stockEndKg / 1000)}t
-                                </span>
-                              </span>
-                              {isFinalTuesday && (
-                                <span style={{
-                                  marginLeft: 4, fontWeight: 700,
-                                  color: finalOk ? "#16a34a" : "#dc2626",
-                                  fontSize: "1rem",
-                                }}>
-                                  {finalOk ? "✓" : "⚠"}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {finalTuesday && (
-                          <div style={{ marginTop: 8, fontSize: "0.78rem", color: finalOk ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
-                            {finalOk
-                              ? `Stock at Tuesday end: ${fmt(order.stockOnFinalTuesdayKg / 1000)}t — sufficient`
-                              : `Stock deficit at Tuesday end: ${fmt(order.stockOnFinalTuesdayKg / 1000)}t — order more`
-                            }
+                      {/* ── Delivery days ── */}
+                      <div>
+                        {deliveryDays.length === 0 && (
+                          <div style={{ padding: "12px 16px", fontSize: "0.85rem", color: "#94a3b8", fontStyle: "italic" }}>
+                            No deliveries this week
                           </div>
                         )}
+                        {deliveryDays.map((day, di) => {
+                          const dow = day.dayOfWeek;
+                          const isEarlyWeek = dow === "Mon" || dow === "Tue" || dow === "Wed";
+                          const delivColor = isEarlyWeek ? "#1d4ed8" : "#b45309";
+                          const delivBg = isEarlyWeek ? "#eff6ff" : "#fffbeb";
+                          const delivBorder = isEarlyWeek ? "#93c5fd" : "#fcd34d";
+                          const isLast = di === deliveryDays.length - 1;
+                          return (
+                            <div key={day.date} style={{
+                              background: delivBg,
+                              borderBottom: isLast ? "none" : "1px solid #e2e8f0",
+                              padding: "10px 16px",
+                            }}>
+                              {/* Day header */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                                <span style={{ fontWeight: 700, color: delivColor, fontSize: "0.95rem", minWidth: 36 }}>{day.dayOfWeek}</span>
+                                <span style={{ color: "#64748b", fontSize: "0.85rem" }}>{fmtDate(day.date)}</span>
+                                <span style={{
+                                  background: delivColor, color: "#fff",
+                                  borderRadius: 6, padding: "2px 12px",
+                                  fontWeight: 700, fontSize: "0.85rem",
+                                }}>
+                                  +{fmt(day.deliveryKg / 1000)}t
+                                </span>
+                              </div>
+                              {/* Trailers */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                                {day.trailers.map((trailer, ti) => (
+                                  <div key={ti} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                    <span style={{
+                                      background: delivColor, color: "#fff",
+                                      borderRadius: 5, padding: "2px 9px",
+                                      fontSize: "0.75rem", fontWeight: 700,
+                                    }}>
+                                      Trailer {ti + 1}
+                                    </span>
+                                    {trailer.feeds.map((f, fi) => (
+                                      <span key={fi} style={{
+                                        background: "#fff", border: `1px solid ${delivBorder}`,
+                                        borderRadius: 5, padding: "2px 10px",
+                                        fontSize: "0.82rem", fontWeight: 600, color: "#1e293b",
+                                      }}>
+                                        {getFeedLabel(f.feedProduct)} — {f.tonnes}t
+                                      </span>
+                                    ))}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* ── Weekly total consumption ── */}
+                      <div style={{ background: "#f8fafc", borderTop: "1px solid #e2e8f0", padding: "8px 16px", fontSize: "0.82rem", color: "#64748b" }}>
+                        Weekly consumption: <strong style={{ color: "#1e293b" }}>{fmt(weeklyConsumptionKg / 1000)}t</strong>
                       </div>
 
                     </div>
