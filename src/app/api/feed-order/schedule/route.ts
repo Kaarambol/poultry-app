@@ -299,74 +299,69 @@ export async function GET(req: NextRequest) {
 
     // ── Simulate week by week ─────────────────────────────────────────────────
     const orders: OrderWeek[] = [];
+    const MAX_FILL = 0.85;
 
     while (wednesday <= cycleEnd) {
       const weekNotes: string[] = [];
       const stockOnOrderDayKg = runningStockKg;
 
       // preDelivery: Thu(+1), Fri(+2), Sat(+3), Sun(+4)
-      // deliveryWindow: Mon(+5), Tue(+6), Wed(+7), Thu(+8), Fri(+9)
+      // deliveryWindow: Mon(+5) through Fri(+9)
       // coverage: Sat(+10), Sun(+11), Mon(+12), Tue(+13)
 
-      // Calculate total consumption for days +5 through +13 (9 days, Mon-Tue following)
+      // ── Total consumption Mon(+5)..Tue(+13) = 9 days ─────────────────────
       let totalNeededKg = 0;
       for (let i = 5; i <= 13; i++) {
         totalNeededKg += dailyData(addDays(wednesday, i)).pureFeedKg;
       }
 
-      // Simulate pre-delivery consumption to get stock at Monday morning
+      // ── Stock at Monday morning (burn Thu-Sun) ────────────────────────────
       let stockAtMonMorningKg = runningStockKg;
       for (let i = 1; i <= 4; i++) {
         stockAtMonMorningKg -= dailyData(addDays(wednesday, i)).pureFeedKg;
       }
 
-      // Calculate deficit and order quantity
-      const deficitKg = Math.max(0, totalNeededKg - stockAtMonMorningKg);
-      let totalOrderKg = Math.ceil(deficitKg / TRAILER_KG) * TRAILER_KG;
-      // Cap at total bin capacity minus stock already in bins at Monday morning
-      const binCap = Math.max(0, totalBinCapacityKg - Math.max(0, stockAtMonMorningKg));
-      totalOrderKg = Math.min(totalOrderKg, Math.ceil(binCap / TRAILER_KG) * TRAILER_KG);
+      // ── How many trailers to order ────────────────────────────────────────
+      const shortfallKg = Math.max(0, totalNeededKg - stockAtMonMorningKg);
+      let trailersNeeded = Math.ceil(shortfallKg / TRAILER_KG);
 
-      // Distribute deliveries: Monday gets max that fits, Thursday gets remainder
-      const maxMonKg = Math.floor(Math.max(0, totalBinCapacityKg - Math.max(0, stockAtMonMorningKg)) / TRAILER_KG) * TRAILER_KG;
-      let mondayKg = Math.min(totalOrderKg, maxMonKg);
-      // Ensure at least 1 trailer on Monday if we need to order
-      if (totalOrderKg > 0 && mondayKg === 0) {
-        mondayKg = Math.min(totalOrderKg, TRAILER_KG);
-      }
-      let thursdayKg = totalOrderKg - mondayKg;
-
-      // If Thursday delivery would overflow bins, move excess to Friday
-      let fridayKg = 0;
-      if (thursdayKg > 0) {
-        // Stock at Thursday morning = stock after Mon delivery minus Mon-Wed consumption
-        let stockAtThuMorning = stockAtMonMorningKg + mondayKg;
-        for (let i = 5; i <= 7; i++) { // Mon(+5), Tue(+6), Wed(+7)
-          stockAtThuMorning -= dailyData(addDays(wednesday, i)).pureFeedKg;
-        }
-        const thuAvailableKg = Math.max(0, maxOrderKg - Math.max(0, stockAtThuMorning));
-        if (thursdayKg > thuAvailableKg) {
-          fridayKg = thursdayKg - Math.floor(thuAvailableKg / TRAILER_KG) * TRAILER_KG;
-          thursdayKg = Math.floor(thuAvailableKg / TRAILER_KG) * TRAILER_KG;
-        }
+      // Cap by 85% bin capacity — only if bins are configured
+      if (totalBinCapacityKg > 0) {
+        const maxFillKg = totalBinCapacityKg * MAX_FILL;
+        const maxFit = Math.floor(Math.max(0, maxFillKg - Math.max(0, stockAtMonMorningKg)) / TRAILER_KG);
+        trailersNeeded = Math.min(trailersNeeded, maxFit);
       }
 
-      const monday = addDays(wednesday, 5);
-      const thursday = addDays(wednesday, 8);
-      const friday = addDays(wednesday, 9);
+      // ── Distribute trailers greedily across Mon–Fri ───────────────────────
+      const deliveryByOffset = new Map<number, number>(); // offset → kg
+      let remaining = trailersNeeded;
+      let simForDist = stockAtMonMorningKg;
 
-      // Build trailers for each delivery
-      const mondayTrailers = buildTrailers(mondayKg, monday);
-      const mondayActualKg = mondayTrailers.reduce((s, t) => s + t.totalTonnes * 1000, 0);
+      for (let i = 5; i <= 9 && remaining > 0; i++) {
+        let maxFit: number;
+        if (totalBinCapacityKg > 0) {
+          const maxFillKg = totalBinCapacityKg * MAX_FILL;
+          maxFit = Math.floor(Math.max(0, maxFillKg - simForDist) / TRAILER_KG);
+        } else {
+          maxFit = remaining; // no bin constraint → assign all on first available day
+        }
+        const assign = Math.min(remaining, maxFit);
+        if (assign > 0) {
+          deliveryByOffset.set(i, assign * TRAILER_KG);
+          remaining -= assign;
+        }
+        simForDist += assign * TRAILER_KG;
+        simForDist -= dailyData(addDays(wednesday, i)).pureFeedKg;
+      }
 
-      const thursdayTrailers = buildTrailers(thursdayKg, thursday);
-      const thursdayActualKg = thursdayTrailers.reduce((s, t) => s + t.totalTonnes * 1000, 0);
-
-      const fridayTrailers = buildTrailers(fridayKg, friday);
-      const fridayActualKg = fridayTrailers.reduce((s, t) => s + t.totalTonnes * 1000, 0);
-
-      const actualTotalOrderKg = mondayActualKg + thursdayActualKg + fridayActualKg;
-      const totalTrailers = mondayTrailers.length + thursdayTrailers.length + fridayTrailers.length;
+      // Build trailer loads per delivery day
+      const trailersByOffset = new Map<number, TrailerLoad[]>();
+      for (const [off, kg] of deliveryByOffset) {
+        trailersByOffset.set(off, buildTrailers(kg, addDays(wednesday, off)));
+      }
+      const actualTotalOrderKg = [...trailersByOffset.values()]
+        .reduce((s, t) => s + t.reduce((a, tr) => a + tr.totalTonnes * 1000, 0), 0);
+      const totalTrailers = [...trailersByOffset.values()].reduce((s, t) => s + t.length, 0);
 
       // ── Build notes ───────────────────────────────────────────────────────
       const periodStart = addDays(wednesday, 1);
@@ -404,15 +399,11 @@ export async function GET(req: NextRequest) {
         const day = addDays(wednesday, i);
         const { pureFeedKg, birds, phases, ageSet } = dailyData(day);
 
-        // Determine delivery for this day
-        let delivKg = 0;
-        let delivTrailers: TrailerLoad[] = [];
-        if (i === 5) { delivKg = mondayActualKg; delivTrailers = mondayTrailers; }
-        else if (i === 8) { delivKg = thursdayActualKg; delivTrailers = thursdayTrailers; }
-        else if (i === 9) { delivKg = fridayActualKg; delivTrailers = fridayTrailers; }
+        const delivTrailers = trailersByOffset.get(i) ?? [];
+        const delivActualKg = delivTrailers.reduce((s, t) => s + t.totalTonnes * 1000, 0);
 
         const stockBefore = simStock;
-        const stockAfterDelivery = stockBefore + delivKg;
+        const stockAfterDelivery = stockBefore + delivActualKg;
         const stockEnd = stockAfterDelivery - pureFeedKg;
 
         deliveryWindow.push({
@@ -424,7 +415,7 @@ export async function GET(req: NextRequest) {
           consumptionKg: Math.round(pureFeedKg),
           stockBeforeKg: Math.round(stockBefore),
           trailers: delivTrailers,
-          deliveryKg: Math.round(delivKg),
+          deliveryKg: Math.round(delivActualKg),
           stockAfterDeliveryKg: Math.round(stockAfterDelivery),
           stockEndKg: Math.round(stockEnd),
           feedProducts: phases,
@@ -456,18 +447,16 @@ export async function GET(req: NextRequest) {
         notes: weekNotes,
       });
 
-      // ── Advance running stock: consume Thu-Wed (+1..+7), add deliveries ────
+      // ── Advance running stock to next Wednesday (+7) ──────────────────────
+      // Days +1..+7: include any deliveries that fall within this range (Mon=+5, Tue=+6, Wed=+7)
       for (let i = 1; i <= 7; i++) {
-        const day = addDays(wednesday, i);
-        if (i === 5) runningStockKg += mondayActualKg;
-        if (i === 8) runningStockKg += thursdayActualKg; // won't hit in 1..7, just safety
-        runningStockKg -= dailyData(day).pureFeedKg;
+        runningStockKg += (deliveryByOffset.get(i) ?? 0);
+        runningStockKg -= dailyData(addDays(wednesday, i)).pureFeedKg;
       }
-      // Thursday(+8) and Friday(+9) deliveries land in next week's window
-      // But we need to advance stock through next Wednesday (+7 from this Wed)
-      // The Mon delivery at +5 is already handled above.
-      // We advance only through +7 (next Wed = this Wed + 7). That covers Thu-Wed.
-      // Thu(+8) and Fri(+9) deliveries are AFTER next Wednesday, so handled in next iteration.
+      // Thu(+8) and Fri(+9) deliveries land in next iteration's preDelivery (+1/+2 from new Wed).
+      // Add their kg now; consumption will be subtracted in next iteration's preDelivery loop.
+      runningStockKg += (deliveryByOffset.get(8) ?? 0);
+      runningStockKg += (deliveryByOffset.get(9) ?? 0);
 
       wednesday = addDays(wednesday, 7);
     }
