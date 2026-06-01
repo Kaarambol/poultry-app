@@ -333,14 +333,10 @@ export async function GET(req: NextRequest) {
       // ── How many trailers to order ────────────────────────────────────────
       // Deficit = what we need above and beyond existing stock at Monday morning
       const shortfallKg = Math.max(0, totalNeededKg - stockAtMonMorningKg);
-      let trailersNeeded = Math.ceil(shortfallKg / TRAILER_KG);
-
-      // Cap: total order must fit in bins (cannot exceed available space)
-      if (effectiveCapKg > 0) {
-        const availableSpaceKg = Math.max(0, effectiveCapKg - Math.max(0, stockAtMonMorningKg));
-        const maxTrailers = Math.floor(availableSpaceKg / TRAILER_KG);
-        trailersNeeded = Math.min(trailersNeeded, maxTrailers);
-      }
+      // No total bin cap here — deliveries are spread Mon-Fri and birds eat between
+      // deliveries, so weekly order can exceed bin capacity. Only per-delivery
+      // day capping (below) prevents overflow on any single arrival.
+      const trailersNeeded = Math.ceil(shortfallKg / TRAILER_KG);
 
       // ── Distribute trailers evenly across Mon–Fri ────────────────────────
       // Spread deliveries: each day gets ceil(remaining / daysLeft) trailers,
