@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
         generatorService: true,
         weedkiller: true,
         security: true,
+        beddingType: true,
       },
     });
 

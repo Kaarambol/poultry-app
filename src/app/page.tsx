@@ -20,6 +20,7 @@ type FarmInfo = {
   generatorService?: string | null;
   weedkiller?: string | null;
   security?: string | null;
+  beddingType?: string | null;
 };
 
 export default function HomePage() {
@@ -256,9 +257,15 @@ export default function HomePage() {
                   </tr>
                 )}
                 {farmInfo.security && (
-                  <tr>
+                  <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
                     <td style={{ padding: "5px 0", color: "#666" }}>Security</td>
                     <td style={{ textAlign: "right", fontWeight: 500 }}>{farmInfo.security}</td>
+                  </tr>
+                )}
+                {farmInfo.beddingType && (
+                  <tr>
+                    <td style={{ padding: "5px 0", color: "#666" }}>Bedding Type</td>
+                    <td style={{ textAlign: "right", fontWeight: 500 }}>{farmInfo.beddingType}</td>
                   </tr>
                 )}
               </tbody>
