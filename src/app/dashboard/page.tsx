@@ -86,6 +86,7 @@ export default function DashboardPage() {
   const [eventWeightSaving, setEventWeightSaving] = useState(false);
   const [eventWeightMsg, setEventWeightMsg] = useState("");
   const [historyMode, setHistoryMode] = useState(false);
+  const [activeHouseTab, setActiveHouseTab] = useState(0);
 
   async function loadFarmName(farmId: string) {
     const r = await fetch("/api/farms/list");
@@ -404,7 +405,31 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="mobile-record-list">
-                {dashboard.houses.map((house) => (
+                {/* ── House tabs ── */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 0, borderBottom: "2px solid #e2e8f0" }}>
+                  {dashboard.houses.map((h, idx) => (
+                    <button
+                      key={h.houseId}
+                      onClick={() => setActiveHouseTab(idx)}
+                      style={{
+                        padding: "8px 16px",
+                        fontSize: "0.85rem",
+                        fontWeight: activeHouseTab === idx ? 700 : 400,
+                        borderRadius: "8px 8px 0 0",
+                        border: "1px solid #e2e8f0",
+                        borderBottom: activeHouseTab === idx ? "2px solid var(--primary)" : "2px solid transparent",
+                        background: activeHouseTab === idx ? "#fff" : "#f1f5f9",
+                        color: activeHouseTab === idx ? "var(--primary)" : "#64748b",
+                        cursor: "pointer",
+                        marginBottom: -2,
+                      }}
+                    >
+                      {h.houseName}
+                    </button>
+                  ))}
+                </div>
+
+                {dashboard.houses.map((house, idx) => idx !== Math.min(activeHouseTab, dashboard.houses.length - 1) ? null : (
                   <div key={house.houseId} className="mobile-record-card">
                     <h3 className="mobile-record-card__title">{house.houseName}</h3>
 
