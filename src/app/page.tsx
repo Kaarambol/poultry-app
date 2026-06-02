@@ -31,6 +31,7 @@ export default function HomePage() {
   const [activeCrop, setActiveCrop] = useState<any>(null);
   const [allHouses, setAllHouses]   = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [activeHouseTab, setActiveHouseTab] = useState(0);
 
   async function loadData(farmId: string) {
     try {
@@ -292,7 +293,39 @@ export default function HomePage() {
           const sortedHouses = Object.values(houseMap)
             .sort((a, b) => (a.house.name || "").localeCompare(b.house.name || "", undefined, { numeric: true, sensitivity: "base" }));
           const totalHouses = sortedHouses.length;
-          return sortedHouses.map(({ houseId, house: h, totalPlaced, thinDate, thin2Date, clearDate, batches }, houseIndex) => {
+          const clampedTab = Math.min(activeHouseTab, totalHouses - 1);
+
+          return (
+            <>
+              {/* ── House tabs ── */}
+              {totalHouses > 1 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+                  {sortedHouses.map((entry, idx) => (
+                    <button
+                      key={entry.houseId}
+                      onClick={() => setActiveHouseTab(idx)}
+                      style={{
+                        padding: "6px 14px",
+                        fontSize: "0.82rem",
+                        fontWeight: clampedTab === idx ? 700 : 500,
+                        borderRadius: "8px 8px 0 0",
+                        border: "1px solid #e2e8f0",
+                        borderBottom: clampedTab === idx ? "2px solid var(--primary)" : "1px solid #e2e8f0",
+                        background: clampedTab === idx ? "#fff" : "#f8fafc",
+                        color: clampedTab === idx ? "var(--primary)" : "#64748b",
+                        cursor: "pointer",
+                        transition: "all 0.12s",
+                      }}
+                    >
+                      {entry.house.name || `House ${idx + 1}`}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Active house card ── */}
+              {sortedHouses.map(({ houseId, house: h, totalPlaced, thinDate, thin2Date, clearDate, batches }, houseIndex) => {
+                if (houseIndex !== clampedTab) return null;
             const area = Number(h.floorAreaM2 || h.usableAreaM2 || 0);
             const nips = Number(h.defaultNippleCount || 0);
             const pans = Number(h.defaultFeederPanCount || 0);
@@ -469,7 +502,9 @@ export default function HomePage() {
                 </div>
               </div>
             );
-          });
+          })}
+            </>
+          );
         })()}
       </div>
     </div>
