@@ -67,6 +67,7 @@ model Farm {
   generatorService      String?
   weedkiller            String?
   security              String?
+  beddingType           String?
 
   houses              House[]
   crops               Crop[]

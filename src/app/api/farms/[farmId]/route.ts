@@ -56,6 +56,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     const generatorService      = String(body.generatorService      || "").trim() || null;
     const weedkiller            = String(body.weedkiller            || "").trim() || null;
     const security              = String(body.security              || "").trim() || null;
+    const beddingType           = String(body.beddingType           || "").trim() || null;
 
     const feedPrice1 =
       body.feedPrice1 === undefined || body.feedPrice1 === null || body.feedPrice1 === ""
@@ -172,6 +173,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         generatorService,
         weedkiller,
         security,
+        beddingType,
       },
     });
 

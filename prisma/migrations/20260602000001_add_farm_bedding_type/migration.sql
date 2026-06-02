@@ -1,0 +1,1 @@
+ALTER TABLE "Farm" ADD COLUMN IF NOT EXISTS "beddingType" TEXT;

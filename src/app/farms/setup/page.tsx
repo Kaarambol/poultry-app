@@ -28,6 +28,7 @@ type Farm = {
   generatorService?: string | null;
   weedkiller?: string | null;
   security?: string | null;
+  beddingType?: string | null;
 };
 
 type House = {
@@ -80,6 +81,7 @@ export default function FarmSetupPage() {
   const [generatorService, setGeneratorService]           = useState("");
   const [weedkiller, setWeedkiller]                       = useState("");
   const [security, setSecurity]                           = useState("");
+  const [beddingType, setBeddingType]                     = useState("");
 
   // House form
   const [houseName, setHouseName]                               = useState("");
@@ -153,6 +155,7 @@ export default function FarmSetupPage() {
         setGeneratorService(f.generatorService || "");
         setWeedkiller(f.weedkiller || "");
         setSecurity(f.security || "");
+        setBeddingType(f.beddingType || "");
       }
     }
   }, [farmId, farms]);
@@ -200,7 +203,7 @@ export default function FarmSetupPage() {
       farmNumber, chpCode, rodentControl, disinfectProgramme,
       waterSanitizer, footDipDisinfectant, cleaningContractor,
       vetContractor, electricianContractor, generatorService,
-      weedkiller, security,
+      weedkiller, security, beddingType,
     };
   }
 
@@ -316,6 +319,8 @@ export default function FarmSetupPage() {
                 <input value={weedkiller} onChange={(e) => setWeedkiller(e.target.value)} placeholder="Product / contractor" />
                 <label>Security</label>
                 <input value={security} onChange={(e) => setSecurity(e.target.value)} placeholder="Company / system" />
+                <label>Bedding Type</label>
+                <input value={beddingType} onChange={(e) => setBeddingType(e.target.value)} placeholder="e.g. Wood shavings, Straw" />
                 <button className="mobile-full-button" type="submit" style={{ marginTop: 12 }}>
                   Save Farm Information
                 </button>
