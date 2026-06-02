@@ -298,30 +298,28 @@ export default function HomePage() {
           return (
             <>
               {/* ── House tabs ── */}
-              {totalHouses > 1 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
-                  {sortedHouses.map((entry, idx) => (
-                    <button
-                      key={entry.houseId}
-                      onClick={() => setActiveHouseTab(idx)}
-                      style={{
-                        padding: "6px 14px",
-                        fontSize: "0.82rem",
-                        fontWeight: clampedTab === idx ? 700 : 500,
-                        borderRadius: "8px 8px 0 0",
-                        border: "1px solid #e2e8f0",
-                        borderBottom: clampedTab === idx ? "2px solid var(--primary)" : "1px solid #e2e8f0",
-                        background: clampedTab === idx ? "#fff" : "#f8fafc",
-                        color: clampedTab === idx ? "var(--primary)" : "#64748b",
-                        cursor: "pointer",
-                        transition: "all 0.12s",
-                      }}
-                    >
-                      {entry.house.name || `House ${idx + 1}`}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 0, borderBottom: "2px solid #e2e8f0" }}>
+                {sortedHouses.map((entry, idx) => (
+                  <button
+                    key={entry.houseId}
+                    onClick={() => setActiveHouseTab(idx)}
+                    style={{
+                      padding: "8px 16px",
+                      fontSize: "0.85rem",
+                      fontWeight: clampedTab === idx ? 700 : 400,
+                      borderRadius: "8px 8px 0 0",
+                      border: "1px solid #e2e8f0",
+                      borderBottom: clampedTab === idx ? "2px solid var(--primary)" : "2px solid transparent",
+                      background: clampedTab === idx ? "#fff" : "#f1f5f9",
+                      color: clampedTab === idx ? "var(--primary)" : "#64748b",
+                      cursor: "pointer",
+                      marginBottom: -2,
+                    }}
+                  >
+                    {entry.house.name || `House ${idx + 1}`}
+                  </button>
+                ))}
+              </div>
 
               {/* ── Active house card ── */}
               {sortedHouses.map(({ houseId, house: h, totalPlaced, thinDate, thin2Date, clearDate, batches }, houseIndex) => {
