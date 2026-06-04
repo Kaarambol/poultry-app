@@ -127,6 +127,12 @@ export default function DailyPage() {
     return targetDays.get(dayOfAge) ?? null;
   }, [dayOfAge, targetDays]);
 
+  // Feed and water targets shown from previous day (day-1)
+  const targetHintPrev = useMemo(() => {
+    if (dayOfAge == null || targetDays.size === 0) return null;
+    return targetDays.get(dayOfAge - 1) ?? null;
+  }, [dayOfAge, targetDays]);
+
   // Live birds in the selected house — used to scale feed/water targets to whole house
   // Thin birds are subtracted only from the day AFTER the thin date:
   // on the thin day itself the full-house consumption is still recorded
@@ -803,16 +809,16 @@ export default function DailyPage() {
               <div>
                 <label>Average weight (g)</label>
                 <input type="number" min="0" step="0.01" value={avgWeightG} onChange={(e) => setAvgWeightG(e.target.value)} disabled={!cropId || !canOperate} />
-                {targetHint?.weightTargetG != null && (
+                {targetHintPrev?.weightTargetG != null && (
                   <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-                    Target: {targetHint.weightTargetG}g
+                    Target: {targetHintPrev.weightTargetG}g
                     {avgWeightG !== "" && (
                       <span style={{
-                        color: Number(avgWeightG) >= (targetHint.weightTargetG ?? 0) ? "#16a34a" : "#dc2626",
+                        color: Number(avgWeightG) >= (targetHintPrev.weightTargetG ?? 0) ? "#16a34a" : "#dc2626",
                         fontWeight: 600,
                       }}>
-                        {" "}({Number(avgWeightG) >= (targetHint.weightTargetG ?? 0) ? "+" : ""}
-                        {((Number(avgWeightG) / (targetHint.weightTargetG ?? 1) - 1) * 100).toFixed(1)}%)
+                        {" "}({Number(avgWeightG) >= (targetHintPrev.weightTargetG ?? 0) ? "+" : ""}
+                        {((Number(avgWeightG) / (targetHintPrev.weightTargetG ?? 1) - 1) * 100).toFixed(1)}%)
                       </span>
                     )}
                   </div>
@@ -824,9 +830,9 @@ export default function DailyPage() {
               <div>
                 <label>Feed used (kg)</label>
                 <input type="number" min="0" step="0.01" value={feedKg} onChange={(e) => setFeedKg(e.target.value)} disabled={!cropId || !canOperate} />
-                {targetHint?.feedTargetG != null && selectedHouseLiveBirds != null && (
+                {targetHintPrev?.feedTargetG != null && selectedHouseLiveBirds != null && (
                   <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-                    Target: {(targetHint.feedTargetG * selectedHouseLiveBirds / 1000).toFixed(1)}kg
+                    Target: {(targetHintPrev.feedTargetG * selectedHouseLiveBirds / 1000).toFixed(1)}kg
                     <span style={{ opacity: 0.6 }}> ({selectedHouseLiveBirds.toLocaleString()} birds)</span>
                   </div>
                 )}
@@ -835,9 +841,9 @@ export default function DailyPage() {
               <div>
                 <label>Water used (L)</label>
                 <input type="number" min="0" step="0.01" value={waterL} onChange={(e) => setWaterL(e.target.value)} disabled={!cropId || !canOperate} />
-                {targetHint?.waterTargetMl != null && selectedHouseLiveBirds != null && (
+                {targetHintPrev?.waterTargetMl != null && selectedHouseLiveBirds != null && (
                   <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-                    Target: {(targetHint.waterTargetMl * selectedHouseLiveBirds / 1000).toFixed(0)}L
+                    Target: {(targetHintPrev.waterTargetMl * selectedHouseLiveBirds / 1000).toFixed(0)}L
                     <span style={{ opacity: 0.6 }}> ({selectedHouseLiveBirds.toLocaleString()} birds)</span>
                   </div>
                 )}
