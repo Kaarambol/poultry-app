@@ -41,6 +41,18 @@ IMPORTANT NOTES:
 - Always use lowercase table names in queries (Prisma uses camelCase but raw SQL uses snake_case? No — use exact table names with double quotes if needed)
 - Use standard PostgreSQL syntax
 - Only SELECT statements allowed
+
+CALCULATED METRICS (must be computed in SQL):
+- EPEF (European Production Efficiency Factor):
+  EPEF = (livability_pct * avg_live_weight_kg * 100) / (FCR * age_days * 10)
+  Where:
+    livability_pct = (chp.clearBirds::float / chp.birdsPlaced) * 100
+    avg_live_weight_kg = chp.clearWeightG / 1000.0
+    FCR = SUM(dr.feedKg) / (chp.clearBirds * chp.clearWeightG / 1000.0)   -- total feed / total live weight out
+    age_days = EXTRACT(DAY FROM (chp.clearDate - chp.placementDate))
+  Only calculate EPEF for placements where clearDate IS NOT NULL AND clearBirds > 0 AND clearWeightG > 0
+- FCR (Feed Conversion Ratio) = total feed kg consumed / total live weight produced kg
+- Average daily gain (ADG) g = clearWeightG / age_days
 `;
 
 export async function POST(req: NextRequest) {
