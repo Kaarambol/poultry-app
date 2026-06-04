@@ -22,6 +22,18 @@ type ReportData = {
   houses: ReportHouse[];
 };
 
+type PlacementRow = {
+  id: string;
+  batchNo: number;
+  houseName: string;
+  placementDate: string;
+  birdsPlaced: number;
+  flockNumber: string | null;
+  hatchery: string | null;
+  parentAgeWeeks: number | null;
+  notes: string | null;
+};
+
 
 const stages = [
   { value: "DAY_3",  label: "Day 3"  },
@@ -43,6 +55,7 @@ export default function AvaraPage() {
   const [msg, setMsg]             = useState("Loading...");
   const [isExporting, setIsExporting]             = useState(false);
   const [isExportingPlacement, setIsExportingPlacement] = useState(false);
+  const [placements, setPlacements] = useState<PlacementRow[]>([]);
 
   async function loadFarmName(farmId: string) {
     const r = await fetch("/api/farms/list");
@@ -67,9 +80,34 @@ export default function AvaraPage() {
       setCropLabel(data.cropNumber);
       setCurrentCropId(data.id);
       loadReport(data.id, stage);
+      loadPlacements(data.id);
       setMsg("");
     } else {
       setMsg("No active crop found.");
+    }
+  }
+
+  async function loadPlacements(selectedCropId: string) {
+    const r = await fetch(`/api/crops/details?cropId=${selectedCropId}`);
+    const data = await r.json();
+    if (r.ok && Array.isArray(data.placements)) {
+      const rows: PlacementRow[] = data.placements
+        .sort((a: any, b: any) => {
+          const hc = (a.house?.name ?? "").localeCompare(b.house?.name ?? "", undefined, { numeric: true, sensitivity: "base" });
+          return hc !== 0 ? hc : a.batchNo - b.batchNo;
+        })
+        .map((p: any) => ({
+          id: p.id,
+          batchNo: p.batchNo,
+          houseName: p.house?.name ?? "—",
+          placementDate: p.placementDate,
+          birdsPlaced: p.birdsPlaced,
+          flockNumber: p.flockNumber,
+          hatchery: p.hatchery,
+          parentAgeWeeks: p.parentAgeWeeks,
+          notes: p.notes,
+        }));
+      setPlacements(rows);
     }
   }
 
@@ -227,6 +265,44 @@ export default function AvaraPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </>
+        )}
+
+        {placements.length > 0 && (
+          <>
+            <h2 className="mobile-section-title">Placement Information</h2>
+            <div className="mobile-card" style={{ overflowX: "auto", padding: "12px 8px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                <thead>
+                  <tr style={{ background: "#D9E8F5" }}>
+                    {["House", "Batch", "Date", "Birds", "Flock #", "Hatchery", "Par.Age", "Notes"].map(h => (
+                      <th key={h} style={{ padding: "6px 8px", textAlign: "left", fontWeight: 700, color: "#1B3A5C", borderBottom: "2px solid #B8CCE0", whiteSpace: "nowrap" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {placements.map((p, i) => (
+                    <tr key={p.id} style={{ background: i % 2 === 0 ? "#FAFCFF" : "#fff", borderBottom: "1px solid #e2e8f0" }}>
+                      <td style={{ padding: "6px 8px", fontWeight: 600 }}>{p.houseName}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "center" }}>{p.batchNo}</td>
+                      <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{new Date(p.placementDate).toLocaleDateString("en-GB")}</td>
+                      <td style={{ padding: "6px 8px", fontWeight: 600, textAlign: "right" }}>{p.birdsPlaced.toLocaleString()}</td>
+                      <td style={{ padding: "6px 8px" }}>{p.flockNumber || "—"}</td>
+                      <td style={{ padding: "6px 8px" }}>{p.hatchery || "—"}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "center" }}>{p.parentAgeWeeks ?? "—"}</td>
+                      <td style={{ padding: "6px 8px", color: "#64748b" }}>{p.notes || "—"}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: "#EDEDED", fontWeight: 700 }}>
+                    <td style={{ padding: "6px 8px" }}>TOTAL</td>
+                    <td />
+                    <td />
+                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{placements.reduce((s, p) => s + p.birdsPlaced, 0).toLocaleString()}</td>
+                    <td colSpan={4} />
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </>
         )}
