@@ -830,9 +830,9 @@ export default function DailyPage() {
               <div>
                 <label>Feed used (kg)</label>
                 <input type="number" min="0" step="0.01" value={feedKg} onChange={(e) => setFeedKg(e.target.value)} disabled={!cropId || !canOperate} />
-                {targetHintPrev?.feedTargetG != null && selectedHouseLiveBirds != null && (
+                {targetHint?.feedTargetG != null && selectedHouseLiveBirds != null && (
                   <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-                    Target: {(targetHintPrev.feedTargetG * selectedHouseLiveBirds / 1000).toFixed(1)}kg
+                    Target: {(targetHint.feedTargetG * selectedHouseLiveBirds / 1000).toFixed(1)}kg
                     <span style={{ opacity: 0.6 }}> ({selectedHouseLiveBirds.toLocaleString()} birds)</span>
                   </div>
                 )}
@@ -841,9 +841,9 @@ export default function DailyPage() {
               <div>
                 <label>Water used (L)</label>
                 <input type="number" min="0" step="0.01" value={waterL} onChange={(e) => setWaterL(e.target.value)} disabled={!cropId || !canOperate} />
-                {targetHintPrev?.waterTargetMl != null && selectedHouseLiveBirds != null && (
+                {targetHint?.waterTargetMl != null && selectedHouseLiveBirds != null && (
                   <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-                    Target: {(targetHintPrev.waterTargetMl * selectedHouseLiveBirds / 1000).toFixed(0)}L
+                    Target: {(targetHint.waterTargetMl * selectedHouseLiveBirds / 1000).toFixed(0)}L
                     <span style={{ opacity: 0.6 }}> ({selectedHouseLiveBirds.toLocaleString()} birds)</span>
                   </div>
                 )}
