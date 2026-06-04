@@ -809,16 +809,16 @@ export default function DailyPage() {
               <div>
                 <label>Average weight (g)</label>
                 <input type="number" min="0" step="0.01" value={avgWeightG} onChange={(e) => setAvgWeightG(e.target.value)} disabled={!cropId || !canOperate} />
-                {targetHintPrev?.weightTargetG != null && (
+                {targetHint?.weightTargetG != null && (
                   <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-                    Target: {targetHintPrev.weightTargetG}g
+                    Target: {targetHint.weightTargetG}g
                     {avgWeightG !== "" && (
                       <span style={{
-                        color: Number(avgWeightG) >= (targetHintPrev.weightTargetG ?? 0) ? "#16a34a" : "#dc2626",
+                        color: Number(avgWeightG) >= (targetHint.weightTargetG ?? 0) ? "#16a34a" : "#dc2626",
                         fontWeight: 600,
                       }}>
-                        {" "}({Number(avgWeightG) >= (targetHintPrev.weightTargetG ?? 0) ? "+" : ""}
-                        {((Number(avgWeightG) / (targetHintPrev.weightTargetG ?? 1) - 1) * 100).toFixed(1)}%)
+                        {" "}({Number(avgWeightG) >= (targetHint.weightTargetG ?? 0) ? "+" : ""}
+                        {((Number(avgWeightG) / (targetHint.weightTargetG ?? 1) - 1) * 100).toFixed(1)}%)
                       </span>
                     )}
                   </div>
