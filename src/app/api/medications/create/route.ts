@@ -53,24 +53,32 @@ export async function POST(req: NextRequest) {
     }
 
     const startDateObj = new Date(startDate);
+    const cropIdOverride = String(form.get("cropId") || "").trim();
 
-    const crop = await prisma.crop.findFirst({
-      where: {
-        farmId,
-        placementDate: { lte: startDateObj },
-        OR: [
-          { finishDate: null },
-          { finishDate: { gte: startDateObj } },
-        ],
-      },
-      orderBy: { placementDate: "desc" },
-    });
-
-    if (!crop) {
-      return NextResponse.json(
-        { error: "No crop found matching this start date. Check placement and finish dates." },
-        { status: 404 }
-      );
+    let crop;
+    if (cropIdOverride) {
+      crop = await prisma.crop.findFirst({ where: { id: cropIdOverride, farmId } });
+      if (!crop) {
+        return NextResponse.json({ error: "Selected crop not found." }, { status: 404 });
+      }
+    } else {
+      crop = await prisma.crop.findFirst({
+        where: {
+          farmId,
+          placementDate: { lte: startDateObj },
+          OR: [
+            { finishDate: null },
+            { finishDate: { gte: startDateObj } },
+          ],
+        },
+        orderBy: { placementDate: "desc" },
+      });
+      if (!crop) {
+        return NextResponse.json(
+          { error: "No crop found matching this start date. Check placement and finish dates." },
+          { status: 404 }
+        );
+      }
     }
 
     const cropId = crop.id;

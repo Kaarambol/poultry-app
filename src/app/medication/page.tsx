@@ -81,6 +81,7 @@ export default function MedicationPage() {
   const [reportFile, setReportFile] = useState<File | null>(null);
   const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
   const [formKey, setFormKey] = useState(0);
+  const [overrideCropId, setOverrideCropId] = useState("");
 
   const [folders, setFolders] = useState<CropFolder[]>([]);
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
@@ -202,6 +203,7 @@ export default function MedicationPage() {
     setAdministratorName(""); setReasonForTreatment(""); setMethodOfTreatment("");
     setDose(""); setTotalMgPcu("");
     setReportFile(null); setPrescriptionFile(null);
+    setOverrideCropId("");
     setFormKey(k => k + 1);
   }
 
@@ -217,6 +219,7 @@ export default function MedicationPage() {
       batches.map(b => b[key]).filter(Boolean).join(" / ");
     fd.append("farmId",             currentFarmId);
     fd.append("startDate",          startDate);
+    if (overrideCropId) fd.append("cropId", overrideCropId);
     fd.append("medicineName",       medicineName);
     fd.append("supplier",           supplier);
     fd.append("batchNo",            join("batchNo"));
@@ -574,6 +577,26 @@ export default function MedicationPage() {
           <p style={{ marginTop: 0, fontSize: "0.85rem", color: "#64748b" }}>
             The crop is determined automatically from the start date.
           </p>
+          {folders.length > 1 && (
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: "0.8rem", fontWeight: 600, display: "block", marginBottom: 4 }}>
+                Assign to previous crop (optional)
+              </label>
+              <select
+                value={overrideCropId}
+                onChange={e => setOverrideCropId(e.target.value)}
+                disabled={!canOperate}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.9rem" }}
+              >
+                <option value="">— auto (from start date) —</option>
+                {folders.map(f => (
+                  <option key={f.cropId} value={f.cropId}>
+                    Crop {f.cropNumber} — {new Date(f.placementDate).toLocaleDateString("en-GB")}{f.finishDate ? ` → ${new Date(f.finishDate).toLocaleDateString("en-GB")}` : " (active)"}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <form onSubmit={saveMedication}>
             <div className="mobile-grid mobile-grid--2">
               <div><label>Start Date *</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required disabled={!canOperate} /></div>
