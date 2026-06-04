@@ -38,97 +38,110 @@ export async function POST(req: NextRequest) {
 
     const BG_NAVY   = "FF1B3A5C";
     const BG_HEADER = "FFD9E8F5";
-    const BG_LABEL  = "FFF0F4F9";
+    const BG_EVEN   = "FFFAFCFF";
     const FG_WHITE  = "FFFFFFFF";
     const FG_NAVY   = "FF1B3A5C";
+    const NCOLS     = 6; // Batch No | Notes | Birds Placed | Parent Age | Flock # | Hatchery
 
-    const sorted = [...crop.placements].sort((a, b) => {
-      const hc = a.house.name.localeCompare(b.house.name, undefined, { numeric: true, sensitivity: "base" });
-      return hc !== 0 ? hc : a.batchNo - b.batchNo;
-    });
+    // Column widths
+    ws.getColumn(1).width = 10; // Batch No
+    ws.getColumn(2).width = 28; // Notes
+    ws.getColumn(3).width = 14; // Birds Placed
+    ws.getColumn(4).width = 16; // Parent Age
+    ws.getColumn(5).width = 16; // Flock #
+    ws.getColumn(6).width = 20; // Hatchery
 
-    const NCOLS = 1 + sorted.length;
+    // Group placements by house
+    const byHouse = new Map<string, typeof crop.placements>();
+    for (const p of crop.placements) {
+      const key = p.house.name;
+      if (!byHouse.has(key)) byHouse.set(key, []);
+      byHouse.get(key)!.push(p);
+    }
+    // Sort houses naturally
+    const houseNames = [...byHouse.keys()].sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+    );
+    // Sort batches within each house
+    for (const [key, batches] of byHouse) {
+      byHouse.set(key, batches.sort((a, b) => a.batchNo - b.batchNo));
+    }
 
-    // Column widths: label col + one per placement
-    ws.getColumn(1).width = 20;
-    sorted.forEach((_, i) => { ws.getColumn(i + 2).width = 18; });
-
-    // Title rows
-    const addTitle = (text: string, bg: string, fg: string, sz: number) => {
-      const row = ws.addRow([text]);
-      ws.mergeCells(row.number, 1, row.number, NCOLS);
-      const cell = row.getCell(1);
-      cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
-      cell.font      = { bold: true, size: sz, color: { argb: fg } };
-      cell.alignment = { horizontal: "center", vertical: "middle" };
-      row.height     = 24;
+    const styleCell = (cell: ExcelJS.Cell, opts: { bg?: string; bold?: boolean; sz?: number; fg?: string; hAlign?: ExcelJS.Alignment["horizontal"] }) => {
+      if (opts.bg) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: opts.bg } };
+      cell.font = { bold: opts.bold ?? false, size: opts.sz ?? 10, color: { argb: opts.fg ?? FG_NAVY } };
+      cell.alignment = { horizontal: opts.hAlign ?? "center", vertical: "middle", wrapText: true };
     };
 
-    addTitle(
-      `${farm.name}  |  Crop: ${crop.cropNumber}  |  Placed: ${new Date(crop.placementDate).toLocaleDateString("en-GB")}  |  Breed: ${crop.breed || "—"}`,
-      BG_NAVY, FG_WHITE, 12
-    );
-    addTitle(
-      `Farm code: ${farm.code}  |  Generated: ${new Date().toLocaleDateString("en-GB")}`,
-      "FFF0F4F9", FG_NAVY, 10
-    );
+    const border = (cell: ExcelJS.Cell, style: ExcelJS.BorderStyle = "thin") => {
+      const c = { style, color: { argb: "FFB8CCE0" } } as ExcelJS.Border;
+      cell.border = { top: c, bottom: c, left: c, right: c };
+    };
+
+    // Global title
+    const titleRow = ws.addRow([`${farm.name}  |  Crop: ${crop.cropNumber}  |  Breed: ${crop.breed || "—"}  |  Generated: ${new Date().toLocaleDateString("en-GB")}`]);
+    ws.mergeCells(titleRow.number, 1, titleRow.number, NCOLS);
+    styleCell(titleRow.getCell(1), { bg: BG_NAVY, bold: true, sz: 12, fg: FG_WHITE, hAlign: "center" });
+    titleRow.height = 24;
+
     ws.addRow([]);
-    addTitle("Placement Information", BG_NAVY, FG_WHITE, 11);
 
-    // Header row: blank label cell + house names
-    const hdrRow = ws.addRow(["", ...sorted.map(p => p.house.name)]);
-    hdrRow.height = 28;
-    hdrRow.eachCell((cell, col) => {
-      cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: col === 1 ? BG_LABEL : BG_HEADER } };
-      cell.font      = { bold: true, size: 10, color: { argb: FG_NAVY } };
-      cell.alignment = { horizontal: "center", vertical: "middle" };
-      cell.border    = {
-        top:    { style: "thin", color: { argb: "FFB8CCE0" } },
-        bottom: { style: "thin", color: { argb: "FFB8CCE0" } },
-        left:   { style: "thin", color: { argb: "FFB8CCE0" } },
-        right:  { style: "thin", color: { argb: "FFB8CCE0" } },
-      };
-    });
+    // One table per house
+    for (const houseName of houseNames) {
+      const batches = byHouse.get(houseName)!;
+      const placementDate = new Date(batches[0].placementDate).toLocaleDateString("en-GB");
 
-    // Helper to add a data row
-    const addDataRow = (label: string, values: (string | number)[], rowIdx: number) => {
-      const row = ws.addRow([label, ...values]);
-      row.height = 20;
-      row.eachCell((cell, col) => {
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: col === 1 ? BG_LABEL : (rowIdx % 2 === 0 ? "FFFAFCFF" : "FFFFFFFF") } };
-        cell.font = { bold: col === 1, size: 10, color: { argb: FG_NAVY } };
-        cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle", wrapText: col > 1 };
-        cell.border = {
-          left:   { style: "hair", color: { argb: "FFD0D8E8" } },
-          right:  { style: "hair", color: { argb: "FFD0D8E8" } },
-          bottom: { style: "hair", color: { argb: "FFD0D8E8" } },
-        };
+      // Row 1: Placement Date
+      const dateRow = ws.addRow([`Placement Date: ${placementDate}`]);
+      ws.mergeCells(dateRow.number, 1, dateRow.number, NCOLS);
+      styleCell(dateRow.getCell(1), { bg: "FFF0F4F9", bold: false, sz: 10, fg: FG_NAVY, hAlign: "left" });
+      dateRow.height = 18;
+
+      // Row 2: House name
+      const houseRow = ws.addRow([houseName]);
+      ws.mergeCells(houseRow.number, 1, houseRow.number, NCOLS);
+      styleCell(houseRow.getCell(1), { bg: BG_NAVY, bold: true, sz: 11, fg: FG_WHITE, hAlign: "left" });
+      houseRow.height = 22;
+
+      // Row 3: Column headers
+      const hdr = ws.addRow(["Batch No", "Notes", "Birds Placed", "Parent Age (wks)", "Flock Number", "Hatchery"]);
+      hdr.height = 22;
+      hdr.eachCell(cell => {
+        styleCell(cell, { bg: BG_HEADER, bold: true, sz: 9, fg: FG_NAVY, hAlign: "center" });
+        border(cell);
       });
-    };
 
-    // Data rows — one field per row, one house per column
-    addDataRow("Batch No",           sorted.map(p => p.batchNo), 0);
-    addDataRow("Placement Date",     sorted.map(p => new Date(p.placementDate).toLocaleDateString("en-GB")), 1);
-    addDataRow("Flock Number",       sorted.map(p => p.flockNumber || "—"), 2);
-    addDataRow("Birds Placed",       sorted.map(p => p.birdsPlaced), 3);
-    addDataRow("Parent Age (wks)",   sorted.map(p => p.parentAgeWeeks != null ? p.parentAgeWeeks : "—"), 4);
-    addDataRow("Hatchery",           sorted.map(p => p.hatchery || "—"), 5);
-    addDataRow("Notes",              sorted.map(p => p.notes || "—"), 6);
+      // Data rows — one per batch
+      let totalBirds = 0;
+      batches.forEach((p, i) => {
+        totalBirds += p.birdsPlaced;
+        const row = ws.addRow([
+          p.batchNo,
+          p.notes || "—",
+          p.birdsPlaced,
+          p.parentAgeWeeks != null ? p.parentAgeWeeks : "—",
+          p.flockNumber || "—",
+          p.hatchery || "—",
+        ]);
+        row.height = 20;
+        row.eachCell((cell, col) => {
+          styleCell(cell, { bg: i % 2 === 0 ? BG_EVEN : "FFFFFFFF", hAlign: col === 2 ? "left" : "center" });
+          border(cell, "hair");
+        });
+        row.getCell(3).font = { bold: true, size: 10, color: { argb: FG_NAVY } };
+      });
 
-    // Total row
-    const totRow = ws.addRow(["TOTAL BIRDS", ...sorted.map(p => p.birdsPlaced)]);
-    totRow.height = 22;
-    totRow.eachCell((cell, col) => {
-      cell.fill      = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDEDED" } };
-      cell.font      = { bold: true, size: 10, color: { argb: FG_NAVY } };
-      cell.alignment = { horizontal: col === 1 ? "left" : "center", vertical: "middle" };
-      cell.border    = {
-        top:    { style: "medium", color: { argb: "FF9EB4CC" } },
-        bottom: { style: "medium", color: { argb: "FF9EB4CC" } },
-        left:   { style: "thin",   color: { argb: "FFD0D8E8" } },
-        right:  { style: "thin",   color: { argb: "FFD0D8E8" } },
-      };
-    });
+      // Total row
+      const totRow = ws.addRow(["TOTAL", "", totalBirds, "", "", ""]);
+      totRow.height = 22;
+      totRow.eachCell((cell, col) => {
+        styleCell(cell, { bg: "FFEDEDED", bold: true, sz: 10, hAlign: col === 1 ? "left" : "center" });
+        border(cell, "thin");
+      });
+
+      // Spacer between houses
+      ws.addRow([]);
+    }
 
     // Write to /tmp (writable on Vercel), read back, delete
     const fileName = `placement-${crop.cropNumber}-${Date.now()}.xlsx`;
