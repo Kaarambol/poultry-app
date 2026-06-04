@@ -18,9 +18,11 @@ TABLE Farm (id, name, code, feedContractor, chickenSupplier, farmNumber, chpCode
 TABLE User (id, email, name)
 TABLE UserFarmAccess (id, userId, farmId, role) -- role: OWNER/MANAGER/VIEWER
 TABLE House (id, farmId, name, code, floorAreaM2, usableAreaM2, defaultCapacityBirds, defaultNippleCount, defaultFeederPanCount)
-TABLE Crop (id, farmId, cropNumber, placementDate, finishDate, breed, hatchery, status, birdsPlaced(computed), finishDate)
+TABLE Crop (id, farmId, cropNumber, placementDate, finishDate, breed, hatchery, status)
   -- status: ACTIVE | FINISHED
+  -- NOTE: Crop has NO birdsPlaced column. To get total birds placed, SUM(birdsPlaced) FROM CropHousePlacement WHERE cropId = crop.id
 TABLE CropHousePlacement (id, cropId, houseId, placementDate, birdsPlaced, thinDate, thinBirds, thinWeightG, thin2Date, thin2Birds, clearDate, clearBirds, clearWeightG)
+  -- birdsPlaced here is the number of birds placed in that specific house for that crop
 TABLE DailyRecord (id, cropId, houseId, date, birdsTotal, mort, culls, feedKg, waterL, avgWeightG, ammoniaPpm, litterScore, co2MaxPpm, temperatureMinC, temperatureMaxC)
 TABLE FeedRecord (id, cropId, houseId, date, feedType, feedKg, feedPricePerTonneGbp)
 TABLE MedicationRecord (id, cropId, houseId, date, product, doseDescription)
