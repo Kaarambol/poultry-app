@@ -103,8 +103,9 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="mobile-card">
+        <div className="mobile-card" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Link href="/dashboard" className="mobile-button mobile-button--secondary">Back to Dashboard</Link>
+          <Link href="/admin/reports" className="mobile-button mobile-button--primary">Reports</Link>
         </div>
 
         {resetMsg && (
