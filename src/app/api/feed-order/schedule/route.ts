@@ -103,11 +103,18 @@ export async function GET(req: NextRequest) {
 
     const today = startOfDay(new Date());
 
-    // Determine end date per placement: clearDate > crop.finishDate > placementDate+56
+    // Determine end date per placement: min(clearDate | finishDate | placementDate+40, placementDate+40)
     function placementEnd(p: typeof placements[0]): Date {
-      if (p.clearDate) return startOfDay(new Date(p.clearDate));
-      if (p.crop.finishDate) return startOfDay(new Date(p.crop.finishDate));
-      return addDays(startOfDay(new Date(p.placementDate)), 56);
+      const hardMax = addDays(startOfDay(new Date(p.placementDate)), 40);
+      if (p.clearDate) {
+        const cd = startOfDay(new Date(p.clearDate));
+        return cd < hardMax ? cd : hardMax;
+      }
+      if (p.crop.finishDate) {
+        const fd = startOfDay(new Date(p.crop.finishDate));
+        return fd < hardMax ? fd : hardMax;
+      }
+      return hardMax;
     }
 
     const activePlacements = placements.filter(p => placementEnd(p) >= today);
