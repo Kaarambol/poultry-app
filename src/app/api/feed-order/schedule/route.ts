@@ -253,71 +253,17 @@ export async function GET(req: NextRequest) {
     let wednesday = firstWednesday;
 
     // ── Build trailer loads for a delivery ────────────────────────────────────
+    // Each trailer is always one feed type — the product active on the delivery date.
+    // No splits: if phase changes mid-week, one day delivers old product, next delivers new.
     function buildTrailers(orderKg: number, startDate: Date): TrailerLoad[] {
       if (orderKg <= 0) return [];
-
-      // Step 1: Accumulate phase segments for exactly orderKg of feed.
-      // We track how much kg is still unallocated and stop once it reaches 0.
-      type Segment = { feedProduct: string; kg: number };
-      const segs: Segment[] = [];
-      let left = orderKg;
-      let cur = startDate;
-      const horizon = addDays(startDate, 28);
-
-      while (left > 1 && cur < horizon) {
-        const { pureFeedKg, phases } = dailyData(cur);
-        const product = phases[0]?.product ?? "FINISHER_PELLET_585";
-        const take = Math.min(pureFeedKg, left); // don't overshoot
-        if (take > 0) {
-          const last = segs[segs.length - 1];
-          if (last?.feedProduct === product) last.kg += take;
-          else segs.push({ feedProduct: product, kg: take });
-          left -= take;
-        }
-        cur = addDays(cur, 1);
-      }
-
-      // Step 2: Convert segments to 27t trailers (13.5+13.5 split at transitions).
-      const trailers: TrailerLoad[] = [];
-
-      for (let si = 0; si < segs.length; si++) {
-        let segKg = segs[si].kg;
-        const next = segs[si + 1];
-
-        // Full trailers
-        const fullCount = Math.floor(segKg / TRAILER_KG);
-        for (let t = 0; t < fullCount; t++) {
-          trailers.push({
-            feeds: [{ feedProduct: segs[si].feedProduct, tonnes: TRAILER_KG / 1000 }],
-            totalTonnes: TRAILER_KG / 1000,
-          });
-        }
-        segKg -= fullCount * TRAILER_KG;
-
-        // Remainder (< 27t)
-        if (segKg > 1) {
-          if (next) {
-            // Split 13.5t old + 13.5t new at phase boundary
-            trailers.push({
-              feeds: [
-                { feedProduct: segs[si].feedProduct, tonnes: HALF_KG / 1000 },
-                { feedProduct: next.feedProduct, tonnes: HALF_KG / 1000 },
-              ],
-              totalTonnes: TRAILER_KG / 1000,
-            });
-            next.kg -= HALF_KG; // already allocated to this trailer
-            if (next.kg < 0) next.kg = 0;
-          } else {
-            // Last segment — round up to full trailer
-            trailers.push({
-              feeds: [{ feedProduct: segs[si].feedProduct, tonnes: TRAILER_KG / 1000 }],
-              totalTonnes: TRAILER_KG / 1000,
-            });
-          }
-        }
-      }
-
-      return trailers;
+      const { phases } = dailyData(startDate);
+      const product = phases[0]?.product ?? "FINISHER_PELLET_585";
+      const count = Math.round(orderKg / TRAILER_KG);
+      return Array.from({ length: count }, () => ({
+        feeds: [{ feedProduct: product, tonnes: TRAILER_KG / 1000 }],
+        totalTonnes: TRAILER_KG / 1000,
+      }));
     }
 
     // ── Build a StockDay entry ────────────────────────────────────────────────
