@@ -479,14 +479,14 @@ export async function GET(req: NextRequest) {
       });
 
       // ── Advance running stock to start of next Wednesday ─────────────────
-      // Subtract consumption Thu(+1)..Tue(+6) only — NOT Wed(+7).
-      // Wed(+7) consumption is subtracted in next iteration's stockAtMonMorningKg (i=0).
-      // Double-subtracting Wed causes accumulating error across weeks.
-      for (let i = 1; i <= 6; i++) {
-        runningStockKg += (deliveryByOffset.get(i)?.kg ?? 0);
+      // runningStockKg = stock at start of current Wednesday (before Wed consumption).
+      // Must subtract Wed(0)..Tue(6) and add deliveries Mon(5)..Tue(6).
+      // Deliveries at Wed(+7), Thu(+8), Fri(+9) pre-add now; consumption subtracted
+      // in next iteration (Wed at i=0, Thu/Fri in preDelivery loop).
+      for (let i = 0; i <= 6; i++) {
+        runningStockKg += (deliveryByOffset.get(i)?.kg ?? 0); // only Mon(5)/Tue(6) are non-zero
         runningStockKg -= dailyData(addDays(wednesday, i)).pureFeedKg;
       }
-      // Add deliveries from Wed(+7), Thu(+8), Fri(+9) — consumption subtracted next iteration
       runningStockKg += (deliveryByOffset.get(7)?.kg ?? 0);
       runningStockKg += (deliveryByOffset.get(8)?.kg ?? 0);
       runningStockKg += (deliveryByOffset.get(9)?.kg ?? 0);
