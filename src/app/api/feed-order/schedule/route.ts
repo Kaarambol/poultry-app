@@ -252,28 +252,6 @@ export async function GET(req: NextRequest) {
 
     let wednesday = firstWednesday;
 
-    // ── Pre-calculate total consumption per product from firstWednesday ─────────
-    // This tells us exactly how many kg of each product we need to order in total.
-    const productOrder: string[] = [];
-    const productTotalKg = new Map<string, number>();
-    for (let d = new Date(firstWednesday); d <= cycleEnd; d = addDays(d, 1)) {
-      const { pureFeedKg, phases } = dailyData(d);
-      if (pureFeedKg <= 0) continue;
-      const product = phases[0]?.product ?? "FINISHER_PELLET_585";
-      if (!productTotalKg.has(product)) productOrder.push(product);
-      productTotalKg.set(product, (productTotalKg.get(product) ?? 0) + pureFeedKg);
-    }
-
-    // Allocate stock at firstWednesday to first product(s) in phase order
-    const productRemainingKg = new Map<string, number>();
-    let stockLeft = runningStockKg;
-    for (const product of productOrder) {
-      const total = productTotalKg.get(product) ?? 0;
-      const covered = Math.min(Math.max(0, stockLeft), total);
-      productRemainingKg.set(product, Math.max(0, total - covered));
-      stockLeft = Math.max(0, stockLeft - covered);
-    }
-
     // ── Build trailer loads for a delivery ────────────────────────────────────
     function buildTrailers(orderKg: number, product: string): TrailerLoad[] {
       if (orderKg <= 0) return [];
@@ -342,46 +320,39 @@ export async function GET(req: NextRequest) {
       const effectiveCapKg = isLastPhase ? totalBinCapacityKg : maxOrderKg;
       // 0 means no bins configured → no physical cap
 
-      // ── This week's shortfall (9-day coverage: Mon+5..Tue+13) ────────────
-      // Cap total deliveries this week to what's actually needed — no front-loading.
+      // ── This week's shortfall → how many trailers total to order ────────
       const shortfallKg = Math.max(0, totalNeededKg - stockAtMonClamped);
       let weekTrailersRemaining = Math.ceil(shortfallKg / TRAILER_KG);
 
-      // ── Distribute per-product trailers across Mon–Fri ───────────────────
+      // ── Distribute trailers evenly across Mon–Fri ────────────────────────
+      // Product = whatever phase is active on each delivery day.
+      // Even spread: ceil(remaining/daysLeft), max 2/day, respect bin cap.
       const DELIVERY_OFFSETS = [5, 6, 7, 8, 9]; // Mon Tue Wed Thu Fri
       const MAX_PER_DAY = 2;
       type DeliveryEntry = { kg: number; product: string };
       const deliveryByOffset = new Map<number, DeliveryEntry>();
       let simForDist = stockAtMonClamped;
 
-      for (const offset of DELIVERY_OFFSETS) {
-        if (weekTrailersRemaining <= 0) break;
+      for (let di = 0; di < DELIVERY_OFFSETS.length && weekTrailersRemaining > 0; di++) {
+        const offset = DELIVERY_OFFSETS[di];
         const day = addDays(wednesday, offset);
         const { phases, pureFeedKg } = dailyData(day);
         const product = phases[0]?.product ?? "FINISHER_PELLET_585";
-        const productRemaining = productRemainingKg.get(product) ?? 0;
 
-        if (productRemaining > 1) {
-          // Physical cap: don't overflow bins
-          let fitInBins = productRemaining;
-          if (effectiveCapKg > 0) {
-            fitInBins = Math.max(0, effectiveCapKg - simForDist);
-          }
-          const trailersForProduct = Math.ceil(productRemaining / TRAILER_KG);
-          // Cap by: max per day, physical fit, product remaining, AND this week's shortfall
-          const trailersToday = Math.min(
-            MAX_PER_DAY,
-            trailersForProduct,
-            Math.floor(fitInBins / TRAILER_KG),
-            weekTrailersRemaining
-          );
-          const deliverKg = trailersToday * TRAILER_KG;
-          if (deliverKg > 0) {
-            deliveryByOffset.set(offset, { kg: deliverKg, product });
-            productRemainingKg.set(product, Math.max(0, productRemaining - deliverKg));
-            simForDist += deliverKg;
-            weekTrailersRemaining -= trailersToday;
-          }
+        const daysRemaining = DELIVERY_OFFSETS.length - di;
+        const evenToday = Math.ceil(weekTrailersRemaining / daysRemaining);
+
+        let fitInBins = weekTrailersRemaining;
+        if (effectiveCapKg > 0) {
+          fitInBins = Math.floor(Math.max(0, effectiveCapKg - simForDist) / TRAILER_KG);
+        }
+
+        const trailersToday = Math.min(MAX_PER_DAY, evenToday, fitInBins, weekTrailersRemaining);
+        const deliverKg = trailersToday * TRAILER_KG;
+        if (deliverKg > 0) {
+          deliveryByOffset.set(offset, { kg: deliverKg, product });
+          simForDist += deliverKg;
+          weekTrailersRemaining -= trailersToday;
         }
         simForDist -= pureFeedKg;
       }
