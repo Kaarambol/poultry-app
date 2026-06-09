@@ -26,15 +26,33 @@ export const METRIC_AXIS: Record<string, "left" | "right"> = {
   temperature: "right",
 };
 
-const METRIC_COLORS: Record<string, string> = {
-  water:  "#2563eb",  // blue
-  feed:   "#ca8a04",  // amber/yellow
-  weight: "#111827",  // black
-};
-
 const HOUSE_COLORS = [
   "#2563eb", "#dc2626", "#16a34a", "#d97706",
   "#7c3aed", "#0891b2", "#db2777", "#65a30d", "#ea580c", "#0284c7",
+];
+
+// Per-crop color palettes — Crop A and Crop B get completely different colors
+const CROP_PALETTES = [
+  {
+    water:       "#2563eb",  // blue
+    feed:        "#ca8a04",  // amber
+    weight:      "#111827",  // black
+    tempMin:     "#2563eb",  // blue
+    tempMax:     "#dc2626",  // red
+    tempTarget:  "#86efac",  // light green
+    waterTarget: "#93c5fd",  // light blue
+    feedTarget:  "#fcd34d",  // light amber
+  },
+  {
+    water:       "#16a34a",  // green
+    feed:        "#7c3aed",  // purple
+    weight:      "#ea580c",  // orange
+    tempMin:     "#0891b2",  // cyan
+    tempMax:     "#f97316",  // orange
+    tempTarget:  "#6ee7b7",  // mint
+    waterTarget: "#6ee7b7",  // mint
+    feedTarget:  "#c4b5fd",  // light purple
+  },
 ];
 
 // Crop A = solid, Crop B = dashed
@@ -405,10 +423,10 @@ export async function GET(req: NextRequest) {
     const cropLabel  = `Crop ${crop.cropNumber}`;
     const cropDash   = CROP_DASH[ci] ?? CROP_DASH[0];
     const cropSuffix = crops.length > 1 ? ` (${cropLabel})` : "";
+    const palette    = CROP_PALETTES[ci] ?? CROP_PALETTES[0];
 
     for (const met of metrics) {
       if (met === "temperature") {
-        // Always show min + max as separate lines
         const dataMin: Array<{ day: number; value: number | null }> = [];
         const dataMax: Array<{ day: number; value: number | null }> = [];
         for (let d = 1; d <= 42; d++) {
@@ -416,16 +434,14 @@ export async function GET(req: NextRequest) {
           dataMin.push({ day: d, value: agg && agg.tempCount > 0 ? +(agg.tempMinSum / agg.tempCount).toFixed(1) : null });
           dataMax.push({ day: d, value: agg && agg.tempCount > 0 ? +(agg.tempMaxSum / agg.tempCount).toFixed(1) : null });
         }
-        series.push({ id: `${crop.id}-temp-min`, label: `Temp min${cropSuffix}`, color: "#2563eb", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: cropDash, data: dataMin });
-        series.push({ id: `${crop.id}-temp-max`, label: `Temp max${cropSuffix}`, color: "#dc2626", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: cropDash ? "2 2" : "4 2", data: dataMax });
-        // Temperature target line
+        series.push({ id: `${crop.id}-temp-min`, label: `Temp min${cropSuffix}`, color: palette.tempMin, unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: cropDash, data: dataMin });
+        series.push({ id: `${crop.id}-temp-max`, label: `Temp max${cropSuffix}`, color: palette.tempMax, unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: cropDash, data: dataMax });
         if (cropTargets.temp.size > 0) {
           const tData = Array.from({ length: 42 }, (_, i) => {
-            const d = i + 1;
-            const t = cropTargets.temp.get(d);
+            const d = i + 1; const t = cropTargets.temp.get(d);
             return { day: d, value: t != null ? +(t).toFixed(1) : null };
           });
-          series.push({ id: `${crop.id}-temp-target`, label: `Temp target${cropSuffix}`, color: "#86efac", unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: "4 3", data: tData });
+          series.push({ id: `${crop.id}-temp-target`, label: `Temp target${cropSuffix}`, color: palette.tempTarget, unit: "°C", axis: "right", metric: "temperature", cropId: crop.id, strokeDash: "4 3", data: tData });
         }
       } else {
         const data: Array<{ day: number; value: number | null }> = [];
@@ -437,40 +453,32 @@ export async function GET(req: NextRequest) {
             if (met === "feed")   val = +((agg.feedKg / agg.totalBirds) * 1000).toFixed(3);
             if (met === "weight" && agg.weightCount > 0) {
               const avgG    = agg.weightSum / agg.weightCount;
-              const targetG = cropTargets.weight.get(d - 1); // weight entered on day d is from day d-1
+              const targetG = cropTargets.weight.get(d - 1);
               val = targetG && targetG > 0 ? +(avgG / targetG * 100).toFixed(1) : +(avgG).toFixed(0);
             }
           }
           data.push({ day: d, value: val });
         }
+        const metColor = met === "water" ? palette.water : met === "feed" ? palette.feed : met === "weight" ? palette.weight : "#64748b";
         series.push({
-          id:         `${crop.id}-${met}`,
-          label:      `${METRIC_LABELS[met] ?? met}${cropSuffix}`,
-          color:      METRIC_COLORS[met] ?? "#64748b",
-          unit:       METRIC_UNITS[met] ?? "",
-          axis:       METRIC_AXIS[met] ?? "left",
-          metric:     met,
-          cropId:     crop.id,
-          strokeDash: cropDash,
-          data,
+          id: `${crop.id}-${met}`, label: `${METRIC_LABELS[met] ?? met}${cropSuffix}`,
+          color: metColor, unit: METRIC_UNITS[met] ?? "", axis: METRIC_AXIS[met] ?? "left",
+          metric: met, cropId: crop.id, strokeDash: cropDash, data,
         });
 
-        // Add target line for water / feed
         if (met === "water" && cropTargets.water.size > 0) {
           const tData = Array.from({ length: 42 }, (_, i) => {
-            const d = i + 1;
-            const t = cropTargets.water.get(d);
+            const d = i + 1; const t = cropTargets.water.get(d);
             return { day: d, value: t != null ? +(t).toFixed(1) : null };
           });
-          series.push({ id: `${crop.id}-water-target`, label: `Water target${cropSuffix}`, color: "#93c5fd", unit: "L/1000", axis: "left", metric: "water", cropId: crop.id, strokeDash: "4 3", data: tData });
+          series.push({ id: `${crop.id}-water-target`, label: `Water target${cropSuffix}`, color: palette.waterTarget, unit: "L/1000", axis: "left", metric: "water", cropId: crop.id, strokeDash: "4 3", data: tData });
         }
         if (met === "feed" && cropTargets.feed.size > 0) {
           const tData = Array.from({ length: 42 }, (_, i) => {
-            const d = i + 1;
-            const t = cropTargets.feed.get(d);
+            const d = i + 1; const t = cropTargets.feed.get(d);
             return { day: d, value: t != null ? +(t).toFixed(1) : null };
           });
-          series.push({ id: `${crop.id}-feed-target`, label: `Feed target${cropSuffix}`, color: "#fcd34d", unit: "kg/1000", axis: "left", metric: "feed", cropId: crop.id, strokeDash: "4 3", data: tData });
+          series.push({ id: `${crop.id}-feed-target`, label: `Feed target${cropSuffix}`, color: palette.feedTarget, unit: "kg/1000", axis: "left", metric: "feed", cropId: crop.id, strokeDash: "4 3", data: tData });
         }
       }
     }
