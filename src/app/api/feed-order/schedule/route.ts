@@ -189,6 +189,14 @@ export async function GET(req: NextRequest) {
       dailyBirdsMap.set(key, dr.birdsTotal);
     }
 
+    // Houses with multiple placements: DailyRecord.birdsTotal = whole-house count.
+    // Using it per-placement would double/triple count. Skip DailyRecord for these.
+    const placementCountPerHouse = new Map<string, number>();
+    for (const p of placements) {
+      const key = `${p.cropId}:${p.houseId}`;
+      placementCountPerHouse.set(key, (placementCountPerHouse.get(key) ?? 0) + 1);
+    }
+
     // ── Daily consumption ─────────────────────────────────────────────────────
     // Returns total consumption AND per-product breakdown.
     // Uses DailyRecord.birdsTotal when available (respects actual thinning/mortality).
@@ -216,10 +224,14 @@ export async function GET(req: NextRequest) {
 
         const age = Math.round((d.getTime() - pd.getTime()) / MS_DAY);
 
-        // Prefer actual DailyRecord bird count (respects real thinning)
-        const drKey = `${p.cropId}:${p.houseId}:${toISO(d)}`;
+        // Use DailyRecord bird count only when this house has exactly one placement.
+        // Multi-placement houses: DailyRecord.birdsTotal is the whole-house sum —
+        // using it per-placement would multiply-count birds.
+        const houseKey = `${p.cropId}:${p.houseId}`;
+        const drKey = `${houseKey}:${toISO(d)}`;
+        const isMultiPlacement = (placementCountPerHouse.get(houseKey) ?? 1) > 1;
         let b: number;
-        if (dailyBirdsMap.has(drKey)) {
+        if (!isMultiPlacement && dailyBirdsMap.has(drKey)) {
           b = dailyBirdsMap.get(drKey)!;
         } else {
           b = p.birdsPlaced;
@@ -379,7 +391,9 @@ export async function GET(req: NextRequest) {
       }
 
       // ── Distribute deliveries Mon–Fri ─────────────────────────────────────
-      // Product P is only delivered on days where phase === P.
+      // Products are delivered in order of when they're first needed (ascending).
+      // No phase restriction: a product can be pre-delivered before its phase starts
+      // so it's in the bins when birds need it.
       // Max 2 trailers per day total (across all products).
       const DELIVERY_OFFSETS = [5, 6, 7, 8, 9]; // Mon Tue Wed Thu Fri
       type DeliveryEntry = { kg: number; product: string };
@@ -387,7 +401,24 @@ export async function GET(req: NextRequest) {
 
       if ([...trailersNeededByProduct.values()].some(v => v > 0)) {
         const trailersLeft = new Map(trailersNeededByProduct);
-        // Total stock at Monday for bin capacity check
+
+        // Find the first offset in [5..13] where each product has consumption > 0
+        const firstNeededOffset = new Map<string, number>();
+        for (const prod of trailersNeededByProduct.keys()) {
+          for (let i = 5; i <= 13; i++) {
+            if ((dailyData(addDays(wednesday, i)).consumptionByProduct.get(prod) ?? 0) > 0) {
+              firstNeededOffset.set(prod, i);
+              break;
+            }
+          }
+        }
+
+        // Sort products: earliest first-need offset first
+        const sortedProducts = [...trailersNeededByProduct.keys()].sort((a, b) => {
+          return (firstNeededOffset.get(a) ?? 999) - (firstNeededOffset.get(b) ?? 999);
+        });
+
+        // Total stock at Monday morning for bin capacity check
         let simTotalStock = Math.max(
           0,
           [...stockAtMonByProduct.values()].reduce((s, v) => s + v, 0)
@@ -396,19 +427,21 @@ export async function GET(req: NextRequest) {
         for (let di = 0; di < DELIVERY_OFFSETS.length; di++) {
           const offset = DELIVERY_OFFSETS[di];
           const day = addDays(wednesday, offset);
-          const { phases, pureFeedKg } = dailyData(day);
-          const dayProducts = phases.map(p => p.product);
+          const { pureFeedKg } = dailyData(day);
 
           let trailersThisDay = 0;
           const dayDeliveries: DeliveryEntry[] = [];
 
-          for (const prod of dayProducts) {
+          for (const prod of sortedProducts) {
             const remaining = trailersLeft.get(prod) ?? 0;
             if (remaining <= 0 || trailersThisDay >= MAX_PER_DAY) continue;
 
+            // Per-product capacity: last-phase product can use closing bins
+            const prodCapKg = (prod === lastPhaseProduct) ? totalBinCapacityKg : maxOrderKg;
+
             const canDeliver = Math.min(MAX_PER_DAY - trailersThisDay, remaining);
-            const fitInBins = effectiveCapKg > 0
-              ? Math.floor(Math.max(0, effectiveCapKg - simTotalStock) / TRAILER_KG)
+            const fitInBins = prodCapKg > 0
+              ? Math.floor(Math.max(0, prodCapKg - simTotalStock) / TRAILER_KG)
               : canDeliver;
             const actual = Math.min(canDeliver, fitInBins);
 
