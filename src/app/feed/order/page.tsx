@@ -135,10 +135,6 @@ export default function FeedOrderPage() {
   const [draftPhases, setDraftPhases]     = useState<FeedPhase[]>(DEFAULT_PHASES);
   const [savingPhases, setSavingPhases]   = useState(false);
 
-  // Current stock state
-  const [activeStock, setActiveStock]       = useState("0");
-  const [savingStock, setSavingStock]       = useState(false);
-
   // Schedule state
   const [scheduleRows, setScheduleRows]     = useState<OrderWeek[]>([]);
   const [scheduleMeta, setScheduleMeta]     = useState<ScheduleMeta | null>(null);
@@ -159,7 +155,7 @@ export default function FeedOrderPage() {
     fetch(`/api/houses/list?farmId=${fid}`).then(r => r.json()).then(d => { if (Array.isArray(d)) setHouses(d); }).catch(() => {});
     loadBins(fid);
     loadAssignments(fid);
-    loadStock(fid);
+    loadSchedule(fid);
     loadPhases(fid);
   }, []);
 
@@ -207,39 +203,6 @@ export default function FeedOrderPage() {
       if (field === "ownWheat") return { ...p, ownWheat: value as boolean };
       return p;
     }));
-  }
-
-  async function loadStock(fid: string) {
-    const r = await fetch(`/api/feed-order-stock?farmId=${fid}`);
-    const d = await r.json();
-    if (r.ok) {
-      setActiveStock(String(d.activeStockTonnes ?? 0));
-      if ((d.activeStockTonnes ?? 0) > 0) {
-        loadSchedule(fid);
-      }
-    }
-  }
-
-  async function saveStock(e: React.FormEvent) {
-    e.preventDefault();
-    if (!farmId) return;
-    setSavingStock(true);
-    try {
-      const r = await fetch("/api/feed-order-stock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ farmId, activeStockTonnes: parseFloat(activeStock) || 0 }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Error saving stock.");
-      setMsgType("success");
-      setMsg("Current stock saved.");
-      loadSchedule(farmId);
-    } catch (err: unknown) {
-      setMsgType("error"); setMsg((err as Error).message);
-    } finally {
-      setSavingStock(false);
-    }
   }
 
   async function loadSchedule(fid: string) {
@@ -729,44 +692,7 @@ export default function FeedOrderPage() {
           </div>
         )}
 
-        {/* ── SECTION 3: CURRENT STOCK ── */}
-        {savedBins.length > 0 && (
-          <div className="mobile-card" style={{ marginBottom: 16 }}>
-            <h2 style={{ marginTop: 0 }}>Current Stock</h2>
-            <p style={{ margin: "0 0 14px", fontSize: "0.82rem", color: "#64748b" }}>
-              Enter current stock levels to generate the delivery schedule.
-            </p>
-            <form onSubmit={saveStock}>
-              <div style={{ marginBottom: 14 }}>
-                <label>Active stock (tonnes)</label>
-                <input
-                  type="number" step="0.1" min="0"
-                  value={activeStock}
-                  onChange={e => setActiveStock(e.target.value)}
-                  placeholder="e.g. 45.5"
-                  style={{ maxWidth: 200 }}
-                />
-                <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: 4 }}>
-                  Total usable feed in active bins right now. Clear dates are read automatically from each house placement.
-                </div>
-              </div>
-              {savedBins.some(b => b.isClosingStock) && (
-                <div style={{ marginBottom: 14, fontSize: "0.82rem", color: "#dc2626" }}>
-                  Closing stock bins: <strong>{savedBins.filter(b => b.isClosingStock).map(b => b.name).join(", ")}</strong>
-                  {" "}— excluded from order capacity
-                </div>
-              )}
-              {canOperate && (
-                <button className="mobile-button" type="submit" disabled={savingStock}
-                  style={{ background: "#1B3A5C", color: "#fff" }}>
-                  {savingStock ? "Saving..." : "Save & Generate Schedule"}
-                </button>
-              )}
-            </form>
-          </div>
-        )}
-
-        {/* ── SECTION 4: DELIVERY SCHEDULE ── */}
+        {/* ── SECTION 3: DELIVERY SCHEDULE ── */}
         {(scheduleRows.length > 0 || scheduleLoading || scheduleWarning) && (
           <div className="mobile-card" style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>

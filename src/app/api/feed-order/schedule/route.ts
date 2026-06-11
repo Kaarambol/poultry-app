@@ -4,6 +4,7 @@ import { getUserRoleOnFarm, canView } from "@/lib/permissions";
 
 const MS_DAY = 86_400_000;
 const TRAILER_KG = 27_000;
+const MAX_PER_DAY = 2;
 const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function addDays(d: Date, n: number): Date { return new Date(d.getTime() + n * MS_DAY); }
@@ -23,7 +24,6 @@ function nextWednesday(from: Date): Date {
 function lastWednesdayBefore(d: Date): Date {
   const day = startOfDay(new Date(d));
   const dow = day.getDay();
-  // (dow - 3 + 7) % 7 gives 0 when dow==3 (same day), so || 7 makes it "previous week"
   const daysBack = ((dow - 3 + 7) % 7) || 7;
   day.setDate(day.getDate() - daysBack);
   return day;
@@ -66,7 +66,7 @@ export interface OrderWeek {
   stockOnOrderDayKg: number;
   totalOrderKg: number;
   totalTrailers: number;
-  preDelivery: StockDay[];   // Wed(0) + Thu(+1) + Fri(+2) + Sat(+3) + Sun(+4)
+  preDelivery: StockDay[];   // Wed(0)..Sun(+4)
   deliveryWindow: DeliveryDay[]; // Mon(+5)..Fri(+9)
   coverage: StockDay[];          // Sat(+10)..Tue(+13)
   stockOnFinalTuesdayKg: number;
@@ -98,7 +98,6 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Placements (ACTIVE crops only) ───────────────────────────────────────
-    // We load ALL placements (not filtered by today) so historical weeks are accurate.
     const placements = await prisma.cropHousePlacement.findMany({
       where: {
         houseId: { in: assignedHouseIds },
@@ -172,7 +171,6 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Cycle end: furthest placement end ─────────────────────────────────────
-    // Start from today so future orders always cover at least the current week.
     let cycleEnd = today;
     for (const p of placements) {
       const end = placementEnd(p);
@@ -185,7 +183,6 @@ export async function GET(req: NextRequest) {
       where: { houseId: { in: assignedHouseIds }, cropId: { in: cropIds } },
       select: { houseId: true, cropId: true, date: true, birdsTotal: true },
     });
-    // Lookup: "cropId:houseId:YYYY-MM-DD" → birdsTotal
     const dailyBirdsMap = new Map<string, number>();
     for (const dr of allDailyRecords) {
       const key = `${dr.cropId}:${dr.houseId}:${toISO(startOfDay(new Date(dr.date)))}`;
@@ -193,6 +190,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Daily consumption ─────────────────────────────────────────────────────
+    // Returns total consumption AND per-product breakdown.
     // Uses DailyRecord.birdsTotal when available (respects actual thinning/mortality).
     // Falls back to placement data (thinDate/thinBirds) for future dates.
     function dailyData(date: Date): {
@@ -201,6 +199,7 @@ export async function GET(req: NextRequest) {
       birds: number;
       phases: { product: string; ownWheat: boolean; wheatPct: number }[];
       ageSet: number[];
+      consumptionByProduct: Map<string, number>;
     } {
       const d = startOfDay(date);
       let totalKg = 0;
@@ -208,6 +207,7 @@ export async function GET(req: NextRequest) {
       let birds = 0;
       const phaseSet = new Map<string, { ownWheat: boolean; wheatPct: number }>();
       const ageSet: number[] = [];
+      const consumptionByProduct = new Map<string, number>();
 
       placements.forEach((p, idx) => {
         const pd = startOfDay(new Date(p.placementDate));
@@ -216,7 +216,7 @@ export async function GET(req: NextRequest) {
 
         const age = Math.round((d.getTime() - pd.getTime()) / MS_DAY);
 
-        // Prefer actual DailyRecord bird count for accuracy (respects real thinning)
+        // Prefer actual DailyRecord bird count (respects real thinning)
         const drKey = `${p.cropId}:${p.houseId}:${toISO(d)}`;
         let b: number;
         if (dailyBirdsMap.has(drKey)) {
@@ -237,11 +237,19 @@ export async function GET(req: NextRequest) {
         const ownWheat = phase?.ownWheat ?? false;
 
         totalKg += dayKg;
-        pureFeedKg += ownWheat ? dayKg * (1 - wheatPct / 100) : dayKg;
+        const pureDayKg = ownWheat ? dayKg * (1 - wheatPct / 100) : dayKg;
+        pureFeedKg += pureDayKg;
         birds += b;
         if (age >= 0 && age <= 60) ageSet.push(age);
 
-        if (phase) phaseSet.set(phase.feedProduct, { ownWheat: phase.ownWheat, wheatPct: phase.wheatPct });
+        if (phase) {
+          phaseSet.set(phase.feedProduct, { ownWheat: phase.ownWheat, wheatPct: phase.wheatPct });
+          // Accumulate per-product consumption (pure feed only)
+          consumptionByProduct.set(
+            phase.feedProduct,
+            (consumptionByProduct.get(phase.feedProduct) ?? 0) + pureDayKg
+          );
+        }
       });
 
       return {
@@ -250,12 +258,20 @@ export async function GET(req: NextRequest) {
         birds,
         phases: [...phaseSet.entries()].map(([product, v]) => ({ product, ...v })),
         ageSet,
+        consumptionByProduct,
       };
     }
 
-    // ── Current stock ─────────────────────────────────────────────────────────
-    const stockRecord = await prisma.feedOrderStock.findUnique({ where: { farmId } });
-    const currentStockKg = (stockRecord?.activeStockTonnes ?? 0) * 1000;
+    // ── Sum consumptionByProduct over a range of day offsets ─────────────────
+    function consumptionRange(baseDate: Date, fromOffset: number, toOffset: number): Map<string, number> {
+      const result = new Map<string, number>();
+      for (let i = fromOffset; i <= toOffset; i++) {
+        for (const [prod, kg] of dailyData(addDays(baseDate, i)).consumptionByProduct) {
+          result.set(prod, (result.get(prod) ?? 0) + kg);
+        }
+      }
+      return result;
+    }
 
     // ── Crop start: earliest placement ────────────────────────────────────────
     const cropStart = placements.reduce((earliest, p) => {
@@ -264,42 +280,23 @@ export async function GET(req: NextRequest) {
     }, startOfDay(new Date(placements[0].placementDate)));
 
     // ── First ordering Wednesday: last Wednesday BEFORE crop start ────────────
-    // Ensures Starter Crumb is ordered before birds arrive.
-    // Show full plan even if dates are in the past.
     let wednesday = lastWednesdayBefore(cropStart);
 
-    // ── Today's Wednesday (boundary for stock accuracy) ───────────────────────
+    // ── Today's Wednesday (boundary for isPast flag) ──────────────────────────
     const todayWednesday = nextWednesday(today);
 
-    // ── Stock at first (historical) Wednesday ─────────────────────────────────
-    // Approximate backward projection from today's known stock.
-    // For past weeks this ignores actual past deliveries (unknown) — it's a
-    // reference baseline, not exact history.
-    // At the past→future boundary we reset to the accurate current stock.
-    let runningStockKg: number;
-    if (wednesday < today) {
-      runningStockKg = currentStockKg;
-      for (let cur = new Date(wednesday); cur < today; cur = addDays(cur, 1)) {
-        runningStockKg += dailyData(cur).pureFeedKg;
-      }
-    } else {
-      runningStockKg = currentStockKg;
-      for (let cur = new Date(today); cur < wednesday; cur = addDays(cur, 1)) {
-        runningStockKg -= dailyData(cur).pureFeedKg;
-      }
+    // ── Per-product stock — always starts at 0 (empty bins at crop start) ─────
+    const stockByProduct = new Map<string, number>();
+    function totalStock(): number {
+      return [...stockByProduct.values()].reduce((s, v) => s + v, 0);
     }
 
-    // ── Accurate stock at today's Wednesday ───────────────────────────────────
-    const stockAtTodayWednesdayKg = (() => {
-      let s = currentStockKg;
-      for (let cur = new Date(today); cur < todayWednesday; cur = addDays(cur, 1)) {
-        s -= dailyData(cur).pureFeedKg;
-      }
-      return s;
-    })();
-    let hitTodayWednesday = false;
+    // ── Last phase product (for closing-bin capacity logic) ───────────────────
+    const lastPhaseProduct = feedPhases.length > 0
+      ? feedPhases[feedPhases.length - 1].feedProduct
+      : null;
 
-    // ── Build trailer loads for a delivery ────────────────────────────────────
+    // ── Build trailer loads ───────────────────────────────────────────────────
     function buildTrailers(orderKg: number, product: string): TrailerLoad[] {
       if (orderKg <= 0) return [];
       const count = Math.round(orderKg / TRAILER_KG);
@@ -326,93 +323,122 @@ export async function GET(req: NextRequest) {
 
     // ── Simulate week by week ─────────────────────────────────────────────────
     const orders: OrderWeek[] = [];
-    const lastPhaseProduct = feedPhases.length > 0
-      ? feedPhases[feedPhases.length - 1].feedProduct
-      : null;
 
     while (addDays(wednesday, 5) <= cycleEnd) {
-      // ── Reset stock at past→future boundary ───────────────────────────────
-      if (!hitTodayWednesday && wednesday >= todayWednesday) {
-        runningStockKg = stockAtTodayWednesdayKg;
-        hitTodayWednesday = true;
-      }
-
       const isPast = wednesday < todayWednesday;
 
-      // ── Total consumption Mon(+5)..Tue(+13) ──────────────────────────────
-      let totalNeededKg = 0;
-      for (let i = 5; i <= 13; i++) {
-        totalNeededKg += dailyData(addDays(wednesday, i)).pureFeedKg;
-      }
+      // ── Consumption breakdown by product ─────────────────────────────────
+      // preDelivery: Wed(0)..Sun(+4) — consumed before deliveries arrive
+      const preConsumptionByProduct = consumptionRange(wednesday, 0, 4);
+      // window: Mon(+5)..Tue(+13) — needs to be covered by stock + deliveries
+      const windowConsumptionByProduct = consumptionRange(wednesday, 5, 13);
 
-      // No birds in delivery/coverage window → no order needed.
-      // Still advance runningStockKg through Wed..Tue(+6).
-      if (totalNeededKg === 0) {
+      const totalWindowKg = [...windowConsumptionByProduct.values()].reduce((s, v) => s + v, 0);
+
+      // No birds in window → skip, still advance stock through Wed..Tue(+6)
+      if (totalWindowKg === 0) {
         for (let i = 0; i <= 6; i++) {
-          runningStockKg -= dailyData(addDays(wednesday, i)).pureFeedKg;
+          const { consumptionByProduct } = dailyData(addDays(wednesday, i));
+          for (const [prod, kg] of consumptionByProduct) {
+            stockByProduct.set(prod, (stockByProduct.get(prod) ?? 0) - kg);
+          }
         }
         wednesday = addDays(wednesday, 7);
         continue;
       }
 
       const weekNotes: string[] = [];
-      const stockOnOrderDayKg = runningStockKg;
+      const stockOnOrderDayKg = totalStock();
 
-      // ── Stock at Monday morning (burn Wed+Thu+Fri+Sat+Sun = 5 days) ──────
-      let stockAtMonMorningKg = runningStockKg;
-      for (let i = 0; i <= 4; i++) {
-        stockAtMonMorningKg -= dailyData(addDays(wednesday, i)).pureFeedKg;
+      // ── Per-product stock at Monday morning ───────────────────────────────
+      // = current stock for that product minus what's consumed Wed–Sun
+      const stockAtMonByProduct = new Map<string, number>();
+      const allProducts = new Set([
+        ...preConsumptionByProduct.keys(),
+        ...windowConsumptionByProduct.keys(),
+      ]);
+      for (const prod of allProducts) {
+        const current = stockByProduct.get(prod) ?? 0;
+        const preUsed = preConsumptionByProduct.get(prod) ?? 0;
+        stockAtMonByProduct.set(prod, Math.max(0, current - preUsed));
       }
-      const stockAtMonClamped = Math.max(0, stockAtMonMorningKg);
 
       // ── Effective bin capacity ────────────────────────────────────────────
       const mondayPhase = dailyData(addDays(wednesday, 5)).phases[0];
       const isLastPhase = lastPhaseProduct !== null && mondayPhase?.product === lastPhaseProduct;
       const effectiveCapKg = isLastPhase ? totalBinCapacityKg : maxOrderKg;
 
-      // ── Shortfall → trailers needed ───────────────────────────────────────
-      const shortfallKg = Math.max(0, totalNeededKg - stockAtMonClamped);
-      let weekTrailersRemaining = Math.ceil(shortfallKg / TRAILER_KG);
+      // ── Per-product shortfall → trailers needed ───────────────────────────
+      const trailersNeededByProduct = new Map<string, number>();
+      for (const [prod, windowKg] of windowConsumptionByProduct) {
+        const available = stockAtMonByProduct.get(prod) ?? 0;
+        const shortfall = Math.max(0, windowKg - available);
+        if (shortfall > 0) {
+          trailersNeededByProduct.set(prod, Math.ceil(shortfall / TRAILER_KG));
+        }
+      }
 
-      // ── Distribute trailers Mon–Fri (max 2/day, respect bin capacity) ────
-      // Each delivery day uses the feed phase active ON that day.
-      // Phase changes mid-week are automatically handled (different product per day).
+      // ── Distribute deliveries Mon–Fri ─────────────────────────────────────
+      // Product P is only delivered on days where phase === P.
+      // Max 2 trailers per day total (across all products).
       const DELIVERY_OFFSETS = [5, 6, 7, 8, 9]; // Mon Tue Wed Thu Fri
-      const MAX_PER_DAY = 2;
       type DeliveryEntry = { kg: number; product: string };
-      const deliveryByOffset = new Map<number, DeliveryEntry>();
-      let simForDist = stockAtMonClamped;
+      const deliveryByOffset = new Map<number, DeliveryEntry[]>();
 
-      for (let di = 0; di < DELIVERY_OFFSETS.length && weekTrailersRemaining > 0; di++) {
-        const offset = DELIVERY_OFFSETS[di];
-        const day = addDays(wednesday, offset);
-        const { phases, pureFeedKg } = dailyData(day);
-        const product = phases[0]?.product ?? "FINISHER_PELLET_585";
+      if ([...trailersNeededByProduct.values()].some(v => v > 0)) {
+        const trailersLeft = new Map(trailersNeededByProduct);
+        // Total stock at Monday for bin capacity check
+        let simTotalStock = Math.max(
+          0,
+          [...stockAtMonByProduct.values()].reduce((s, v) => s + v, 0)
+        );
 
-        const daysRemaining = DELIVERY_OFFSETS.length - di;
-        const evenToday = Math.ceil(weekTrailersRemaining / daysRemaining);
+        for (let di = 0; di < DELIVERY_OFFSETS.length; di++) {
+          const offset = DELIVERY_OFFSETS[di];
+          const day = addDays(wednesday, offset);
+          const { phases, pureFeedKg } = dailyData(day);
+          const dayProducts = phases.map(p => p.product);
 
-        let fitInBins = weekTrailersRemaining;
-        if (effectiveCapKg > 0) {
-          fitInBins = Math.floor(Math.max(0, effectiveCapKg - simForDist) / TRAILER_KG);
+          let trailersThisDay = 0;
+          const dayDeliveries: DeliveryEntry[] = [];
+
+          for (const prod of dayProducts) {
+            const remaining = trailersLeft.get(prod) ?? 0;
+            if (remaining <= 0 || trailersThisDay >= MAX_PER_DAY) continue;
+
+            const canDeliver = Math.min(MAX_PER_DAY - trailersThisDay, remaining);
+            const fitInBins = effectiveCapKg > 0
+              ? Math.floor(Math.max(0, effectiveCapKg - simTotalStock) / TRAILER_KG)
+              : canDeliver;
+            const actual = Math.min(canDeliver, fitInBins);
+
+            if (actual > 0) {
+              dayDeliveries.push({ kg: actual * TRAILER_KG, product: prod });
+              trailersLeft.set(prod, remaining - actual);
+              trailersThisDay += actual;
+              simTotalStock += actual * TRAILER_KG;
+            }
+          }
+
+          if (dayDeliveries.length > 0) {
+            deliveryByOffset.set(offset, dayDeliveries);
+          }
+          simTotalStock -= pureFeedKg;
         }
-
-        const trailersToday = Math.min(MAX_PER_DAY, evenToday, fitInBins, weekTrailersRemaining);
-        const deliverKg = trailersToday * TRAILER_KG;
-        if (deliverKg > 0) {
-          deliveryByOffset.set(offset, { kg: deliverKg, product });
-          simForDist += deliverKg;
-          weekTrailersRemaining -= trailersToday;
-        }
-        simForDist -= pureFeedKg;
       }
 
+      const actualTotalOrderKg = [...deliveryByOffset.values()].flat().reduce((s, e) => s + e.kg, 0);
+      const totalTrailers = [...deliveryByOffset.values()].flat().length;
+
+      // ── Build TrailerLoad objects per offset ──────────────────────────────
       const trailersByOffset = new Map<number, TrailerLoad[]>();
-      for (const [off, { kg, product }] of deliveryByOffset) {
-        trailersByOffset.set(off, buildTrailers(kg, product));
+      for (const [off, entries] of deliveryByOffset) {
+        const loads: TrailerLoad[] = [];
+        for (const { kg, product } of entries) {
+          loads.push(...buildTrailers(kg, product));
+        }
+        trailersByOffset.set(off, loads);
       }
-      const actualTotalOrderKg = [...deliveryByOffset.values()].reduce((s, e) => s + e.kg, 0);
-      const totalTrailers = [...trailersByOffset.values()].reduce((s, t) => s + t.length, 0);
 
       // ── Notes: thin/clear events within this order's window ───────────────
       const periodStart = addDays(wednesday, 1);
@@ -435,10 +461,10 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // ── Simulate stock through all days ───────────────────────────────────
-      let simStock = runningStockKg;
+      // ── Simulate stock for display (total across all products) ────────────
+      let simStock = totalStock();
 
-      // preDelivery: Wed(0) + Thu(+1) + Fri(+2) + Sat(+3) + Sun(+4)
+      // preDelivery: Wed(0)..Sun(+4)
       const preDelivery: StockDay[] = [];
       for (let i = 0; i <= 4; i++) {
         const day = addDays(wednesday, i);
@@ -502,17 +528,25 @@ export async function GET(req: NextRequest) {
         notes: weekNotes,
       });
 
-      // ── Advance running stock to start of next Wednesday ─────────────────
-      // Subtract consumption Wed(0)..Tue(+6) and add deliveries Mon(+5)..Tue(+6).
-      // Deliveries at Wed(+7)/Thu(+8)/Fri(+9) pre-added here; their consumption
-      // is subtracted in the NEXT iteration's preDelivery loop.
+      // ── Advance stockByProduct to start of next Wednesday ─────────────────
+      // For each day Wed(0)..Tue(+6): add deliveries, subtract consumption.
       for (let i = 0; i <= 6; i++) {
-        runningStockKg += (deliveryByOffset.get(i)?.kg ?? 0);
-        runningStockKg -= dailyData(addDays(wednesday, i)).pureFeedKg;
+        const dayDeliveries = deliveryByOffset.get(i) ?? [];
+        for (const { kg, product } of dayDeliveries) {
+          stockByProduct.set(product, (stockByProduct.get(product) ?? 0) + kg);
+        }
+        const { consumptionByProduct } = dailyData(addDays(wednesday, i));
+        for (const [prod, kg] of consumptionByProduct) {
+          stockByProduct.set(prod, (stockByProduct.get(prod) ?? 0) - kg);
+        }
       }
-      runningStockKg += (deliveryByOffset.get(7)?.kg ?? 0);
-      runningStockKg += (deliveryByOffset.get(8)?.kg ?? 0);
-      runningStockKg += (deliveryByOffset.get(9)?.kg ?? 0);
+      // Deliveries Wed(+7)..Fri(+9) arrive but aren't consumed this week — pre-stock for next week.
+      for (let i = 7; i <= 9; i++) {
+        const dayDeliveries = deliveryByOffset.get(i) ?? [];
+        for (const { kg, product } of dayDeliveries) {
+          stockByProduct.set(product, (stockByProduct.get(product) ?? 0) + kg);
+        }
+      }
 
       wednesday = addDays(wednesday, 7);
     }
@@ -525,7 +559,7 @@ export async function GET(req: NextRequest) {
         trailerTonnes: TRAILER_KG / 1000,
         cycleEnd: toISO(cycleEnd),
         cropStart: toISO(cropStart),
-        activeStockTonnes: stockRecord?.activeStockTonnes ?? 0,
+        activeStockTonnes: 0,
         closingBins: farmBins.filter(b => b.isClosingStock).map(b => b.name),
       },
     });
