@@ -68,9 +68,10 @@ export default function MedicationPrintPage() {
 
   return (
     <div
+      className="print-wrap"
       style={{
-        maxWidth: 1000,
-        margin: "20px auto",
+        maxWidth: 900,
+        margin: "16px auto",
         fontFamily: "Arial, sans-serif",
         color: "#000",
         padding: "0 16px",
@@ -78,8 +79,8 @@ export default function MedicationPrintPage() {
     >
       <style>{`
         @page {
-          margin: 0;
           size: A4;
+          margin: 12mm 10mm 10mm 25mm;
         }
         @media print {
           button {
@@ -87,8 +88,6 @@ export default function MedicationPrintPage() {
           }
           body {
             margin: 0;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
           }
           .app-nav {
             display: none !important;
@@ -101,6 +100,11 @@ export default function MedicationPrintPage() {
             margin: 0 !important;
             max-width: none !important;
           }
+          .print-wrap {
+            margin: 0 !important;
+            padding: 0 !important;
+            max-width: none !important;
+          }
         }
         table {
           width: 100%;
@@ -108,24 +112,23 @@ export default function MedicationPrintPage() {
         }
         td, th {
           border: 1px solid #000;
-          padding: 8px;
+          padding: 5px 7px;
           vertical-align: top;
-          font-size: 14px;
+          font-size: 11px;
         }
         .label {
           font-weight: 700;
-          width: 32%;
-          background: #f5f5f5;
+          width: 28%;
         }
         .title {
-          font-size: 24px;
+          font-size: 18px;
           font-weight: 700;
-          margin-bottom: 16px;
+          margin-bottom: 10px;
         }
         .section-title {
-          font-size: 16px;
+          font-size: 13px;
           font-weight: 700;
-          margin: 24px 0 8px;
+          margin: 12px 0 5px;
         }
       `}</style>
 
@@ -224,7 +227,7 @@ export default function MedicationPrintPage() {
           <table>
             <tbody>
               <tr>
-                <td style={{ height: 100 }}></td>
+                <td style={{ height: 60 }}></td>
               </tr>
             </tbody>
           </table>
