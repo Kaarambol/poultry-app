@@ -223,34 +223,16 @@ export async function GET(req: NextRequest) {
     const stockRecord = await prisma.feedOrderStock.findUnique({ where: { farmId } });
     const currentStockKg = (stockRecord?.activeStockTonnes ?? 0) * 1000;
 
-    // ── Find crop start (earliest placement date) ─────────────────────────────
-    const cropStart = activePlacements.reduce((earliest, p) => {
-      const pd = startOfDay(new Date(p.placementDate));
-      return pd < earliest ? pd : earliest;
-    }, startOfDay(new Date(activePlacements[0].placementDate)));
+    // ── First ordering Wednesday: first Wednesday on or after today ──────────
+    // Start from today's known stock and burn forward — never project backward,
+    // as that would ignore past deliveries and give a completely wrong base stock.
+    let wednesday = nextWednesday(today);
 
-    // ── First ordering Wednesday: on or after crop start ─────────────────────
-    let firstWednesday = nextWednesday(cropStart);
-    if (cropStart.getDay() === 3) firstWednesday = new Date(cropStart);
-
-    // ── Project stock back to first Wednesday ─────────────────────────────────
-    // We know current stock (today). To find stock at firstWednesday:
-    // - if firstWednesday is in the past: add back consumption from firstWednesday to today
-    // - if firstWednesday is in the future: burn consumption from today to firstWednesday
+    // ── Project stock forward from today to first Wednesday ───────────────────
     let runningStockKg = currentStockKg;
-    if (firstWednesday <= today) {
-      // Add back all consumption from firstWednesday up to (not including) today
-      for (let cur = new Date(firstWednesday); cur < today; cur = addDays(cur, 1)) {
-        runningStockKg += dailyData(cur).pureFeedKg;
-      }
-    } else {
-      // Burn forward from today to firstWednesday
-      for (let cur = new Date(today); cur < firstWednesday; cur = addDays(cur, 1)) {
-        runningStockKg -= dailyData(cur).pureFeedKg;
-      }
+    for (let cur = new Date(today); cur < wednesday; cur = addDays(cur, 1)) {
+      runningStockKg -= dailyData(cur).pureFeedKg;
     }
-
-    let wednesday = firstWednesday;
 
     // ── Build trailer loads for a delivery ────────────────────────────────────
     function buildTrailers(orderKg: number, product: string): TrailerLoad[] {
