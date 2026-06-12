@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrentFarmId } from "@/lib/app-context";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -39,6 +39,122 @@ function buildChartData(series: Series[]) {
 function fmt(v: number | null | undefined, d = 1) {
   if (v == null) return "—";
   return v.toLocaleString("en-GB", { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
+function ChartContent({
+  series, chartData, hasLeft, hasRight, leftLabel, rightLabel, height,
+}: {
+  series: Series[]; chartData: ReturnType<typeof buildChartData>;
+  hasLeft: boolean; hasRight: boolean; leftLabel: string; rightLabel: string;
+  height: number;
+}) {
+  return (
+    <>
+      {/* Legend */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+        {series.map(s => (
+          <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem", fontWeight: 600 }}>
+            <svg width="22" height="10">
+              <line x1="0" y1="5" x2="22" y2="5"
+                stroke={s.color} strokeWidth="2.5"
+                strokeDasharray={s.strokeDash ?? "none"} />
+            </svg>
+            <span style={{ color: "#1e293b" }}>{s.label}</span>
+            <span style={{ color: "#94a3b8", fontWeight: 400 }}>{s.unit}</span>
+          </div>
+        ))}
+      </div>
+      {(hasLeft || hasRight) && (
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.68rem", color: "#94a3b8", marginBottom: 4, paddingLeft: 40 }}>
+          {hasLeft  && <span>← {leftLabel}</span>}
+          {hasRight && <span style={{ marginLeft: "auto" }}>{rightLabel} →</span>}
+        </div>
+      )}
+      <div style={{ width: "100%", height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 10, right: hasRight ? 56 : 12, bottom: 16, left: 4 }}>
+            <CartesianGrid strokeDasharray="2 4" stroke="#e2e8f0" vertical={true} />
+            <XAxis dataKey="day" tick={{ fontSize: 10 }}
+              label={{ value: "Day of age", position: "insideBottomRight", offset: -4, fontSize: 10 }} />
+            {hasLeft && (
+              <YAxis yAxisId="left" orientation="left" tick={{ fontSize: 10 }} width={48} domain={["auto", "auto"]} tickCount={10} />
+            )}
+            {hasRight && (
+              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} width={48} domain={["auto", "auto"]} tickCount={10} />
+            )}
+            {series.some(s => s.metric === "weight") && (
+              <ReferenceLine yAxisId="right" y={100} stroke="#94a3b8" strokeDasharray="4 2"
+                label={{ value: "100%", position: "insideTopRight", fontSize: 9, fill: "#94a3b8" }} />
+            )}
+            <Tooltip
+              formatter={(value, name) => {
+                const s = series.find(x => x.id === name);
+                const v = typeof value === "number" ? value : null;
+                return [v != null ? `${fmt(v, 1)} ${s?.unit ?? ""}` : "—", s?.label ?? String(name)];
+              }}
+              labelFormatter={(label) => `Day ${label}`}
+              contentStyle={{ fontSize: "0.78rem" }}
+            />
+            {series.map(s => (
+              <Line key={s.id} yAxisId={s.axis} type="monotone" dataKey={s.id}
+                stroke={s.color} strokeWidth={s.metric === "weight" ? 2.5 : 2}
+                strokeDasharray={s.strokeDash} dot={false} connectNulls={false} name={s.id} />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </>
+  );
+}
+
+function HistoryZoomableChart({
+  series, chartData, hasLeft, hasRight, leftLabel, rightLabel,
+}: {
+  series: Series[]; chartData: ReturnType<typeof buildChartData>;
+  hasLeft: boolean; hasRight: boolean; leftLabel: string; rightLabel: string;
+}) {
+  const [zoomed, setZoomed] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    document.body.style.overflow = zoomed ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [zoomed]);
+
+  function toggle(open: boolean) {
+    setZoomed(open);
+    timerRef.current = setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+  }
+
+  const props = { series, chartData, hasLeft, hasRight, leftLabel, rightLabel };
+
+  return (
+    <>
+      <div className="mobile-card" style={{ padding: "16px 8px" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+          <button onClick={() => toggle(true)} title="Fullscreen"
+            style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1 }}>
+            ⤢
+          </button>
+        </div>
+        {!zoomed && <ChartContent {...props} height={520} />}
+      </div>
+      {zoomed && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "#fff", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", borderBottom: "1px solid #e2e8f0", flexShrink: 0 }}>
+            <span style={{ fontWeight: 700, fontSize: "1rem" }}>Chart Comparison</span>
+            <button onClick={() => toggle(false)}
+              style={{ background: "#f1f5f9", border: "none", borderRadius: 6, padding: "7px 16px", cursor: "pointer", fontWeight: 700, fontSize: "0.9rem" }}>
+              ✕ Zamknij
+            </button>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, padding: "12px 8px", display: "flex", flexDirection: "column" }}>
+            <ChartContent {...props} height={window.innerHeight - 120} />
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 export default function HistoryChartPage() {
@@ -338,87 +454,11 @@ export default function HistoryChartPage() {
         )}
 
         {hasChart && series.length > 0 && (
-          <div className="mobile-card" style={{ padding: "16px 8px" }}>
-            {/* Legend */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-              {series.map(s => (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.75rem", fontWeight: 600 }}>
-                  <svg width="22" height="10">
-                    <line x1="0" y1="5" x2="22" y2="5"
-                      stroke={s.color} strokeWidth="2.5"
-                      strokeDasharray={s.strokeDash ?? "none"} />
-                  </svg>
-                  <span style={{ color: "#1e293b" }}>{s.label}</span>
-                  <span style={{ color: "#94a3b8", fontWeight: 400 }}>{s.unit}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Axis labels */}
-            {(hasLeft || hasRight) && (
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.68rem", color: "#94a3b8", marginBottom: 4, paddingLeft: 40 }}>
-                {hasLeft  && <span>← {leftLabel}</span>}
-                {hasRight && <span style={{ marginLeft: "auto" }}>{rightLabel} →</span>}
-              </div>
-            )}
-
-            <div style={{ width: "100%", height: 520 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 10, right: hasRight ? 56 : 12, bottom: 16, left: 4 }}>
-                  <CartesianGrid strokeDasharray="2 4" stroke="#e2e8f0" vertical={true} />
-                  <XAxis dataKey="day" tick={{ fontSize: 10 }}
-                    label={{ value: "Day of age", position: "insideBottomRight", offset: -4, fontSize: 10 }} />
-
-                  {hasLeft && (
-                    <YAxis yAxisId="left" orientation="left"
-                      tick={{ fontSize: 10 }} width={48}
-                      domain={["auto", "auto"]}
-                      tickCount={10}
-                    />
-                  )}
-                  {hasRight && (
-                    <YAxis yAxisId="right" orientation="right"
-                      tick={{ fontSize: 10 }} width={48}
-                      domain={["auto", "auto"]}
-                      tickCount={10}
-                    />
-                  )}
-
-                  {/* 100% reference line for weight % */}
-                  {series.some(s => s.metric === "weight") && (
-                    <ReferenceLine yAxisId="right" y={100}
-                      stroke="#94a3b8" strokeDasharray="4 2"
-                      label={{ value: "100%", position: "insideTopRight", fontSize: 9, fill: "#94a3b8" }} />
-                  )}
-
-                  <Tooltip
-                    formatter={(value, name) => {
-                      const s = series.find(x => x.id === name);
-                      const v = typeof value === "number" ? value : null;
-                      return [v != null ? `${fmt(v, 1)} ${s?.unit ?? ""}` : "—", s?.label ?? String(name)];
-                    }}
-                    labelFormatter={(label) => `Day ${label}`}
-                    contentStyle={{ fontSize: "0.78rem" }}
-                  />
-
-                  {series.map(s => (
-                    <Line
-                      key={s.id}
-                      yAxisId={s.axis}
-                      type="monotone"
-                      dataKey={s.id}
-                      stroke={s.color}
-                      strokeWidth={s.metric === "weight" ? 2.5 : 2}
-                      strokeDasharray={s.strokeDash}
-                      dot={false}
-                      connectNulls={false}
-                      name={s.id}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <HistoryZoomableChart
+            series={series} chartData={chartData}
+            hasLeft={hasLeft} hasRight={hasRight}
+            leftLabel={leftLabel} rightLabel={rightLabel}
+          />
         )}
 
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Line } from "react-chartjs-2";
 import { getHistoryCropId, isViewingHistory } from "@/lib/app-context";
@@ -94,6 +94,68 @@ const verticalLinesPlugin = {
 };
 
 ChartJS.register(verticalLinesPlugin);
+
+function ZoomableChart({ title, children }: { title: string; children: React.ReactNode }) {
+  const [zoomed, setZoomed] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (zoomed) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [zoomed]);
+
+  // Force chart resize after zoom transition
+  function openZoom() {
+    setZoomed(true);
+    timerRef.current = setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+  }
+  function closeZoom() {
+    setZoomed(false);
+    timerRef.current = setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+  }
+
+  return (
+    <div className="mobile-card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <h2 style={{ margin: 0 }}>{title}</h2>
+        <button
+          onClick={openZoom}
+          title="Fullscreen"
+          style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1 }}>
+          ⤢
+        </button>
+      </div>
+      <div style={{ height: 640 }}>
+        {!zoomed && children}
+      </div>
+      {zoomed && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "#fff", display: "flex", flexDirection: "column",
+        }}>
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "10px 16px", borderBottom: "1px solid #e2e8f0", flexShrink: 0,
+          }}>
+            <span style={{ fontWeight: 700, fontSize: "1rem" }}>{title}</span>
+            <button
+              onClick={closeZoom}
+              style={{ background: "#f1f5f9", border: "none", borderRadius: 6, padding: "7px 16px", cursor: "pointer", fontWeight: 700, fontSize: "0.9rem" }}>
+              ✕ Zamknij
+            </button>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, padding: "12px" }}>
+            {children}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function HouseChartsPage({
   params,
@@ -284,173 +346,54 @@ export default function HouseChartsPage({
           </div>
         ) : (
           <>
-            <div className="mobile-card">
-              <h2>Weight %</h2>
-              <div style={{ height: 640 }}>
-                <Line
-                  options={baseOptions()}
-                  data={{
-                    labels,
-                    datasets: [
-                      lineDataset(
-                        "Weight %",
-                        data.map((d) => d.weightPercent),
-                        "#000000"
-                      ),
-                    ],
-                  }}
-                />
-              </div>
-            </div>
+            <ZoomableChart title="Weight %">
+              <Line options={baseOptions()} data={{ labels, datasets: [
+                lineDataset("Weight %", data.map((d) => d.weightPercent), "#000000"),
+              ]}} />
+            </ZoomableChart>
 
-            <div className="mobile-card">
-              <h2>Feed (g/bird)</h2>
-              <div style={{ height: 640 }}>
-                <Line
-                  options={baseOptions()}
-                  data={{
-                    labels,
-                    datasets: [
-                      lineDataset(
-                        "Feed Actual (g/bird)",
-                        data.map((d) => d.feedPerBird),
-                        "#2563eb"
-                      ),
-                      lineDataset(
-                        "Feed Target (g/bird)",
-                        data.map((d) => d.feedTargetG),
-                        "#dc2626"
-                      ),
-                    ],
-                  }}
-                />
-              </div>
-            </div>
+            <ZoomableChart title="Feed (g/bird)">
+              <Line options={baseOptions()} data={{ labels, datasets: [
+                lineDataset("Feed Actual (g/bird)", data.map((d) => d.feedPerBird), "#2563eb"),
+                lineDataset("Feed Target (g/bird)", data.map((d) => d.feedTargetG), "#dc2626"),
+              ]}} />
+            </ZoomableChart>
 
-            <div className="mobile-card">
-              <h2>Water (ml/bird)</h2>
-              <div style={{ height: 640 }}>
-                <Line
-                  options={baseOptions()}
-                  data={{
-                    labels,
-                    datasets: [
-                      lineDataset(
-                        "Water Actual (ml/bird)",
-                        data.map((d) => d.waterPerBird),
-                        "#2563eb"
-                      ),
-                      lineDataset(
-                        "Water Target (ml/bird)",
-                        data.map((d) => d.waterTargetMl),
-                        "#dc2626"
-                      ),
-                    ],
-                  }}
-                />
-              </div>
-            </div>
+            <ZoomableChart title="Water (ml/bird)">
+              <Line options={baseOptions()} data={{ labels, datasets: [
+                lineDataset("Water Actual (ml/bird)", data.map((d) => d.waterPerBird), "#2563eb"),
+                lineDataset("Water Target (ml/bird)", data.map((d) => d.waterTargetMl), "#dc2626"),
+              ]}} />
+            </ZoomableChart>
 
-            <div className="mobile-card">
-              <h2>Temperature</h2>
-              <div style={{ height: 640 }}>
-                <Line
-                  options={baseOptions()}
-                  data={{
-                    labels,
-                    datasets: [
-                      lineDataset(
-                        "Temp Min",
-                        data.map((d) => d.temperatureMinC),
-                        "#2563eb"
-                      ),
-                      lineDataset(
-                        "Temp Max",
-                        data.map((d) => d.temperatureMaxC),
-                        "#dc2626"
-                      ),
-                      lineDataset(
-                        "Temp Target",
-                        data.map((d) => d.temperatureTargetC),
-                        "#000000"
-                      ),
-                    ],
-                  }}
-                />
-              </div>
-            </div>
+            <ZoomableChart title="Temperature">
+              <Line options={baseOptions()} data={{ labels, datasets: [
+                lineDataset("Temp Min", data.map((d) => d.temperatureMinC), "#2563eb"),
+                lineDataset("Temp Max", data.map((d) => d.temperatureMaxC), "#dc2626"),
+                lineDataset("Temp Target", data.map((d) => d.temperatureTargetC), "#000000"),
+              ]}} />
+            </ZoomableChart>
 
-            <div className="mobile-card">
-              <h2>Humidity</h2>
-              <div style={{ height: 640 }}>
-                <Line
-                  options={baseOptions()}
-                  data={{
-                    labels,
-                    datasets: [
-                      lineDataset(
-                        "Humidity Min",
-                        data.map((d) => d.humidityMinPct),
-                        "#2563eb"
-                      ),
-                      lineDataset(
-                        "Humidity Max",
-                        data.map((d) => d.humidityMaxPct),
-                        "#dc2626"
-                      ),
-                      lineDataset(
-                        "Humidity Target",
-                        data.map((d) => d.humidityTargetPct),
-                        "#000000"
-                      ),
-                    ],
-                  }}
-                />
-              </div>
-            </div>
+            <ZoomableChart title="Humidity">
+              <Line options={baseOptions()} data={{ labels, datasets: [
+                lineDataset("Humidity Min", data.map((d) => d.humidityMinPct), "#2563eb"),
+                lineDataset("Humidity Max", data.map((d) => d.humidityMaxPct), "#dc2626"),
+                lineDataset("Humidity Target", data.map((d) => d.humidityTargetPct), "#000000"),
+              ]}} />
+            </ZoomableChart>
 
-            <div className="mobile-card">
-              <h2>CO₂</h2>
-              <div style={{ height: 640 }}>
-                <Line
-                  options={baseOptions()}
-                  data={{
-                    labels,
-                    datasets: [
-                      lineDataset(
-                        "CO2 Min",
-                        data.map((d) => d.co2MinPpm),
-                        "#2563eb"
-                      ),
-                      lineDataset(
-                        "CO2 Max",
-                        data.map((d) => d.co2MaxPpm),
-                        "#dc2626"
-                      ),
-                    ],
-                  }}
-                />
-              </div>
-            </div>
+            <ZoomableChart title="CO₂">
+              <Line options={baseOptions()} data={{ labels, datasets: [
+                lineDataset("CO2 Min", data.map((d) => d.co2MinPpm), "#2563eb"),
+                lineDataset("CO2 Max", data.map((d) => d.co2MaxPpm), "#dc2626"),
+              ]}} />
+            </ZoomableChart>
 
-            <div className="mobile-card">
-              <h2>Daily Mortality %</h2>
-              <div style={{ height: 640 }}>
-                <Line
-                  options={baseOptions()}
-                  data={{
-                    labels,
-                    datasets: [
-                      lineDataset(
-                        "Daily Mortality %",
-                        data.map((d) => d.dailyMortalityPct),
-                        "#000000"
-                      ),
-                    ],
-                  }}
-                />
-              </div>
-            </div>
+            <ZoomableChart title="Daily Mortality %">
+              <Line options={baseOptions()} data={{ labels, datasets: [
+                lineDataset("Daily Mortality %", data.map((d) => d.dailyMortalityPct), "#000000"),
+              ]}} />
+            </ZoomableChart>
           </>
         )}
       </div>
