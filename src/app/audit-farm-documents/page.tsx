@@ -737,6 +737,117 @@ export default function AuditFarmDocumentsPage() {
           </form>
         </div>
 
+        {searchExecuted && (
+          <>
+            <h2 className="mobile-section-title">Search results</h2>
+
+            {searchResults.length === 0 ? (
+              <div className="mobile-card">
+                <p style={{ margin: 0 }}>No matching documents found.</p>
+              </div>
+            ) : (
+              <div className="mobile-record-list">
+                {searchResults.map((doc) => {
+                  const visual = getExpiryVisual(doc.expiryDate);
+
+                  return (
+                    <div
+                      key={doc.id}
+                      className="mobile-record-card"
+                      style={{ borderLeft: `6px solid ${visual.color}` }}
+                    >
+                      <h3 className="mobile-record-card__title">{doc.title}</h3>
+
+                      <div className="mobile-record-card__grid">
+                        <div className="mobile-record-row">
+                          <strong>Type</strong>
+                          <span>{formatDocumentTypeLabel(doc.documentType)}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Status</strong>
+                          <span>{doc.status}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Format</strong>
+                          <span>{doc.documentFormat}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Expiry state</strong>
+                          <span style={{ color: visual.color }}>{visual.label}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Issue date</strong>
+                          <span>{formatDate(doc.issueDate)}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Expiry date</strong>
+                          <span>{formatDate(doc.expiryDate)}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Next review</strong>
+                          <span>{formatDate(doc.nextReviewDate)}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Reference no</strong>
+                          <span>{doc.referenceNo || "-"}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Issuer</strong>
+                          <span>{doc.issuer || "-"}</span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>File</strong>
+                          <span>
+                            {doc.fileUrl ? (
+                              <button type="button" onClick={() => setPreviewDoc(doc)}
+                                style={{ background: "none", border: "none", color: "#2563eb", cursor: "pointer", padding: 0, textDecoration: "underline", fontSize: "inherit" }}>
+                                {doc.originalFileName || "Open file"}
+                              </button>
+                            ) : (
+                              "-"
+                            )}
+                          </span>
+                        </div>
+                        <div className="mobile-record-row">
+                          <strong>Notes</strong>
+                          <span>{doc.notes || "-"}</span>
+                        </div>
+                      </div>
+
+                      <div className="mobile-actions" style={{ marginTop: 12 }}>
+                        {doc.fileUrl && (
+                          <button type="button" onClick={() => setPreviewDoc(doc)}
+                            className="mobile-button mobile-button--secondary">
+                            Preview
+                          </button>
+                        )}
+                        {canOperate && (
+                          <>
+                            <button
+                              type="button"
+                              className="mobile-button mobile-button--secondary"
+                              onClick={() => startEdit(doc)}
+                            >
+                              Edit / Renew
+                            </button>
+                            <button
+                              type="button"
+                              className="mobile-button mobile-button--danger"
+                              onClick={() => deleteDocument(doc.id)}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
         <div ref={formRef} className="mobile-card">
           <h2>{editingId ? "Edit / Renew Document" : "Add Document"}</h2>
 
@@ -1095,128 +1206,6 @@ export default function AuditFarmDocumentsPage() {
           );
         })()}
 
-        {searchExecuted && (
-          <>
-            <h2 className="mobile-section-title">Search results</h2>
-
-            {searchResults.length === 0 ? (
-              <div className="mobile-card">
-                <p style={{ margin: 0 }}>No matching documents found.</p>
-              </div>
-            ) : (
-              <div className="mobile-record-list">
-                {searchResults.map((doc) => {
-                  const visual = getExpiryVisual(doc.expiryDate);
-
-                  return (
-                    <div
-                      key={doc.id}
-                      className="mobile-record-card"
-                      style={{ borderLeft: `6px solid ${visual.color}` }}
-                    >
-                      <h3 className="mobile-record-card__title">{doc.title}</h3>
-
-                      <div className="mobile-record-card__grid">
-                        <div className="mobile-record-row">
-                          <strong>Type</strong>
-                          <span>{formatDocumentTypeLabel(doc.documentType)}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Status</strong>
-                          <span>{doc.status}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Format</strong>
-                          <span>{doc.documentFormat}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Expiry state</strong>
-                          <span style={{ color: visual.color }}>{visual.label}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Issue date</strong>
-                          <span>{formatDate(doc.issueDate)}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Expiry date</strong>
-                          <span>{formatDate(doc.expiryDate)}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Next review</strong>
-                          <span>{formatDate(doc.nextReviewDate)}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Electronic copy</strong>
-                          <span>{doc.electronicCopy ? "Yes" : "No"}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Copy in office</strong>
-                          <span>{doc.officeCopy ? "Yes" : "No"}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Copy in gate house</strong>
-                          <span>{doc.gateHouseCopy ? "Yes" : "No"}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Reference no</strong>
-                          <span>{doc.referenceNo || "-"}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Issuer</strong>
-                          <span>{doc.issuer || "-"}</span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>File</strong>
-                          <span>
-                            {doc.fileUrl ? (
-                              <button type="button" onClick={() => setPreviewDoc(doc)}
-                                style={{ background: "none", border: "none", color: "#2563eb", cursor: "pointer", padding: 0, textDecoration: "underline", fontSize: "inherit" }}>
-                                {doc.originalFileName || "Open file"}
-                              </button>
-                            ) : (
-                              "-"
-                            )}
-                          </span>
-                        </div>
-                        <div className="mobile-record-row">
-                          <strong>Notes</strong>
-                          <span>{doc.notes || "-"}</span>
-                        </div>
-                      </div>
-
-                      <div className="mobile-actions" style={{ marginTop: 12 }}>
-                        {doc.fileUrl && (
-                          <button type="button" onClick={() => setPreviewDoc(doc)}
-                            className="mobile-button mobile-button--secondary">
-                            Preview
-                          </button>
-                        )}
-                        {canOperate && (
-                          <>
-                            <button
-                              type="button"
-                              className="mobile-button mobile-button--secondary"
-                              onClick={() => startEdit(doc)}
-                            >
-                              Edit / Renew
-                            </button>
-                            <button
-                              type="button"
-                              className="mobile-button mobile-button--danger"
-                              onClick={() => deleteDocument(doc.id)}
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
       </div>
     </div>
   );

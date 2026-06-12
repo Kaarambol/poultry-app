@@ -21,16 +21,22 @@ export async function GET(req: Request) {
       );
     }
 
+    // Split query into individual words so "water cert" finds "Water Analysis Certificate"
+    const words = q.split(/\s+/).filter(w => w.length >= 2);
+    const wordConditions = words.flatMap(word => [
+      { title: { contains: word, mode: "insensitive" as const } },
+      { documentType: { contains: word, mode: "insensitive" as const } },
+      { referenceNo: { contains: word, mode: "insensitive" as const } },
+      { issuer: { contains: word, mode: "insensitive" as const } },
+      { notes: { contains: word, mode: "insensitive" as const } },
+      { originalFileName: { contains: word, mode: "insensitive" as const } },
+    ]);
+
     const documents = await prisma.farmDocument.findMany({
       where: {
         farmId,
-        OR: [
+        OR: wordConditions.length > 0 ? wordConditions : [
           { title: { contains: q, mode: "insensitive" } },
-          { documentType: { contains: q, mode: "insensitive" } },
-          { referenceNo: { contains: q, mode: "insensitive" } },
-          { issuer: { contains: q, mode: "insensitive" } },
-          { notes: { contains: q, mode: "insensitive" } },
-          { originalFileName: { contains: q, mode: "insensitive" } },
         ],
       },
       orderBy: [
