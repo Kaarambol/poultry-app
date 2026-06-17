@@ -312,12 +312,55 @@ export default function HouseTablePage({
               Back to Dashboard
             </Link>
             <Link
-              href={searchParams.get("cropId") ? `/houses/${houseId}/charts?cropId=${searchParams.get("cropId")}` : `/houses/${houseId}/charts`}
+              href={(() => {
+                const hl = searchParams.get("hl");
+                const cropId = searchParams.get("cropId");
+                const params = new URLSearchParams();
+                if (cropId) params.set("cropId", cropId);
+                if (hl) params.set("hl", hl);
+                const q = params.toString();
+                return `/houses/${houseId}/charts${q ? `?${q}` : ""}`;
+              })()}
               className="mobile-button mobile-button--secondary"
             >
               Open Charts
             </Link>
           </div>
+          {(() => {
+            const hl = searchParams.get("hl");
+            if (!hl) return null;
+            const houses = hl.split(",").map(s => { const [id, name] = s.split("~"); return { id, name }; }).filter(h => h.id && h.name);
+            if (houses.length < 2) return null;
+            const cropId = searchParams.get("cropId");
+            return (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 12, borderBottom: "2px solid #e2e8f0", paddingBottom: 0 }}>
+                {houses.map(h => {
+                  const active = h.id === houseId;
+                  const params = new URLSearchParams();
+                  if (cropId) params.set("cropId", cropId);
+                  params.set("hl", hl);
+                  return (
+                    <Link key={h.id}
+                      href={`/houses/${h.id}/table?${params.toString()}`}
+                      style={{
+                        padding: "7px 14px", fontSize: "0.82rem",
+                        fontWeight: active ? 700 : 400,
+                        borderRadius: "7px 7px 0 0",
+                        border: "1px solid #e2e8f0",
+                        borderBottom: active ? "2px solid #1B3A5C" : "2px solid transparent",
+                        background: active ? "#fff" : "#f1f5f9",
+                        color: active ? "#1B3A5C" : "#64748b",
+                        textDecoration: "none",
+                        marginBottom: -2,
+                        display: "inline-block",
+                      }}>
+                      {h.name}
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
 
         {saveMsg && (

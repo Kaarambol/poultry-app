@@ -560,14 +560,14 @@ export default function DashboardPage() {
 
                     <div className="mobile-actions" style={{ marginTop: 12 }}>
                       <Link
-                        href={`/houses/${house.houseId}/charts`}
+                        href={`/houses/${house.houseId}/charts?hl=${encodeURIComponent(dashboard.houses.map(h => `${h.houseId}~${h.houseName}`).join(","))}`}
                         className="mobile-button mobile-button--secondary"
                       >
                         Charts
                       </Link>
 
                       <Link
-                        href={`/houses/${house.houseId}/table`}
+                        href={`/houses/${house.houseId}/table?hl=${encodeURIComponent(dashboard.houses.map(h => `${h.houseId}~${h.houseName}`).join(","))}`}
                         className="mobile-button mobile-button--secondary"
                       >
                         Table
