@@ -131,6 +131,14 @@ function formatDocumentTypeLabel(value: string | null | undefined) {
   return DOCUMENT_TYPE_LABELS[value] || value;
 }
 
+function copyLocationText(doc: FarmDocument) {
+  const locs: string[] = [];
+  if (doc.electronicCopy) locs.push("electronic");
+  if (doc.officeCopy) locs.push("office");
+  if (doc.gateHouseCopy) locs.push("gate house");
+  return locs.length > 0 ? locs.join(" · ") : null;
+}
+
 function getExpiryVisual(expiryDate: string | null) {
   if (!expiryDate) return { label: "No expiry", color: "#666" };
 
@@ -1118,6 +1126,11 @@ export default function AuditFarmDocumentsPage() {
                             {formatDocumentTypeLabel(latest.documentType)}
                             {latest.expiryDate ? ` · Expires: ${formatDate(latest.expiryDate)}` : ""}
                           </div>
+                          {copyLocationText(latest) && (
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 1 }}>
+                              {copyLocationText(latest)}
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                           {latest.fileUrl && (
@@ -1176,6 +1189,9 @@ export default function AuditFarmDocumentsPage() {
                                   <span style={{ marginLeft: 8, fontSize: "0.75rem", fontWeight: 600, color: b.color }}>{b.label}</span>
                                   {doc.expiryDate && <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "#64748b" }}>Exp: {formatDate(doc.expiryDate)}</span>}
                                   {doc.referenceNo && <span style={{ marginLeft: 8, fontSize: "0.75rem", color: "#64748b" }}>{doc.referenceNo}</span>}
+                                  {copyLocationText(doc) && (
+                                    <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: 1 }}>{copyLocationText(doc)}</div>
+                                  )}
                                 </div>
                                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                                   {doc.fileUrl && (
