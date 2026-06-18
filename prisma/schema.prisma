@@ -152,6 +152,7 @@ model Crop {
   feedRecords      FeedRecord[]
   nightChecks      NightCheck[]
   targetProfile    TargetProfile?
+  documents        CropDocument[]
 
   @@unique([farmId, cropNumber])
 }
@@ -578,4 +579,25 @@ model TargetProfileDay {
 
   @@unique([profileId, dayNumber])
   @@index([dayNumber])
+}
+
+model CropDocument {
+  id               String   @id @default(cuid())
+  cropId           String
+  category         String
+  title            String
+  notes            String?
+  fileUrl          String?
+  blobPath         String?
+  originalFileName String?
+  storedFileName   String?
+  mimeType         String?
+  uploadedByUserId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  crop Crop @relation(fields: [cropId], references: [id], onDelete: Cascade)
+
+  @@index([cropId, category])
+  @@index([cropId])
 }

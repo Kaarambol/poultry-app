@@ -51,12 +51,13 @@ const setupLinks = [
 ];
 
 const recordsLinks = [
-  { href: "/check-flock",           label: "Check Flock"    },
-  { href: "/audit-farm-documents",  label: "Farm Documents" },
-  { href: "/medication",            label: "Medication"     },
-  { href: "/history",               label: "History"        },
-  { href: "/avara",                 label: "Week Report"    },
-  { href: "/forum",                 label: "Forum"          },
+  { href: "/check-flock",           label: "Check Flock"      },
+  { href: "/audit-farm-documents",  label: "Farm Documents"   },
+  { href: "/crop-documents",        label: "Crop Documents"   },
+  { href: "/medication",            label: "Medication"       },
+  { href: "/history",               label: "History"          },
+  { href: "/avara",                 label: "Week Report"      },
+  { href: "/forum",                 label: "Forum"            },
 ];
 
 export default function AppNav() {
