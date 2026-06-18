@@ -4,7 +4,7 @@ import { getUserRoleOnFarm, canOperate } from "@/lib/permissions";
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const uid = req.cookies.get("uid")?.value;
@@ -13,7 +13,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Not logged in." }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json({ error: "id is required." }, { status: 400 });
