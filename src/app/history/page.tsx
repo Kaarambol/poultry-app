@@ -35,6 +35,7 @@ type CropDetails = {
   id: string;
   cropNumber: string;
   placementDate: string;
+  finishDate: string | null;
   placements: CropPlacement[];
 };
 
@@ -316,11 +317,13 @@ export default function HistoryPage() {
             .filter(Boolean)
             .sort()[0] ?? null;
 
-          const lastClear = cropDetails.placements
-            .map(p => p.clearDate)
-            .filter(Boolean)
-            .sort()
-            .slice(-1)[0] ?? null;
+          const lastClear = (
+            cropDetails.placements
+              .map(p => p.clearDate)
+              .filter(Boolean)
+              .sort()
+              .slice(-1)[0]
+          ) ?? cropDetails.finishDate ?? null;
 
           const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
 
