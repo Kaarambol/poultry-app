@@ -119,6 +119,12 @@ export default function HomePage() {
     ? Math.floor((Date.now() - new Date(activeCrop.placementDate).getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
+  const firstPlacementDate = (activeCrop?.placements || []).reduce((earliest: string | null, b: any) => {
+    if (!b.placementDate) return earliest;
+    if (!earliest) return b.placementDate;
+    return new Date(b.placementDate) < new Date(earliest) ? b.placementDate : earliest;
+  }, null as string | null) ?? activeCrop?.placementDate ?? null;
+
   return (
     <div className="mobile-page">
       <div className="page-shell">
@@ -143,6 +149,12 @@ export default function HomePage() {
               <div style={{ fontSize: "1.35rem", fontWeight: 900, color: "#122033" }}>{value}</div>
             </div>
           ))}
+          {firstPlacementDate && (
+            <div className="mobile-card" style={{ marginBottom: 0, textAlign: "center", padding: "12px 8px", gridColumn: "span 2" }}>
+              <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#5d6b82", marginBottom: 4 }}>Placement Date</div>
+              <div style={{ fontSize: "1.35rem", fontWeight: 900, color: "#122033" }}>{formatDate(firstPlacementDate)}</div>
+            </div>
+          )}
         </div>
 
         {/* CROP SUMMARY */}

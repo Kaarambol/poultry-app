@@ -27,6 +27,8 @@ type CropPlacement = {
     name: string;
   };
   birdsPlaced: number;
+  placementDate: string | null;
+  clearDate: string | null;
 };
 
 type CropDetails = {
@@ -308,7 +310,21 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {cropId && cropDetails && (
+        {cropId && cropDetails && (() => {
+          const firstPlacement = cropDetails.placements
+            .map(p => p.placementDate)
+            .filter(Boolean)
+            .sort()[0] ?? null;
+
+          const lastClear = cropDetails.placements
+            .map(p => p.clearDate)
+            .filter(Boolean)
+            .sort()
+            .slice(-1)[0] ?? null;
+
+          const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("en-GB") : "—";
+
+          return (
           <>
             <div className="mobile-card">
               <h2>Crop Summary</h2>
@@ -338,6 +354,22 @@ export default function HistoryPage() {
                   <div className="mobile-kpi__value">{totals.mortalityPct.toFixed(2)}%</div>
                 </div>
               </div>
+              {(firstPlacement || lastClear) && (
+                <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+                  {firstPlacement && (
+                    <div style={{ flex: 1, background: "#f0f7ff", borderRadius: 10, padding: "10px 14px", border: "1px solid #cce5ff", textAlign: "center" }}>
+                      <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#004085", marginBottom: 4 }}>First Placement</div>
+                      <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#004085" }}>{fmtDate(firstPlacement)}</div>
+                    </div>
+                  )}
+                  {lastClear && (
+                    <div style={{ flex: 1, background: "#dff0d8", borderRadius: 10, padding: "10px 14px", border: "1px solid #d6e9c6", textAlign: "center" }}>
+                      <div style={{ fontSize: "0.6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#3c763d", marginBottom: 4 }}>Last Clear</div>
+                      <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "#3c763d" }}>{fmtDate(lastClear)}</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <h2 className="mobile-section-title">House Summary</h2>
@@ -504,7 +536,8 @@ export default function HistoryPage() {
               </div>
             )}
           </>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
