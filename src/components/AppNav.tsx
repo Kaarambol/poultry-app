@@ -44,6 +44,7 @@ const setupLinks = [
   { href: "/farms",         label: "Create Farm"  },
   { href: "/farms/setup",   label: "Farm Setup"   },
   { href: "/crops",         label: "Create Crop"  },
+  { href: "/crops/manage",  label: "Manage Crops" },
   { href: "/crops/targets", label: "Crop Targets" },
   { href: "/access",        label: "Access"       },
   { href: "/log",           label: "Log"          },

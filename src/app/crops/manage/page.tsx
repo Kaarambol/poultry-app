@@ -190,7 +190,7 @@ export default function ManageCropsPage() {
 
                 <div className="mobile-actions" style={{ marginTop: 12 }}>
                   <Link
-                    href={`/app/crops/edit/${crop.id}`}
+                    href={`/crops/edit/${crop.id}`}
                     className="mobile-button mobile-button--secondary"
                   >
                     Edit
