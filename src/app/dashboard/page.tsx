@@ -286,7 +286,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {activeCrop && dashboard && (() => {
+        {activeCrop && dashboard && !historyMode && (() => {
           const today = new Date().toISOString().slice(0, 10);
           const missing = dashboard.houses.filter(h => {
             if (!h.lastRecordDate) return true;
