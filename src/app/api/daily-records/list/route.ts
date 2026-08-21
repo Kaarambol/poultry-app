@@ -28,6 +28,12 @@ export async function GET(req: NextRequest) {
         id: true,
         farmId: true,
         placementDate: true,
+        placements: {
+          select: {
+            houseId: true,
+            placementDate: true,
+          },
+        },
       },
     });
 
@@ -45,6 +51,15 @@ export async function GET(req: NextRequest) {
         { error: "You do not have permission to view daily records." },
         { status: 403 }
       );
+    }
+
+    // Build map: houseId -> earliest placement date for that house
+    const housePlacementMap = new Map<string, Date>();
+    for (const p of crop.placements) {
+      const existing = housePlacementMap.get(p.houseId);
+      if (!existing || p.placementDate < existing) {
+        housePlacementMap.set(p.houseId, p.placementDate);
+      }
     }
 
     const records = await prisma.dailyRecord.findMany({
@@ -92,7 +107,9 @@ export async function GET(req: NextRequest) {
         houseId: record.houseId,
         house: record.house,
         crop: {
-          placementDate: crop.placementDate,
+          // Use house-specific placement date so age days are counted from when
+          // birds actually arrived in that house, not the crop's main date
+          placementDate: housePlacementMap.get(record.houseId) ?? crop.placementDate,
         },
       }))
     );

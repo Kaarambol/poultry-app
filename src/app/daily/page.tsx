@@ -20,6 +20,7 @@ type CropPlacement = {
     id: string;
     name: string;
   };
+  placementDate: string;
   birdsPlaced: number;
   thinDate: string | null;
   thinBirds: number | null;
@@ -116,11 +117,23 @@ export default function DailyPage() {
   type TargetDay = { weightTargetG: number | null; feedTargetG: number | null; waterTargetMl: number | null; temperatureTargetC: number | null };
   const [targetDays, setTargetDays] = useState<Map<number, TargetDay>>(new Map());
 
+  // Earliest placement date for the selected house (or crop date as fallback)
+  const selectedHousePlacementDate = useMemo(() => {
+    if (!cropDetails) return null;
+    if (!houseId) return cropDetails.placementDate;
+    const housePlacements = cropDetails.placements.filter(p => p.house.id === houseId);
+    if (housePlacements.length === 0) return cropDetails.placementDate;
+    return housePlacements.reduce((earliest, p) =>
+      p.placementDate < earliest ? p.placementDate : earliest,
+      housePlacements[0].placementDate
+    );
+  }, [cropDetails, houseId]);
+
   const dayOfAge = useMemo(() => {
-    if (!cropDetails?.placementDate || !date) return null;
-    const d = Math.floor((new Date(date).getTime() - new Date(cropDetails.placementDate).getTime()) / (1000 * 60 * 60 * 24));
+    if (!selectedHousePlacementDate || !date) return null;
+    const d = Math.floor((new Date(date).getTime() - new Date(selectedHousePlacementDate).getTime()) / (1000 * 60 * 60 * 24));
     return d >= 1 ? d : null;
-  }, [cropDetails, date]);
+  }, [selectedHousePlacementDate, date]);
 
   const targetHint = useMemo(() => {
     if (dayOfAge == null || targetDays.size === 0) return null;
@@ -164,14 +177,14 @@ export default function DailyPage() {
   }, [houseId, cropDetails, records, date]);
 
   const isWeeklyDay = useMemo(() => {
-    if (!cropDetails?.placementDate || !date) return false;
-    const placementDate = new Date(cropDetails.placementDate);
+    if (!selectedHousePlacementDate || !date) return false;
+    const placementDate = new Date(selectedHousePlacementDate);
     const recordDate = new Date(date);
     const ageDays = Math.floor(
       (recordDate.getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
     );
     return ageDays > 0 && ageDays % 7 === 0;
-  }, [cropDetails, date]);
+  }, [selectedHousePlacementDate, date]);
 
   const showLitterFields =
     isWeeklyDay ||
@@ -379,12 +392,12 @@ export default function DailyPage() {
       return "CO2 min cannot be greater than CO2 max.";
     }
 
-    if (cropDetails) {
-      const placementDate = new Date(cropDetails.placementDate);
+    if (selectedHousePlacementDate) {
+      const placementDate = new Date(selectedHousePlacementDate);
       const recordDate = new Date(date);
 
       if (recordDate < placementDate) {
-        return "Date cannot be earlier than crop placement date.";
+        return "Date cannot be earlier than the house placement date.";
       }
     }
 
@@ -917,10 +930,10 @@ export default function DailyPage() {
               </div>
             </div>
 
-            {showLitterFields && cropDetails && (
+            {showLitterFields && selectedHousePlacementDate && (
               <>
                 <h3 style={{ marginTop: 16, marginBottom: 10, color: "#c0392b" }}>
-                  Weekly Check (day {Math.floor((new Date(date).getTime() - new Date(cropDetails.placementDate).getTime()) / (1000 * 60 * 60 * 24))})
+                  Weekly Check (day {Math.floor((new Date(date).getTime() - new Date(selectedHousePlacementDate).getTime()) / (1000 * 60 * 60 * 24))})
                 </h3>
                 <div className="mobile-grid mobile-grid--2">
                   <div>
