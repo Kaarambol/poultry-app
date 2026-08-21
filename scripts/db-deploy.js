@@ -21,6 +21,12 @@ const alreadyApplied = [
   "20260513000002_add_superadmin",
   "20260513000003_add_thin_clear_weights",
   "20260522000001_add_feed_bins",
+  "20260522000002_add_feed_order_stock",
+  "20260522000003_add_feed_phases",
+  "20260522000004_feed_bin_closing_stock_flag",
+  "20260601000001_add_feed_phase_wheat",
+  "20260602000001_add_farm_bedding_type",
+  "20260611000001_add_crop_documents",
 ];
 
 for (const name of alreadyApplied) {
