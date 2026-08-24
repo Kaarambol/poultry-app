@@ -386,8 +386,10 @@ export default function HomePage() {
 
             const recordOnOrBefore = (dateStr: string | null) => {
               if (!dateStr) return null;
-              const ts = new Date(dateStr).setHours(23, 59, 59, 999);
-              const candidates = recordsWithAlive.filter((r: any) => new Date(r.date).getTime() <= ts);
+              const targetDateStr = new Date(dateStr).toISOString().slice(0, 10);
+              const candidates = recordsWithAlive.filter((r: any) =>
+                new Date(r.date).toISOString().slice(0, 10) <= targetDateStr
+              );
               return candidates.length > 0 ? candidates[candidates.length - 1] : null;
             };
 
@@ -432,6 +434,13 @@ export default function HomePage() {
 
             const flockNumbers = batches.map((b: any) => b.flockNumber).filter(Boolean).join(", ") || "-";
 
+            // Earliest placement date for this house
+            const housePlacementDate = batches.reduce((earliest: string | null, b: any) => {
+              if (!b.placementDate) return earliest;
+              if (!earliest) return b.placementDate;
+              return new Date(b.placementDate) < new Date(earliest) ? b.placementDate : earliest;
+            }, null as string | null);
+
             return (
               <div key={houseId} className="mobile-card" style={{ marginBottom: 16, borderLeft: "5px solid var(--primary)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -470,6 +479,10 @@ export default function HomePage() {
 
                 <table style={{ width: "100%", fontSize: "0.85rem", borderCollapse: "collapse" }}>
                   <tbody>
+                    <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
+                      <td style={{ padding: "6px 0", color: "#666" }}>Placement Date</td>
+                      <td style={{ textAlign: "right", fontWeight: 600 }}>{formatDate(housePlacementDate)}</td>
+                    </tr>
                     <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
                       <td style={{ padding: "6px 0", color: "#666" }}>Flock</td>
                       <td style={{ textAlign: "right", fontWeight: 500 }}>{flockNumbers}</td>
