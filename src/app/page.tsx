@@ -421,7 +421,22 @@ export default function HomePage() {
             const houseClearBirds  = batches.reduce((s: number, b: any) => s + Number(b.clearBirds || 0), 0);
             const thinningDensity  = thinDate  ? calcThinDensity(thinDate,  houseThin1Birds, avgThinWeightG)  : "N/A";
             const thin2Density     = thin2Date ? calcThinDensity(thin2Date, houseThin2Birds, null)            : null;
-            const clearanceDensity = clearDate ? calcThinDensity(clearDate, houseClearBirds, avgClearWeightG) : "N/A";
+            const clearanceDensity = (() => {
+              if (!clearDate || area === 0) return "N/A";
+              // If factory data available, compute directly from clearBirds × clearWeightG
+              if (houseClearBirds > 0 && avgClearWeightG != null) {
+                return ((houseClearBirds * avgClearWeightG) / 1000 / area).toFixed(2);
+              }
+              // Fallback: use daily record (getThinned excludes clearBirds so birdsAlive is pre-clear count)
+              const targetDateStr = new Date(clearDate).toISOString().slice(0, 10);
+              const rec = recordOnOrBefore(clearDate);
+              if (!rec) return "N/A";
+              const recIsOnClearDay = new Date(rec.date).toISOString().slice(0, 10) === targetDateStr;
+              const birds = recIsOnClearDay ? Number(rec.birdsAlive || 0) : (houseClearBirds > 0 ? houseClearBirds : 0);
+              const weightG = Number(rec.avgWeightG || 0);
+              if (birds === 0 || weightG === 0) return "N/A";
+              return ((birds * weightG) / 1000 / area).toFixed(2);
+            })();
 
             const flockNumbers = batches.map((b: any) => b.flockNumber).filter(Boolean).join(", ") || "-";
 
