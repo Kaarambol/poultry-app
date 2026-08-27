@@ -418,19 +418,10 @@ export default function HomePage() {
               return ((preThinBirds * weightG) / 1000 / area).toFixed(2);
             };
 
+            const houseClearBirds  = batches.reduce((s: number, b: any) => s + Number(b.clearBirds || 0), 0);
             const thinningDensity  = thinDate  ? calcThinDensity(thinDate,  houseThin1Birds, avgThinWeightG)  : "N/A";
             const thin2Density     = thin2Date ? calcThinDensity(thin2Date, houseThin2Birds, null)            : null;
-            const clearanceDensity = clearDate
-              ? avgClearWeightG != null
-                ? (() => {
-                    const rec = recordOnOrBefore(clearDate);
-                    if (!rec || area === 0) return "N/A";
-                    const birds = Number(rec.birdsAlive || 0);
-                    if (birds === 0) return "N/A";
-                    return ((birds * avgClearWeightG) / 1000 / area).toFixed(2);
-                  })()
-                : (calcDensity(recordOnOrBefore(clearDate)) || "N/A")
-              : "N/A";
+            const clearanceDensity = clearDate ? calcThinDensity(clearDate, houseClearBirds, avgClearWeightG) : "N/A";
 
             const flockNumbers = batches.map((b: any) => b.flockNumber).filter(Boolean).join(", ") || "-";
 
