@@ -49,12 +49,23 @@ export async function POST(req: NextRequest) {
     }
     const houses = Object.values(houseMap).sort((a, b) => a.number - b.number);
 
-    // ── Annotate daily records with age day ───────────────────────────────────
-    const placed = new Date(crop.placementDate);
-    const daily = crop.daily.map(r => ({
-      ...r,
-      ageDay: Math.floor((new Date(r.date).getTime() - placed.getTime()) / 86400000),
-    }));
+    // ── Per-house placement date (earliest batch per house) ──────────────────
+    const housePlacedMap: Record<string, Date> = {};
+    for (const p of crop.placements) {
+      const d = new Date((p as any).placementDate || crop.placementDate);
+      if (!housePlacedMap[p.houseId] || d < housePlacedMap[p.houseId]) {
+        housePlacedMap[p.houseId] = d;
+      }
+    }
+
+    // ── Annotate daily records with per-house age day ─────────────────────────
+    const daily = crop.daily.map(r => {
+      const placed = housePlacedMap[r.houseId] || new Date(crop.placementDate);
+      return {
+        ...r,
+        ageDay: Math.floor((new Date(r.date).getTime() - placed.getTime()) / 86400000),
+      };
+    });
 
     // ── Target weight lookup map: dayNumber → weightTargetG ──────────────────
     const targetWeightMap: Record<number, number> = {};
@@ -64,20 +75,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Per-house thin / clear day numbers ───────────────────────────────────
-    // Each house can have a different thin/clear date — compute from placements.
+    // ── Per-house thin / clear day numbers (relative to per-house placement) ──
     const houseThinDay:  Record<string, number | null> = {};
     const houseClearDay: Record<string, number | null> = {};
     for (const h of houses) { houseThinDay[h.id] = null; houseClearDay[h.id] = null; }
 
     for (const p of crop.placements) {
+      const hPlaced = housePlacedMap[p.houseId] || new Date(crop.placementDate);
       if (p.thinDate) {
-        const d = Math.floor((new Date(p.thinDate).getTime() - placed.getTime()) / 86400000);
+        const d = Math.floor((new Date(p.thinDate).getTime() - hPlaced.getTime()) / 86400000);
         if (houseThinDay[p.houseId] === null || d < houseThinDay[p.houseId]!)
           houseThinDay[p.houseId] = d;
       }
       if (p.clearDate) {
-        const d = Math.floor((new Date(p.clearDate).getTime() - placed.getTime()) / 86400000);
+        const d = Math.floor((new Date(p.clearDate).getTime() - hPlaced.getTime()) / 86400000);
         if (houseClearDay[p.houseId] === null || d > houseClearDay[p.houseId]!)
           houseClearDay[p.houseId] = d;
       }
