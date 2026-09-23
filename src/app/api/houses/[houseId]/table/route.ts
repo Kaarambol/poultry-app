@@ -74,7 +74,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
         placementDate: true,
         placements: {
           where: cropIdParam ? { houseId } : { houseId, isActive: true },
-          select: { thinDate: true, thin2Date: true, clearDate: true, thinBirds: true, thin2Birds: true, birdsPlaced: true, thinWeightG: true, clearWeightG: true },
+          select: { placementDate: true, thinDate: true, thin2Date: true, clearDate: true, thinBirds: true, thin2Birds: true, birdsPlaced: true, thinWeightG: true, clearWeightG: true },
         },
         targetProfile: {
           select: {
@@ -144,6 +144,12 @@ export async function GET(req: NextRequest, context: RouteContext) {
       };
     }
 
+    // Per-house placement date — earliest batch date for this house
+    const housePlacementDate = crop.placements.reduce((earliest: Date | null, p) => {
+      const d = new Date(p.placementDate);
+      return !earliest || d < earliest ? d : earliest;
+    }, null as Date | null) ?? new Date(crop.placementDate);
+
     // Aggregate across all placements for this house
     const toStr = (d: Date | null | undefined) => d ? new Date(d).toISOString().slice(0, 10) : null;
     const birdsPlaced     = crop.placements.reduce((s, p) => s + p.birdsPlaced, 0);
@@ -165,7 +171,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
       const rowDateStr = new Date(row.date).toISOString().slice(0, 10);
       const diffDays = Math.floor(
-        (new Date(row.date).getTime() - new Date(crop.placementDate).getTime()) /
+        (new Date(row.date).getTime() - housePlacementDate.getTime()) /
           (1000 * 60 * 60 * 24)
       );
       const ageDays = diffDays < 0 ? 0 : diffDays;
