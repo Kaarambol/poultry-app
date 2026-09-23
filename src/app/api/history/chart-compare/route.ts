@@ -176,8 +176,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "houseIds required for multi view." }, { status: 400 });
     }
     const crop = crops[0];
-    const placementDate = new Date(crop.placementDate);
     const cropTargets = targetMaps.get(crop.id) ?? { weight: new Map(), water: new Map(), feed: new Map(), temp: new Map() };
+
+    // Per-house placement date map
+    const multiHousePlacedMap = new Map<string, Date>();
+    for (const p of crop.placements) {
+      const d = new Date(p.placementDate);
+      const ex = multiHousePlacedMap.get(p.houseId);
+      if (!ex || d < ex) multiHousePlacedMap.set(p.houseId, d);
+    }
 
     type DayAggM = {
       totalBirds: number; waterL: number; feedKg: number;
@@ -195,6 +202,7 @@ export async function GET(req: NextRequest) {
       const houseId = houseIds[hi];
       const houseName = houseMap.get(houseId) ?? houseId;
       const color = HOUSE_COLORS[hi % HOUSE_COLORS.length];
+      const housePlacementDate = multiHousePlacedMap.get(houseId) ?? new Date(crop.placementDate);
 
       const daily = await prisma.dailyRecord.findMany({
         where: { cropId: crop.id, houseId },
@@ -210,8 +218,8 @@ export async function GET(req: NextRequest) {
         .filter(p => p.houseId === houseId)
         .reduce((s, p) => s + p.birdsPlaced, 0);
 
-      // thin events for this house: day → birds removed
-      const thinMap = buildThinMap(crop.placements, placementDate, houseId);
+      // thin events for this house: day → birds removed (relative to per-house placement date)
+      const thinMap = buildThinMap(crop.placements, housePlacementDate, houseId);
 
       // Compute running birds per day exactly like the table:
       // birds = birdsPlaced - cumMort - cumCulls - thin(only after thin day, not on thin day)
@@ -219,7 +227,7 @@ export async function GET(req: NextRequest) {
       const birdsByDay = new Map<number, number>();
       for (const rec of daily) {
         const day = Math.floor(
-          (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
+          (new Date(rec.date).getTime() - housePlacementDate.getTime()) / (1000 * 60 * 60 * 24)
         );
         if (day < 1) continue;
         cumLosses += (rec.mort || 0) + (rec.culls || 0);
@@ -236,7 +244,7 @@ export async function GET(req: NextRequest) {
       const byDay = new Map<number, DayAggM>();
       for (const rec of daily) {
         const day = Math.floor(
-          (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
+          (new Date(rec.date).getTime() - housePlacementDate.getTime()) / (1000 * 60 * 60 * 24)
         );
         if (day < 1 || day > 60) continue;
         const birds = birdsByDay.get(day) ?? 0;
@@ -336,9 +344,16 @@ export async function GET(req: NextRequest) {
   }> = [];
 
   for (let ci = 0; ci < crops.length; ci++) {
-    const crop          = crops[ci];
-    const placementDate = new Date(crop.placementDate);
-    const cropTargets   = targetMaps.get(crop.id) ?? { weight: new Map(), water: new Map(), feed: new Map(), temp: new Map() };
+    const crop        = crops[ci];
+    const cropTargets = targetMaps.get(crop.id) ?? { weight: new Map(), water: new Map(), feed: new Map(), temp: new Map() };
+
+    // Per-house placement date map for this crop
+    const housePlacedMap = new Map<string, Date>();
+    for (const p of crop.placements) {
+      const d = new Date(p.placementDate);
+      const ex = housePlacedMap.get(p.houseId);
+      if (!ex || d < ex) housePlacedMap.set(p.houseId, d);
+    }
 
     const whereHouse = view === "avg" ? {} : { houseId: view };
     const daily = await prisma.dailyRecord.findMany({
@@ -356,14 +371,15 @@ export async function GET(req: NextRequest) {
       placementBirds.set(p.houseId, (placementBirds.get(p.houseId) ?? 0) + p.birdsPlaced);
     }
 
-    // thin events per house
+    // thin events per house — relative to each house's own placement date
     const thinMapByHouse = new Map<string, Map<number, number>>();
     for (const p of crop.placements) {
       if (!thinMapByHouse.has(p.houseId)) thinMapByHouse.set(p.houseId, new Map());
       const m = thinMapByHouse.get(p.houseId)!;
+      const hPlaced = housePlacedMap.get(p.houseId) ?? new Date(crop.placementDate);
       const addThin = (date: Date | null | undefined, birds: number | null | undefined) => {
         if (!date || !birds) return;
-        const d = Math.floor((new Date(date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24));
+        const d = Math.floor((new Date(date).getTime() - hPlaced.getTime()) / (1000 * 60 * 60 * 24));
         if (d >= 1) m.set(d, (m.get(d) ?? 0) + birds);
       };
       addThin(p.thinDate, p.thinBirds);
@@ -374,8 +390,9 @@ export async function GET(req: NextRequest) {
     const cumLossesByHouse = new Map<string, number>();
     const birdsByHouseDay = new Map<string, number>(); // key: `${houseId}:${day}`
     for (const rec of daily) {
+      const hPlaced = housePlacedMap.get(rec.houseId) ?? new Date(crop.placementDate);
       const day = Math.floor(
-        (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
+        (new Date(rec.date).getTime() - hPlaced.getTime()) / (1000 * 60 * 60 * 24)
       );
       if (day < 1) continue;
       const prev = cumLossesByHouse.get(rec.houseId) ?? 0;
@@ -398,8 +415,9 @@ export async function GET(req: NextRequest) {
     const byDay = new Map<number, DayAgg>();
 
     for (const rec of daily) {
+      const hPlaced = housePlacedMap.get(rec.houseId) ?? new Date(crop.placementDate);
       const day = Math.floor(
-        (new Date(rec.date).getTime() - placementDate.getTime()) / (1000 * 60 * 60 * 24)
+        (new Date(rec.date).getTime() - hPlaced.getTime()) / (1000 * 60 * 60 * 24)
       );
       if (day < 1 || day > 60) continue;
       const birds = birdsByHouseDay.get(`${rec.houseId}:${day}`) ?? 0;
